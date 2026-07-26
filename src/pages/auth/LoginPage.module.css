@@ -1,0 +1,276 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.brandPanel {
+  background: linear-gradient(165deg, #004d26 0%, #003814 100%);
+  color: var(--color-white);
+  padding: clamp(2rem, 5vw, 3rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.logoBlock {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.logoIcon svg {
+  width: 3.25rem;
+  height: 3.25rem;
+}
+
+.logoTitle {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.logoSub {
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  opacity: 0.95;
+}
+
+.logoTag {
+  font-size: 0.75rem;
+  color: var(--color-gold);
+  margin-top: 0.15rem;
+  font-weight: 600;
+}
+
+.branchMd {
+  font-size: 0.875rem;
+  color: var(--color-gold);
+}
+
+.branchMd strong {
+  color: var(--color-white);
+}
+
+.brandText {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  max-width: 22rem;
+  opacity: 0.92;
+}
+
+.supportBox {
+  margin-top: auto;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.15rem;
+}
+
+.supportTitle {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+  margin-bottom: 0.35rem;
+}
+
+.supportPhone {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-gold);
+}
+
+.supportMore {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.formPanel {
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.card {
+  width: min(440px, 100%);
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  padding: 1.75rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--color-border);
+}
+
+.roleTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  background: var(--color-bg-soft);
+  border-radius: 999px;
+  margin-bottom: 1.25rem;
+}
+
+.tab,
+.tabActive {
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: transparent;
+  color: var(--color-text-soft);
+}
+
+.tabActive {
+  background: var(--color-white);
+  color: var(--color-green-dark);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.roleHeader {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.roleBadge {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 12px;
+  background: rgba(0, 77, 0, 0.1);
+  color: var(--color-green-dark);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.roleHeader h1 {
+  font-size: 1.25rem;
+  color: var(--color-green-dark);
+  margin-bottom: 0.2rem;
+}
+
+.roleHeader p {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  line-height: 1.45;
+}
+
+.form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.form input[type="text"],
+.form input[type="password"] {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+}
+
+.form input:focus {
+  outline: 2px solid rgba(0, 77, 0, 0.2);
+  border-color: var(--color-green);
+}
+
+.passwordWrap {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.showPass {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-soft);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-green-dark);
+}
+
+.remember {
+  display: flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500 !important;
+  color: var(--color-text-soft) !important;
+}
+
+.error {
+  color: #b42318;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.65rem;
+}
+
+.submitBtn {
+  margin-top: 0.25rem;
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.8rem 1rem;
+  background: var(--color-green-dark);
+  color: var(--color-white);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.submitBtn:hover {
+  background: var(--color-green-muted);
+  transform: translateY(-1px);
+}
+
+.demoHint {
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+  line-height: 1.5;
+}
+
+.demoHint code {
+  background: var(--color-bg-soft);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+}
+
+.backLink {
+  display: inline-block;
+  margin-top: 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-green);
+}
+
+@media (max-width: 900px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+
+  .brandPanel {
+    padding-bottom: 1.5rem;
+  }
+
+  .supportBox {
+    margin-top: 0;
+  }
+}

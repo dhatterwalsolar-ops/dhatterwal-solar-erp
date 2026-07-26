@@ -1,0 +1,261 @@
+.siteHeader {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--color-white);
+  box-shadow: var(--shadow-nav);
+}
+
+.navbar {
+  position: relative;
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.logoIcon svg {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.brandTitle {
+  color: var(--color-green-dark);
+  font-size: clamp(0.75rem, 1.8vw, 0.9375rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.brandSub {
+  font-size: 0.625rem;
+  color: var(--color-text-soft);
+  letter-spacing: 0.06em;
+  margin-top: 0.15rem;
+}
+
+.toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+
+.toggleBar {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: var(--color-green-dark);
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.toggleActive .toggleBar:nth-child(2) {
+  opacity: 0;
+}
+
+.toggleActive .toggleBar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.toggleActive .toggleBar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.panel {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-left: auto;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.menu {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(0.5rem, 1.2vw, 1.125rem);
+  flex: 1;
+}
+
+.menu a {
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text);
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid transparent;
+}
+
+.menu a:hover,
+.menuActive {
+  color: var(--color-green-dark);
+  border-bottom-color: var(--color-green);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.quoteBtn,
+.loginBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.55rem 0.85rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.quoteBtn svg,
+.loginBtn svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  fill: currentColor;
+}
+
+.quoteBtn {
+  background: var(--color-white);
+  color: var(--color-green-dark);
+  border: 2px solid var(--color-green);
+}
+
+.quoteBtn:hover {
+  background: rgba(0, 77, 0, 0.06);
+}
+
+.loginBtn {
+  background: var(--color-green-dark);
+  color: var(--color-white);
+  border: 2px solid var(--color-green-dark);
+}
+
+.loginBtn:hover {
+  background: var(--color-green-muted);
+}
+
+.caret {
+  font-size: 0.75rem;
+  margin-left: 0.15rem;
+}
+
+.loginWrap {
+  position: relative;
+}
+
+.loginMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  min-width: 200px;
+  background: var(--color-white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-dropdown);
+  padding: 0.5rem;
+  z-index: 120;
+}
+
+.loginOption {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  color: var(--color-text);
+}
+
+.loginOption strong {
+  font-size: 0.8125rem;
+  color: var(--color-green-dark);
+}
+
+.loginOption span {
+  font-size: 0.6875rem;
+  color: var(--color-text-soft);
+}
+
+.loginOption:hover {
+  background: var(--color-bg-soft);
+}
+
+@media (max-width: 1100px) {
+  .toggle {
+    display: flex;
+  }
+
+  .panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 1rem 5vw 1.25rem;
+    background: var(--color-white);
+    border-top: 1px solid var(--color-border);
+    box-shadow: var(--shadow-nav);
+    display: none;
+  }
+
+  .panelOpen {
+    display: flex;
+  }
+
+  .menu {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .quoteBtn,
+  .loginBtn {
+    justify-content: center;
+  }
+
+  .loginMenu {
+    position: static;
+    margin-top: 0.35rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .brandSub {
+    display: none;
+  }
+}

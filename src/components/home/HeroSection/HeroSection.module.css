@@ -1,0 +1,174 @@
+.heroWrap {
+  position: relative;
+  min-height: clamp(520px, 72vh, 680px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.heroBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: 0;
+}
+
+.heroOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(255, 255, 255, 0.75) 45%,
+    rgba(255, 255, 255, 0.15) 100%
+  );
+  z-index: 1;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 2;
+  padding: clamp(2rem, 5vw, 3.5rem) 0 0;
+  max-width: 640px;
+}
+
+.tagline {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--color-green);
+  margin-bottom: 0.85rem;
+}
+
+.taglineLine {
+  flex: 1;
+  max-width: 2rem;
+  height: 1px;
+  background: var(--color-green);
+}
+
+.title {
+  font-size: clamp(1.75rem, 4.2vw, 2.75rem);
+  line-height: 1.15;
+  color: var(--color-green-dark);
+  font-weight: 800;
+  margin-bottom: 0.85rem;
+}
+
+.lead {
+  color: var(--color-text-muted);
+  font-size: clamp(0.9375rem, 2vw, 1.0625rem);
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.75rem;
+}
+
+.features li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.45rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.35;
+}
+
+.featureIcon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: var(--color-green-dark);
+  color: var(--color-white);
+  display: grid;
+  place-items: center;
+}
+
+.featureIcon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.btnPrimary,
+.btnOutline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 6px;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.btnPrimary {
+  background: var(--color-green-dark);
+  color: var(--color-white);
+  border: 2px solid var(--color-green-dark);
+}
+
+.btnPrimary:hover {
+  background: var(--color-green-muted);
+  transform: translateY(-2px);
+}
+
+.btnOutline {
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--color-green-dark);
+  border: 2px solid var(--color-green-dark);
+}
+
+.btnOutline:hover {
+  background: var(--color-white);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 900px) {
+  .heroOverlay {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.88) 0%,
+      rgba(255, 255, 255, 0.82) 100%
+    );
+  }
+
+  .features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .actions {
+    flex-direction: column;
+  }
+
+  .btnPrimary,
+  .btnOutline {
+    width: 100%;
+  }
+}

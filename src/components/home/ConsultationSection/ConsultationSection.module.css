@@ -1,0 +1,133 @@
+.section {
+  padding: var(--section-padding-y) 0;
+  background: var(--color-bg-soft);
+}
+
+.panel {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  background: var(--color-green-panel);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+}
+
+.formSide {
+  padding: clamp(1.5rem, 4vw, 2.25rem);
+  color: var(--color-white);
+}
+
+.formSide h2 {
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  margin-bottom: 1.25rem;
+}
+
+.form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.form input,
+.form select {
+  width: 100%;
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 0.85rem;
+  font: inherit;
+  color: var(--color-text);
+}
+
+.form input:focus,
+.form select:focus {
+  outline: 2px solid var(--color-gold);
+}
+
+.submitBtn {
+  margin-top: 0.35rem;
+  background: var(--color-gold);
+  color: var(--color-green-dark);
+  border: none;
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  font-weight: 800;
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.submitBtn:hover {
+  background: var(--color-gold-hover);
+  transform: translateY(-2px);
+}
+
+.success {
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.callSide {
+  background: rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  color: var(--color-white);
+}
+
+.phoneIcon {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  background: var(--color-gold);
+  color: var(--color-green-dark);
+  display: grid;
+  place-items: center;
+  margin-bottom: 1rem;
+}
+
+.phoneIcon svg {
+  width: 2rem;
+  height: 2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.callTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.phoneNumber {
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 800;
+  color: var(--color-gold);
+}
+
+.phoneNumber:hover {
+  text-decoration: underline;
+}
+
+.altPhones {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.altPhones a {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.altPhones a:hover {
+  color: var(--color-gold);
+}
+
+@media (max-width: 768px) {
+  .panel {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,129 @@
+.sheet {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--color-border);
+  background: #fafcfb;
+}
+
+.toolbar h1 {
+  font-size: 1.125rem;
+  color: var(--color-green-dark);
+}
+
+.toolbar p {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  margin-top: 0.2rem;
+  max-width: 48rem;
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.search {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  min-width: 200px;
+}
+
+.btnPrimary {
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  background: var(--color-green-dark);
+  color: var(--color-white);
+  border: 1px solid var(--color-green-dark);
+}
+
+.tableWrap {
+  overflow: auto;
+  max-height: calc(100vh - 220px);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 2100px;
+  font-size: 0.8125rem;
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #edf5ef;
+  color: var(--color-green-dark);
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid #d5e3d8;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+}
+
+.table tbody td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #eef2ef;
+  vertical-align: middle;
+}
+
+.table tbody td:first-child {
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-text-soft);
+  width: 48px;
+}
+
+.cellInput,
+.readOnly {
+  width: 100%;
+  min-width: 5.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.35rem 0.4rem;
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+.cellInput:focus {
+  outline: none;
+  border-color: var(--color-green);
+}
+
+.manualIdInput {
+  font-weight: 700;
+  color: var(--color-green-dark);
+  min-width: 7rem;
+}
+
+.readOnly {
+  background: #f3f6f4;
+  color: var(--color-text-muted);
+}
+
+.totalReceived {
+  font-weight: 700;
+  color: var(--color-green-dark);
+}
+
+.totalPending {
+  font-weight: 700;
+  color: #b45309;
+}

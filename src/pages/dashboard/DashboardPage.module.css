@@ -1,0 +1,311 @@
+.page {
+  display: grid;
+  gap: 1rem;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.statCard {
+  border-radius: 14px;
+  padding: 0.85rem;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.statCard a {
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-top: 0.5rem;
+}
+
+.statTop {
+  display: flex;
+  gap: 0.55rem;
+}
+
+.statIcon {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: grid;
+  place-items: center;
+}
+
+.statIcon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.statTop p {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.statTop strong {
+  display: block;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  margin: 0.15rem 0;
+}
+
+.statTop small {
+  font-size: 0.6875rem;
+  opacity: 0.85;
+}
+
+.green {
+  background: #e8f6ec;
+  color: #0f5132;
+}
+
+.yellow {
+  background: #fff6da;
+  color: #7a5d00;
+}
+
+.blue {
+  background: #e8f1ff;
+  color: #1e429f;
+}
+
+.purple {
+  background: #f1e9ff;
+  color: #5b2d91;
+}
+
+.orange {
+  background: #fff0e5;
+  color: #9a4d00;
+}
+
+.red {
+  background: #ffe9ea;
+  color: #9f1d24;
+}
+
+.quickActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.actionBtn {
+  border-radius: 10px;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.action_green {
+  background: #2e7d32;
+}
+
+.action_dark {
+  background: #004d26;
+}
+
+.action_gold {
+  background: #ffcc00;
+  color: #1b1b1b;
+}
+
+.action_blue {
+  background: #1e88e5;
+}
+
+.action_orange {
+  background: #fb8c00;
+}
+
+.action_purple {
+  background: #8e24aa;
+}
+
+.midGrid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.9fr;
+  gap: 0.75rem;
+}
+
+.panel {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 0.85rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
+}
+
+.panel h2 {
+  font-size: 0.9375rem;
+  color: var(--color-green-dark);
+  margin-bottom: 0.75rem;
+}
+
+.panelHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.panelHead h2 {
+  margin-bottom: 0;
+}
+
+.panelHead select {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.chart {
+  height: 220px;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.45rem;
+}
+
+.barWrap {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.bar {
+  width: 100%;
+  max-width: 28px;
+  border-radius: 8px 8px 2px 2px;
+  background: linear-gradient(180deg, #43a047, #2e7d32);
+}
+
+.barWrap span {
+  font-size: 0.6875rem;
+  color: var(--color-text-soft);
+}
+
+.tableWrap {
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.table th,
+.table td {
+  padding: 0.45rem 0.35rem;
+  border-bottom: 1px solid #eef2ef;
+  text-align: left;
+}
+
+.table th {
+  color: var(--color-green-dark);
+}
+
+.lowTag {
+  color: #c62828;
+  font-weight: 700;
+}
+
+.tasks {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.tasks li {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+}
+
+.taskDot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #ffcc00;
+  margin-top: 0.35rem;
+}
+
+.tasks p {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.tasks small {
+  font-size: 0.6875rem;
+  color: var(--color-text-soft);
+}
+
+.bottomGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.miniCard {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.gstCard {
+  background: #fff6da;
+  border-color: #f2df9a;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.gstCard strong {
+  font-size: 0.8125rem;
+  color: #7a5d00;
+}
+
+.gstCard a {
+  display: inline-block;
+  width: fit-content;
+  background: #fb8c00;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+@media (max-width: 1200px) {
+  .statsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .midGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .bottomGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .statsGrid,
+  .bottomGrid {
+    grid-template-columns: 1fr;
+  }
+}

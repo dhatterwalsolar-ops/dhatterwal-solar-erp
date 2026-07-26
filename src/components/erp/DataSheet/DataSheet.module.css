@@ -1,0 +1,123 @@
+.sheet {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--color-border);
+  background: #fafcfb;
+}
+
+.toolbar h1 {
+  font-size: 1.125rem;
+  color: var(--color-green-dark);
+}
+
+.toolbar p {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  margin-top: 0.2rem;
+}
+
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.search {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  min-width: 180px;
+}
+
+.btnPrimary,
+.btnOutline {
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.btnPrimary {
+  background: var(--color-green-dark);
+  color: var(--color-white);
+  border: 1px solid var(--color-green-dark);
+}
+
+.btnOutline {
+  background: var(--color-white);
+  color: var(--color-green-dark);
+  border: 1px solid var(--color-border);
+}
+
+.tableWrap {
+  overflow: auto;
+  max-height: calc(100vh - 220px);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+  font-size: 0.8125rem;
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #edf5ef;
+  color: var(--color-green-dark);
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid #d5e3d8;
+  white-space: nowrap;
+}
+
+.table tbody td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #eef2ef;
+  color: var(--color-text);
+}
+
+.table tbody tr:nth-child(even) td {
+  background: #fbfcfb;
+}
+
+.table tbody tr:hover td {
+  background: #f2faf4;
+}
+
+.table tbody td:first-child {
+  color: var(--color-text-soft);
+  font-weight: 600;
+  width: 48px;
+}
+
+@media (max-width: 768px) {
+  .toolbar {
+    flex-direction: column;
+  }
+
+  .toolbarActions {
+    width: 100%;
+  }
+
+  .search {
+    flex: 1;
+    min-width: 0;
+  }
+}
