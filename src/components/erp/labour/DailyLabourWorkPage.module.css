@@ -1,0 +1,288 @@
+.page {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.head {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: #fafcfb;
+}
+
+.back {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-green-dark);
+}
+
+.head h1 {
+  font-size: 1rem;
+  color: var(--color-green-dark);
+  margin-top: 0.25rem;
+}
+
+.headSub {
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+  margin: 0.35rem 0 0;
+  max-width: 42rem;
+  line-height: 1.4;
+}
+
+.readOnlyArea {
+  background: #f3f6f4;
+  resize: vertical;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+@media (max-width: 1000px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formCol label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-text-soft);
+}
+
+.formCol input,
+.formCol select,
+.formCol textarea {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+  font-size: 0.8125rem;
+}
+
+.readOnly {
+  background: #f3f6f4;
+}
+
+.row3,
+.row2,
+.row4 {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+.row3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.row2 {
+  grid-template-columns: 1fr 1.5fr;
+}
+
+.row4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 768px) {
+  .row3,
+  .row4 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.billRow {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.billRow button {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0 0.45rem;
+}
+
+.block {
+  margin-bottom: 0.75rem;
+}
+
+.block h3 {
+  font-size: 0.75rem;
+  color: var(--color-green-dark);
+  margin-bottom: 0.45rem;
+}
+
+.memberGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  max-height: 140px;
+  overflow: auto;
+}
+
+.memberCheck {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.full {
+  display: grid;
+  margin-bottom: 0.65rem;
+}
+
+.hidden {
+  display: none;
+}
+
+.chooseFiles {
+  background: #2563eb;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.photoRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.photoRow img {
+  width: 72px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
+
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.waBtn {
+  background: #25d366;
+  color: #fff;
+  font-weight: 800;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.submit {
+  background: #2563eb;
+  color: #fff;
+  font-weight: 800;
+  padding: 0.55rem 1.25rem;
+  border-radius: 8px;
+}
+
+.reset {
+  background: #e2e8f0;
+  font-weight: 700;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+}
+
+.sideCol {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sideCard {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  background: #f8fafc;
+  font-size: 0.75rem;
+}
+
+.sideCard h3 {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  color: #1e40af;
+  margin-bottom: 0.45rem;
+}
+
+.sideCard ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.sideCard li {
+  margin-bottom: 0.35rem;
+  line-height: 1.4;
+}
+
+.sideCard dl {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sideCard dt {
+  font-weight: 700;
+  color: var(--color-text-soft);
+  font-size: 0.625rem;
+}
+
+.sideCard dd {
+  margin: 0;
+}
+
+.pill {
+  background: #fef9c3;
+  color: #854d0e;
+  font-weight: 800;
+  font-size: 0.6875rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+}
+
+.stepper {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stepper li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+}
+
+.stepDone {
+  color: #15803d;
+}
+
+.stepPending {
+  color: var(--color-text-soft);
+}
+
+.stepDot {
+  width: 1.25rem;
+  text-align: center;
+}

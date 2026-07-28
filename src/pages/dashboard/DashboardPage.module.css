@@ -305,6 +305,163 @@
 
 @media (max-width: 640px) {
   .statsGrid,
+  .bottomGrid,
+  .staffStatsRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.staffStatsRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.followUpSection {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 1rem 1.1rem 1.15rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.followUpSectionStaff {
+  border-color: #f2df9a;
+  background: linear-gradient(180deg, #fffbeb 0%, #fff 28%);
+  padding: 1.25rem 1.25rem 1.35rem;
+}
+
+.followUpHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.followUpHead h2 {
+  font-size: 1.125rem;
+  color: var(--color-green-dark);
+  margin: 0;
+}
+
+.followUpSectionStaff .followUpHead h2 {
+  font-size: 1.35rem;
+}
+
+.followUpHead p {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  margin-top: 0.35rem;
+  max-width: 36rem;
+}
+
+.followUpMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.followUpCount {
+  background: #c62828;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.875rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+}
+
+.followUpRefresh {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  background: #fff;
+}
+
+.followUpTableWrap {
+  overflow-x: auto;
+}
+
+.followUpSectionStaff .followUpTableWrap {
+  min-height: 220px;
+}
+
+.followUpTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.followUpSectionStaff .followUpTable {
+  font-size: 0.875rem;
+}
+
+.followUpTable th,
+.followUpTable td {
+  padding: 0.65rem 0.55rem;
+  border-bottom: 1px solid #eef2ef;
+  text-align: left;
+  vertical-align: top;
+}
+
+.followUpTable th {
+  color: var(--color-green-dark);
+  font-weight: 700;
+  background: #f8faf9;
+}
+
+.tagLoanFollow,
+.tagNameLoadFollow {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  margin-bottom: 0.25rem;
+}
+
+.tagLoanFollow {
+  background: #e8f6ec;
+  color: #0f5132;
+}
+
+.tagNameLoadFollow {
+  background: #e8f0ff;
+  color: #1a4fd6;
+}
+
+.followDetail {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+}
+
+.daysCell {
+  font-weight: 800;
+  color: #c62828;
+  white-space: nowrap;
+}
+
+.followLink {
+  font-weight: 700;
+  font-size: 0.8125rem;
+  color: var(--color-green-dark);
+  white-space: nowrap;
+}
+
+.followUpEmpty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--color-text-soft);
+  font-size: 0.9375rem;
+}
+
+@media (max-width: 640px) {
+  .statsGrid,
   .bottomGrid {
     grid-template-columns: 1fr;
   }

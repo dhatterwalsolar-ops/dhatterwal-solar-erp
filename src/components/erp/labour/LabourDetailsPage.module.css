@@ -1,0 +1,140 @@
+.page {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--color-border);
+  background: #fafcfb;
+}
+
+.back {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-green-dark);
+  display: inline-block;
+  margin-bottom: 0.25rem;
+}
+
+.head h1 {
+  font-size: 1.05rem;
+  color: var(--color-green-dark);
+}
+
+.headActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.headActions button {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.btnAdd {
+  background: #2563eb;
+}
+
+.btnSalary {
+  background: #15803d;
+}
+
+.btnAdvance {
+  background: #7c3aed;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tab {
+  padding: 0.4rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: var(--color-text-muted);
+}
+
+.tabActive {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.search {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  min-width: 220px;
+  font: inherit;
+}
+
+.tableWrap {
+  overflow: auto;
+  max-height: calc(100vh - 280px);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1000px;
+  font-size: 0.8125rem;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid #eef2ef;
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+}
+
+.table thead th {
+  background: #edf5ef;
+  color: var(--color-green-dark);
+  font-size: 0.6875rem;
+  position: sticky;
+  top: 0;
+}
+
+.statusActive {
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+}
+
+.actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.actions button {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.2rem 0.45rem;
+  background: #fff;
+}

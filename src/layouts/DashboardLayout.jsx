@@ -1,10 +1,10 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ErpIcon } from "../components/erp/ErpIcon";
-import { ERP_MENU } from "../constants/erpMenu";
 import { getPageTitleByPath } from "../constants/erpMenu";
 import { CONTACT } from "../constants/contact";
 import { ROUTES } from "../constants/routes";
 import { clearAuthSession, getAuthSession } from "../utils/authSession";
+import { getErpMenuForSession, isAdminSession } from "../utils/erpAccess";
 import styles from "./DashboardLayout.module.css";
 
 function formatToday() {
@@ -21,6 +21,7 @@ function DashboardLayout() {
   const { pathname } = useLocation();
   const session = getAuthSession();
   const pageTitle = getPageTitleByPath(pathname);
+  const navItems = getErpMenuForSession(session);
   const displayName = session?.displayName ?? "User";
   const initials = displayName
     .split(" ")
@@ -52,10 +53,11 @@ function DashboardLayout() {
         </NavLink>
 
         <nav className={styles.nav} aria-label="ERP sheets">
-          {ERP_MENU.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.key}
               to={item.path}
+              end={item.key !== "labour" && item.key !== "payment" && item.key !== "reports"}
               className={({ isActive }) =>
                 isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink
               }
@@ -70,17 +72,19 @@ function DashboardLayout() {
         </nav>
 
         <div className={styles.sidebarBottom}>
-          <NavLink
-            to={ROUTES.SETTINGS}
-            className={({ isActive }) =>
-              isActive ? `${styles.settingsLink} ${styles.navLinkActive}` : styles.settingsLink
-            }
-          >
-            <span className={styles.navIcon}>
-              <ErpIcon name="settings" />
-            </span>
-            Settings
-          </NavLink>
+          {isAdminSession(session) ? (
+            <NavLink
+              to={ROUTES.SETTINGS}
+              className={({ isActive }) =>
+                isActive ? `${styles.settingsLink} ${styles.navLinkActive}` : styles.settingsLink
+              }
+            >
+              <span className={styles.navIcon}>
+                <ErpIcon name="settings" />
+              </span>
+              Settings
+            </NavLink>
+          ) : null}
 
           <div className={styles.supportCard}>
             <span className={styles.supportIcon}>

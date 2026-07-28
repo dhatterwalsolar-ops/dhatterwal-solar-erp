@@ -2,7 +2,9 @@ export const CUSTOMER_DETAIL_SAMPLE_ROWS = [
   {
     consumerNo: "CN-240701",
     customerName: "Ramesh Kumar",
+    fatherName: "Suresh Kumar",
     address: "VPO Dhatterwal, Rohtak, Haryana",
+    mobile: "9992891023",
     amount: "210000",
     amountType: "Loan",
     receivedAmount: "42000",
@@ -15,7 +17,9 @@ export const CUSTOMER_DETAIL_SAMPLE_ROWS = [
   {
     consumerNo: "CN-C240701",
     customerName: "Amit Sharma",
+    fatherName: "Rajesh Sharma",
     address: "Sector 14, Rohtak, Haryana",
+    mobile: "9992891723",
     amount: "185000",
     amountType: "Cash",
     receivedAmount: "50000",
@@ -31,7 +35,9 @@ export function createEmptyCustomerDetailRow() {
   return {
     consumerNo: "",
     customerName: "",
+    fatherName: "",
     address: "",
+    mobile: "",
     amount: "",
     amountType: "",
     receivedAmount: "",

@@ -1,0 +1,33 @@
+.purchaseWrap {
+  display: grid;
+  gap: 1rem;
+}
+
+.subNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.45rem;
+}
+
+.subNav a {
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text-soft);
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+}
+
+.subNav a.active {
+  background: var(--color-green);
+  color: #fff;
+}
+
+.active {
+  background: var(--color-green) !important;
+  color: #fff !important;
+}

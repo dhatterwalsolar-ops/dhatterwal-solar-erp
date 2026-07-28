@@ -1,0 +1,371 @@
+.reportsWrap {
+  display: grid;
+  gap: 1rem;
+}
+
+.breadcrumb {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  padding: 0.35rem 0;
+}
+
+.breadcrumb strong {
+  color: var(--color-green-dark);
+}
+
+.pageHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.pageHead h1 {
+  font-size: 1.25rem;
+  color: var(--color-green-dark);
+}
+
+.pageHead p {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  margin-top: 0.25rem;
+}
+
+.headActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btnExport,
+.btnPrint {
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  font: inherit;
+}
+
+.btnExport {
+  background: var(--color-green);
+  color: #fff;
+  border-color: var(--color-green);
+}
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+}
+
+.filterBar label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-soft);
+}
+
+.filterBar select {
+  min-width: 120px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+}
+
+.summaryStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.65rem;
+}
+
+.summaryChip {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+}
+
+.summaryChip span {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--color-text-soft);
+  font-weight: 600;
+}
+
+.summaryChip strong {
+  font-size: 1rem;
+  color: var(--color-green-dark);
+}
+
+.tablePanel {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
+}
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+.reportTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  min-width: 900px;
+}
+
+.reportTable th,
+.reportTable td {
+  padding: 0.55rem 0.5rem;
+  border-bottom: 1px solid #eef2ef;
+  text-align: left;
+}
+
+.reportTable th {
+  background: #f3faf6;
+  color: var(--color-green-dark);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.reportTable tfoot td {
+  font-weight: 800;
+  background: #f8faf9;
+  border-top: 2px solid var(--color-green);
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.statusPaid {
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.reportCard {
+  border-radius: 14px;
+  padding: 1.1rem;
+  color: #fff;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.reportCard h2 {
+  font-size: 0.9375rem;
+  margin-top: 0.5rem;
+}
+
+.reportCard p {
+  font-size: 0.75rem;
+  opacity: 0.92;
+  margin: 0.35rem 0 0.75rem;
+}
+
+.cardIcon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.22);
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+}
+
+.cardSale {
+  background: linear-gradient(145deg, #43a047, #2e7d32);
+}
+
+.cardPurchase {
+  background: linear-gradient(145deg, #42a5f5, #1565c0);
+}
+
+.cardStock {
+  background: linear-gradient(145deg, #ffb74d, #ef6c00);
+}
+
+.cardGst {
+  background: linear-gradient(145deg, #ab47bc, #6a1b9a);
+}
+
+.cardBtn {
+  display: inline-block;
+  width: fit-content;
+  background: #fff;
+  color: #1b1b1b;
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+}
+
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.kpi {
+  border-radius: 12px;
+  padding: 0.85rem;
+  border: 1px solid var(--color-border);
+  background: #fff;
+}
+
+.kpi label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-text-soft);
+}
+
+.kpi strong {
+  display: block;
+  font-size: 1.05rem;
+  margin-top: 0.25rem;
+}
+
+.kpi small {
+  font-size: 0.6875rem;
+  color: #2e7d32;
+}
+
+.kpiSales strong {
+  color: #2e7d32;
+}
+
+.kpiPurchase strong {
+  color: #1565c0;
+}
+
+.kpiStock strong {
+  color: #ef6c00;
+}
+
+.kpiOutGst strong {
+  color: #6a1b9a;
+}
+
+.kpiInGst strong {
+  color: #00897b;
+}
+
+.gstDual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.gstCard {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.85rem;
+  background: #fff;
+}
+
+.gstCard h3 {
+  font-size: 0.875rem;
+  margin-bottom: 0.65rem;
+  color: var(--color-green-dark);
+}
+
+.gstCard dl {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+}
+
+.gstCard dt {
+  color: var(--color-text-soft);
+}
+
+.gstCard dd {
+  font-weight: 700;
+  margin: 0;
+}
+
+.netPayable {
+  color: #c62828;
+  font-weight: 800;
+}
+
+.netRefund {
+  color: #2e7d32;
+  font-weight: 800;
+}
+
+.subNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.subNav a {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-text);
+}
+
+.subNav a.active {
+  background: var(--color-green);
+  color: #fff;
+  border-color: var(--color-green);
+}
+
+.active {
+  background: var(--color-green) !important;
+  color: #fff !important;
+  border-color: var(--color-green) !important;
+}
+
+@media (max-width: 1100px) {
+  .cardsGrid,
+  .kpiRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gstDual {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .headActions,
+  .filterBar,
+  .subNav {
+    display: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .cardsGrid,
+  .kpiRow {
+    grid-template-columns: 1fr;
+  }
+}

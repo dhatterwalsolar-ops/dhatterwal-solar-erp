@@ -1,10 +1,26 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { BACKUP_ENTRY_SYNC_EVENT } from "../../../constants/backupEntry";
 import {
-  CUSTOMER_DETAIL_SAMPLE_ROWS,
+  patchBackupFromCustomerRow,
+  upsertBackupEntry,
+} from "../../../utils/backupEntryStorage";
+import {
   computePaymentTotals,
-  createEmptyCustomerDetailRow,
+  parseAmountValue,
 } from "../../../constants/customerDetail";
-import { lookupCustomerDetailProfile } from "../../../constants/customerRegistry";
+import {
+  CUSTOMER_PAYMENT_SYNC_EVENT,
+  computeGrandCustomerPayments,
+} from "../../../utils/customerPaymentLedger";
+import {
+  loadCustomerDetailRows,
+  saveCustomerDetailRows,
+} from "../../../utils/customerDetailStorage";
+import {
+  CUSTOMER_DETAIL_SALE_SYNC_EVENT,
+  syncCustomerDetailFromSaleSheet,
+} from "../../../utils/customerDetailSaleSync";
+import { SALE_CASE_SYNC_EVENT } from "../../../utils/saleCaseSync";
 import styles from "./CustomerDetailSheet.module.css";
 
 function formatMoney(num) {
@@ -12,10 +28,37 @@ function formatMoney(num) {
 }
 
 function CustomerDetailSheet() {
-  const [rows, setRows] = useState(() =>
-    CUSTOMER_DETAIL_SAMPLE_ROWS.map((row) => ({ ...row })),
-  );
+  const [rows, setRows] = useState(() => {
+    syncCustomerDetailFromSaleSheet({ dispatchEvent: false });
+    return loadCustomerDetailRows();
+  });
   const [query, setQuery] = useState("");
+  const [ledgerTick, setLedgerTick] = useState(0);
+
+  useEffect(() => {
+    saveCustomerDetailRows(rows);
+  }, [rows]);
+
+  useEffect(() => {
+    const refreshFromSale = () => {
+      syncCustomerDetailFromSaleSheet({ dispatchEvent: false });
+      setRows(loadCustomerDetailRows());
+    };
+    window.addEventListener(BACKUP_ENTRY_SYNC_EVENT, refreshFromSale);
+    window.addEventListener(SALE_CASE_SYNC_EVENT, refreshFromSale);
+    window.addEventListener(CUSTOMER_DETAIL_SALE_SYNC_EVENT, refreshFromSale);
+    return () => {
+      window.removeEventListener(BACKUP_ENTRY_SYNC_EVENT, refreshFromSale);
+      window.removeEventListener(SALE_CASE_SYNC_EVENT, refreshFromSale);
+      window.removeEventListener(CUSTOMER_DETAIL_SALE_SYNC_EVENT, refreshFromSale);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onPaymentSync = () => setLedgerTick((n) => n + 1);
+    window.addEventListener(CUSTOMER_PAYMENT_SYNC_EVENT, onPaymentSync);
+    return () => window.removeEventListener(CUSTOMER_PAYMENT_SYNC_EVENT, onPaymentSync);
+  }, []);
 
   const filteredRows = useMemo(() => {
     if (!query.trim()) return rows;
@@ -27,44 +70,18 @@ function CustomerDetailSheet() {
 
   const updateCell = (rowRef, key, value) => {
     setRows((prev) =>
-      prev.map((row) => (row === rowRef ? { ...row, [key]: value } : row)),
-    );
-  };
-
-  const syncFromCaseSheets = (rowRef, consumerNo) => {
-    const profile = lookupCustomerDetailProfile(consumerNo);
-
-    setRows((prev) =>
       prev.map((row) => {
         if (row !== rowRef) return row;
-
-        if (!profile) {
-          return {
-            ...row,
-            consumerNo,
-            customerName: "",
-            address: "",
-            amountType: "",
-          };
+        const next = { ...row, [key]: value };
+        if (row.isBackupEntry && row.entryId) {
+          upsertBackupEntry(patchBackupFromCustomerRow(next));
         }
-
-        const isLoan = profile.amountType === "Loan";
-        const remark = profile.defaultPaymentRemark;
-
-        return {
-          ...row,
-          consumerNo: profile.consumerNo,
-          customerName: profile.customerName,
-          address: profile.address,
-          amountType: profile.amountType,
-          receivedRemark: isLoan ? remark : row.receivedRemark,
-          secondPaymentRemark: isLoan ? remark : row.secondPaymentRemark,
-        };
+        return next;
       }),
     );
   };
 
-  const isRemarkReadOnly = (row) => row.amountType === "Loan";
+  const isRemarkReadOnly = (row) => row.amountType === "Loan" && !row.isBackupEntry;
 
   return (
     <section className={styles.sheet}>
@@ -72,9 +89,9 @@ function CustomerDetailSheet() {
         <div>
           <h1>Customer All Detail</h1>
           <p>
-            Enter Consumer Number — name, address, and Cash/Loan type load from Loan Case
-            or Cash Case. Loan rows auto-fill bank name &amp; IFSC in payment remarks;
-            Cash remarks are manual. Totals calculate automatically.
+            Yeh sheet Sale Sheet ki mirror hai — same rows, same order. Nayi/extra row yahan add nahi
+            hoti; Sale me jo entry (ya Backup Entry) hai wahi yahan dikhegi. Payments yahan edit kar
+            sakte ho; <strong>Grand Total (All Payments)</strong> sab jagah se.
           </p>
         </div>
         <div className={styles.toolbarActions}>
@@ -85,13 +102,6 @@ function CustomerDetailSheet() {
             placeholder="Search consumer, name..."
             className={styles.search}
           />
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={() => setRows((prev) => [...prev, createEmptyCustomerDetailRow()])}
-          >
-            + Add Row
-          </button>
         </div>
       </header>
 
@@ -102,7 +112,9 @@ function CustomerDetailSheet() {
               <th>Sr. No.</th>
               <th>Consumer Number</th>
               <th>Customer Name</th>
+              <th>Customer Father/Husband Name</th>
               <th>Address</th>
+              <th>Mobile Number</th>
               <th>Amount (₹)</th>
               <th>Amount Type</th>
               <th>Received Amount</th>
@@ -112,32 +124,74 @@ function CustomerDetailSheet() {
               <th>2nd Payment Date</th>
               <th>2nd Payment Remark</th>
               <th>Total Payment Received</th>
+              <th>Name/Load Fees</th>
+              <th>Sale Payments</th>
+              <th>Grand Total (All Payments)</th>
               <th>Total Pending Payment</th>
             </tr>
           </thead>
           <tbody>
             {filteredRows.map((row) => {
               const rowIndex = rows.indexOf(row);
+              void ledgerTick;
               const { totalReceived, pending } = computePaymentTotals(row);
+              const { nameLoad, sale, grandTotal } = computeGrandCustomerPayments(row);
+              const pendingAll = Math.max(
+                0,
+                parseAmountValue(row.amount) - grandTotal,
+              );
+              const identityLocked = Boolean(row.saleRowId) || row.isBackupEntry;
               const remarkLocked = isRemarkReadOnly(row);
 
               return (
-                <tr key={`${row.consumerNo || "cust"}-${rowIndex}`}>
-                  <td>{rowIndex + 1}</td>
+                <tr
+                  key={`${row.saleRowId || row.entryId || row.consumerNo || "cust"}-${rowIndex}`}
+                  className={row.isBackupEntry ? styles.backupRow : undefined}
+                >
+                  <td>
+                    {rowIndex + 1}
+                    {row.isBackupEntry ? <span className={styles.backupBadge}>Backup</span> : null}
+                  </td>
                   <td>
                     <input
-                      className={`${styles.cellInput} ${styles.manualIdInput}`}
+                      className={identityLocked ? styles.readOnly : `${styles.cellInput} ${styles.manualIdInput}`}
                       value={row.consumerNo}
                       onChange={(e) => updateCell(row, "consumerNo", e.target.value)}
-                      onBlur={(e) => syncFromCaseSheets(row, e.target.value)}
+                      readOnly={identityLocked}
                       placeholder="Consumer No."
                     />
                   </td>
                   <td>
-                    <input className={styles.readOnly} value={row.customerName} readOnly />
+                    <input
+                      className={row.isBackupEntry ? styles.cellInput : styles.readOnly}
+                      value={row.customerName}
+                      readOnly={!row.isBackupEntry}
+                      onChange={(e) => updateCell(row, "customerName", e.target.value)}
+                    />
                   </td>
                   <td>
-                    <input className={styles.readOnly} value={row.address} readOnly />
+                    <input
+                      className={row.isBackupEntry ? styles.cellInput : styles.readOnly}
+                      value={row.fatherName || ""}
+                      readOnly={!row.isBackupEntry}
+                      onChange={(e) => updateCell(row, "fatherName", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className={row.isBackupEntry ? styles.cellInput : styles.readOnly}
+                      value={row.address}
+                      readOnly={!row.isBackupEntry}
+                      onChange={(e) => updateCell(row, "address", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className={row.isBackupEntry ? styles.cellInput : styles.readOnly}
+                      value={row.mobile || ""}
+                      readOnly={!row.isBackupEntry}
+                      onChange={(e) => updateCell(row, "mobile", e.target.value)}
+                    />
                   </td>
                   <td>
                     <input
@@ -148,7 +202,12 @@ function CustomerDetailSheet() {
                     />
                   </td>
                   <td>
-                    <input className={styles.readOnly} value={row.amountType} readOnly />
+                    <input
+                      className={row.isBackupEntry ? styles.cellInput : styles.readOnly}
+                      value={row.amountType}
+                      readOnly={!row.isBackupEntry}
+                      onChange={(e) => updateCell(row, "amountType", e.target.value)}
+                    />
                   </td>
                   <td>
                     <input
@@ -208,9 +267,23 @@ function CustomerDetailSheet() {
                     />
                   </td>
                   <td>
+                    <input className={styles.readOnly} value={formatMoney(nameLoad)} readOnly />
+                  </td>
+                  <td>
+                    <input className={styles.readOnly} value={formatMoney(sale)} readOnly />
+                  </td>
+                  <td>
+                    <input
+                      className={`${styles.readOnly} ${styles.grandTotal}`}
+                      value={formatMoney(grandTotal)}
+                      readOnly
+                      title="Manual received + Name/Load fees + Sale invoices"
+                    />
+                  </td>
+                  <td>
                     <input
                       className={`${styles.readOnly} ${styles.totalPending}`}
-                      value={formatMoney(pending)}
+                      value={formatMoney(pendingAll || pending)}
                       readOnly
                     />
                   </td>

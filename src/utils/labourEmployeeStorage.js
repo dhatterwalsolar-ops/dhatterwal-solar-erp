@@ -1,0 +1,42 @@
+import { DEFAULT_LABOUR_EMPLOYEES } from "../constants/labourEmployees";
+
+const KEY = "dhatterwal_labour_employees";
+
+export function getLabourEmployees() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return DEFAULT_LABOUR_EMPLOYEES.map((e) => normalizeEmployee(e));
+    const parsed = JSON.parse(raw);
+    const list = Array.isArray(parsed) ? parsed : DEFAULT_LABOUR_EMPLOYEES;
+    return list.map((e) => normalizeEmployee(e));
+  } catch {
+    return DEFAULT_LABOUR_EMPLOYEES.map((e) => normalizeEmployee(e));
+  }
+}
+
+function normalizeEmployee(e) {
+  return {
+    salaryType: "",
+    fatherName: "",
+    role: "",
+    wagesPaidTotal: 0,
+    salaryPaidTotal: 0,
+    ...e,
+    fatherName: String(e.fatherName || "").trim(),
+    dailyWage: Number(e.dailyWage) || 0,
+    monthlySalary: Number(e.monthlySalary) || 0,
+    advanceTaken: Number(e.advanceTaken) || 0,
+    balance: Number(e.balance) || 0,
+    wagesPaidTotal: Number(e.wagesPaidTotal) || 0,
+    salaryPaidTotal: Number(e.salaryPaidTotal) || 0,
+  };
+}
+
+export function saveLabourEmployees(list) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(list));
+    window.dispatchEvent(new Event("dhatterwal-labour-employees-sync"));
+  } catch {
+    /* ignore */
+  }
+}

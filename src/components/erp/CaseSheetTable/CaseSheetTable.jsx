@@ -1,11 +1,28 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BACKUP_ENTRY_SYNC_EVENT } from "../../../constants/backupEntry";
+import {
+  addBackupEntry,
+  backupToCashRow,
+  backupToLoanRow,
+  mergeCashRowsWithBackup,
+  mergeLoanRowsWithBackup,
+  patchBackupFromCashRow,
+  patchBackupFromLoanRow,
+  upsertBackupEntry,
+  deleteBackupEntry,
+} from "../../../utils/backupEntryStorage";
 import {
   addCustomerDocument,
   listDocumentsBySource,
   readFileAsDataUrl,
 } from "../../../utils/customerDocuments";
+import {
+  clearCaseDeleteOtpSession,
+  getCaseDeleteOtpMobileDisplay,
+  sendCaseDeleteOtp,
+  verifyCaseDeleteOtp,
+} from "../../../utils/caseDeleteOtp";
 import styles from "./CaseSheetTable.module.css";
-
 function CaseSheetTable({
   title,
   description,
@@ -15,12 +32,87 @@ function CaseSheetTable({
   actions = [],
   documentLabels = {},
   documentUploadSource,
+  loadRows,
+  onRowsPersist,
+  enableBackupEntries = false,
+  backupSheetKind = "loan",
+  onRowPaymentSync,
+  enableRowDelete = true,
+  deleteRequiresOtp = false,
+  rowEditLock = false,
 }) {
-  const [rows, setRows] = useState(() => initialRows.map((row) => ({ ...row })));
+  const assignRowId = (row) => {
+    if (row._rowId) return row;
+    return {
+      ...row,
+      _rowId: `case-row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    };
+  };
+
+  const mergeWithBackup = (main) =>
+    backupSheetKind === "cash"
+      ? mergeCashRowsWithBackup(main)
+      : mergeLoanRowsWithBackup(main);
+
+  const [rows, setRows] = useState(() => {
+    const main = (loadRows ? loadRows() : initialRows).map((row) => assignRowId({ ...row }));
+    return enableBackupEntries ? mergeWithBackup(main) : main;
+  });
   const [query, setQuery] = useState("");
   const [docRefresh, setDocRefresh] = useState(0);
   const fileInputRef = useRef(null);
   const uploadRowRef = useRef(null);
+  const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
+  const [deleteOtp, setDeleteOtp] = useState("");
+  const [deleteOtpSent, setDeleteOtpSent] = useState(false);
+  const [editingRowIds, setEditingRowIds] = useState(() => new Set());
+
+  const getRowId = (row) => row._rowId || row.entryId || row.consumerNo || "";
+
+  const isRowEditing = (row) => !rowEditLock || editingRowIds.has(getRowId(row));
+
+  const startRowEdit = (row) => {
+    const id = getRowId(row);
+    if (!id) return;
+    setEditingRowIds((prev) => new Set(prev).add(id));
+  };
+
+  const finishRowEdit = (row) => {
+    const id = getRowId(row);
+    if (onRowPaymentSync) {
+      onRowPaymentSync(row);
+    }
+    setEditingRowIds((prev) => {
+      const next = new Set(prev);
+      if (id) next.delete(id);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    onRowsPersist?.(rows.filter((r) => !r.isBackupEntry));
+  }, [rows, onRowsPersist]);
+
+  useEffect(() => {
+    setRows((prev) => {
+      let changed = false;
+      const next = prev.map((row) => {
+        if (row._rowId) return row;
+        changed = true;
+        return assignRowId(row);
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!enableBackupEntries) return undefined;
+    const refreshBackups = () => {
+      setRows((prev) => mergeWithBackup(prev.filter((r) => !r.isBackupEntry)));
+    };
+    window.addEventListener(BACKUP_ENTRY_SYNC_EVENT, refreshBackups);
+    return () => window.removeEventListener(BACKUP_ENTRY_SYNC_EVENT, refreshBackups);
+  }, [enableBackupEntries, backupSheetKind]);
 
   const filteredRows = useMemo(() => {
     if (!query.trim()) return rows;
@@ -44,9 +136,79 @@ function CaseSheetTable({
 
   const updateCell = (rowRef, key, value) => {
     setRows((prev) =>
-      prev.map((row) => (row === rowRef ? { ...row, [key]: value } : row)),
+      prev.map((row) => {
+        if (row !== rowRef) return row;
+        const next = { ...row, [key]: value };
+        if (row.isBackupEntry && row.entryId) {
+          const patch =
+            backupSheetKind === "cash"
+              ? patchBackupFromCashRow(next)
+              : patchBackupFromLoanRow(next);
+          upsertBackupEntry(patch);
+        }
+        return next;
+      }),
     );
   };
+
+  const handleAddBackupEntry = () => {
+    const created = addBackupEntry();
+    const backupRow =
+      backupSheetKind === "cash" ? backupToCashRow(created) : backupToLoanRow(created);
+    setRows((prev) => [...prev, backupRow]);
+  };
+
+  const performDeleteRow = (row) => {
+    if (row.isBackupEntry && row.entryId) {
+      deleteBackupEntry(row.entryId);
+    }
+    setRows((prev) => prev.filter((r) => r !== row));
+  };
+
+  const closeDeleteOtpModal = () => {
+    setPendingDeleteRow(null);
+    setDeleteOtp("");
+    setDeleteOtpSent(false);
+    clearCaseDeleteOtpSession();
+  };
+
+  const requestDeleteRow = (row) => {
+    const label = row.consumerNo?.trim() || row.customerName?.trim() || "ye row";
+    if (deleteRequiresOtp) {
+      setPendingDeleteRow({ row, label });
+      setDeleteOtp("");
+      setDeleteOtpSent(false);
+      clearCaseDeleteOtpSession();
+      return;
+    }
+    if (!window.confirm(`"${label}" ko sheet se delete karein?`)) return;
+    performDeleteRow(row);
+  };
+
+  const handleSendDeleteOtp = () => {
+    const { demoOtp } = sendCaseDeleteOtp();
+    setDeleteOtpSent(true);
+    window.alert(
+      `Delete OTP ${getCaseDeleteOtpMobileDisplay()} par bheja gaya:\n\n${demoOtp}\n\n(Backend connect hone par asli SMS aayega.)`,
+    );
+  };
+
+  const confirmDeleteWithOtp = () => {
+    if (!deleteOtpSent) {
+      window.alert("Pehle Send OTP dabayein.");
+      return;
+    }
+    if (!verifyCaseDeleteOtp(deleteOtp)) {
+      window.alert("Galat OTP. Send OTP ke baad alert me diya gaya OTP enter karein.");
+      return;
+    }
+    if (pendingDeleteRow?.row) {
+      performDeleteRow(pendingDeleteRow.row);
+    }
+    closeDeleteOtpModal();
+  };
+
+  const deleteRow = requestDeleteRow;
 
   const handleGenerate = (actionKey, row) => {
     if (!row.consumerNo?.trim()) {
@@ -96,7 +258,18 @@ function CaseSheetTable({
     }
   };
 
-  const renderCell = (col, row) => {
+  const renderCell = (col, row, editing) => {
+    if (!editing) {
+      const display = row[col.key];
+      return (
+        <span className={styles.cellReadonly} title={col.label}>
+          {display !== undefined && display !== null && String(display).trim() !== ""
+            ? String(display)
+            : "—"}
+        </span>
+      );
+    }
+
     if (col.type === "select") {
       const options = col.options ?? [];
       return (
@@ -106,7 +279,9 @@ function CaseSheetTable({
           onChange={(e) => updateCell(row, col.key, e.target.value)}
           aria-label={col.label}
         >
-          <option value="">Select kW</option>
+          <option value="">
+            {col.key === "setupKw" ? "Select kW" : col.key === "seva" ? "Select Seva" : "Select"}
+          </option>
           {options.map((option) => (
             <option key={option} value={option}>
               {option}
@@ -118,10 +293,16 @@ function CaseSheetTable({
 
     return (
       <input
-        className={`${styles.cellInput} ${col.isPrimaryId ? styles.manualIdInput : ""}`}
+        className={`${styles.cellInput} ${col.isPrimaryId ? styles.manualIdInput : ""} ${col.syncCustomerPayment ? styles.syncField : ""}`}
         type="text"
         value={row[col.key] ?? ""}
         onChange={(e) => updateCell(row, col.key, e.target.value)}
+        onBlur={(e) => {
+          if (rowEditLock) return;
+          if (col.syncCustomerPayment && onRowPaymentSync) {
+            onRowPaymentSync({ ...row, [col.key]: e.target.value });
+          }
+        }}
         placeholder={col.placeholder || col.label}
         aria-label={col.label}
       />
@@ -132,6 +313,50 @@ function CaseSheetTable({
 
   return (
     <section className={styles.sheet}>
+      {pendingDeleteRow ? (
+        <div
+          className={styles.deleteModalBackdrop}
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeDeleteOtpModal();
+          }}
+        >
+          <div className={styles.deleteModal} role="dialog" aria-labelledby="delete-otp-title">
+            <h2 id="delete-otp-title" className={styles.deleteModalTitle}>
+              Row delete — OTP verify
+            </h2>
+            <p className={styles.deleteModalText}>
+              &quot;{pendingDeleteRow.label}&quot; delete karne se pehle registered mobile par OTP
+              verify karein.
+            </p>
+            <p className={styles.deleteModalMobile}>
+              OTP bheja jayega: {getCaseDeleteOtpMobileDisplay()}
+            </p>
+            <div className={styles.deleteOtpRow}>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="6 digit OTP"
+                value={deleteOtp}
+                onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                className={styles.deleteOtpInput}
+              />
+              <button type="button" className={styles.deleteSendOtpBtn} onClick={handleSendDeleteOtp}>
+                Send OTP
+              </button>
+            </div>
+            <div className={styles.deleteModalActions}>
+              <button type="button" className={styles.btnOutline} onClick={closeDeleteOtpModal}>
+                Cancel
+              </button>
+              <button type="button" className={styles.deleteConfirmBtn} onClick={confirmDeleteWithOtp}>
+                Verify &amp; Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <input
         ref={fileInputRef}
         type="file"
@@ -156,10 +381,21 @@ function CaseSheetTable({
           <button
             type="button"
             className={styles.btnPrimary}
-            onClick={() => setRows((prev) => [...prev, createEmptyRow()])}
+            onClick={() => {
+              const empty = assignRowId(createEmptyRow());
+              setRows((prev) => [...prev, empty]);
+              if (rowEditLock) {
+                setEditingRowIds((prev) => new Set(prev).add(getRowId(empty)));
+              }
+            }}
           >
             + Add Row
           </button>
+          {enableBackupEntries ? (
+            <button type="button" className={styles.btnBackup} onClick={handleAddBackupEntry}>
+              + Backup Entry
+            </button>
+          ) : null}
           <button type="button" className={styles.btnOutline}>
             Export Excel
           </button>
@@ -181,19 +417,37 @@ function CaseSheetTable({
               {actions.map((action) => (
                 <th key={action.key}>{action.label}</th>
               ))}
+              {rowEditLock || enableRowDelete ? <th>Action</th> : null}
             </tr>
           </thead>
           <tbody>
             {filteredRows.map((row, rowIndex) => {
               const consumerKey = String(row.consumerNo || "").trim().toUpperCase();
               const docCount = consumerKey ? docCountByConsumer[consumerKey] || 0 : 0;
+              const editing = isRowEditing(row);
 
               return (
-                <tr key={`${consumerKey || "row"}-${rowIndex}`}>
-                  <td>{rowIndex + 1}</td>
+                <tr
+                  key={`${row._rowId || row.entryId || consumerKey || "row"}-${rowIndex}`}
+                  className={
+                    row.isBackupEntry
+                      ? styles.backupRow
+                      : editing && rowEditLock
+                        ? styles.rowEditing
+                        : undefined
+                  }
+                >
+                  <td>
+                    {rowIndex + 1}
+                    {row.isBackupEntry ? (
+                      <span className={styles.backupBadge} title="Synced backup entry">
+                        Backup
+                      </span>
+                    ) : null}
+                  </td>
                   {columns.map((col) => (
                     <td key={col.key} className={col.isPrimaryId ? styles.primaryCell : undefined}>
-                      {renderCell(col, row)}
+                      {renderCell(col, row, editing)}
                     </td>
                   ))}
                   {showUpload && (
@@ -225,6 +479,41 @@ function CaseSheetTable({
                       </button>
                     </td>
                   ))}
+                  {rowEditLock || enableRowDelete ? (
+                    <td className={styles.actionCell}>
+                      {rowEditLock ? (
+                        editing ? (
+                          <button
+                            type="button"
+                            className={styles.doneBtn}
+                            onClick={() => finishRowEdit(row)}
+                            title="Edit complete — save ho jayega"
+                          >
+                            Done
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.editBtn}
+                            onClick={() => startRowEdit(row)}
+                            title="Row edit karein"
+                          >
+                            Edit
+                          </button>
+                        )
+                      ) : null}
+                      {enableRowDelete ? (
+                        <button
+                          type="button"
+                          className={styles.deleteBtn}
+                          onClick={() => deleteRow(row)}
+                          title="Row delete karein"
+                        >
+                          Delete
+                        </button>
+                      ) : null}
+                    </td>
+                  ) : null}
                 </tr>
               );
             })}

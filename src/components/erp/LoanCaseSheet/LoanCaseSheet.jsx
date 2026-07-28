@@ -1,19 +1,25 @@
 import CaseSheetTable from "../CaseSheetTable/CaseSheetTable";
 import {
   LOAN_CASE_COLUMNS,
-  LOAN_CASE_SAMPLE_ROWS,
   createEmptyLoanRow,
 } from "../../../constants/loanCase";
+import { loadLoanCaseRows, saveLoanCaseRows } from "../../../utils/loanCaseStorage";
+import { syncLoanDisbursementFromLoanRow } from "../../../utils/loanDisbursementSync";
 
 function LoanCaseSheet() {
   return (
     <CaseSheetTable
       title="Loan Case"
-      description="Enter Consumer No. manually (main ID). Upload customer KYC/documents here — they appear in the Sale Sheet customer folder. Select setup kW and generate loan documents."
+      description="Bank IFSC ke baad Amount, Credit Date, Margin Received aur Remark bharne par payment Customer All Detail aur payment history me sync hoti hai (connection 2–4 din baad bhi)."
       documentUploadSource="loan"
       columns={LOAN_CASE_COLUMNS}
-      initialRows={LOAN_CASE_SAMPLE_ROWS}
+      initialRows={[]}
+      loadRows={loadLoanCaseRows}
+      onRowsPersist={saveLoanCaseRows}
       createEmptyRow={createEmptyLoanRow}
+      enableBackupEntries
+      backupSheetKind="loan"
+      onRowPaymentSync={syncLoanDisbursementFromLoanRow}
       actions={[
         { key: "vendor", label: "Generate Vendor Agreement", tone: "green" },
         { key: "quotation", label: "Generate Loan Quotation", tone: "gold" },
@@ -22,6 +28,8 @@ function LoanCaseSheet() {
         vendor: "Vendor Agreement",
         quotation: "Loan Quotation",
       }}
+      rowEditLock
+      deleteRequiresOtp
     />
   );
 }

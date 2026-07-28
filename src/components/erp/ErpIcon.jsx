@@ -24,11 +24,27 @@ export function ErpIcon({ name }) {
           <circle cx="12" cy="12" r="2.5" />
         </svg>
       );
+    case "updateNameLoad":
+      return (
+        <svg {...common}>
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5z" />
+          <path d="M9 11l2 2" />
+        </svg>
+      );
     case "sale":
       return (
         <svg {...common}>
           <path d="M7 4h10v16H7z" />
           <path d="M9 8h6M9 12h6M9 16h4" />
+        </svg>
+      );
+    case "invoiceFile":
+      return (
+        <svg {...common}>
+          <path d="M6 4h12v16H6z" />
+          <path d="M9 9h6M9 13h4" />
+          <path d="M14 17l2 2 4-4" />
         </svg>
       );
     case "purchase":

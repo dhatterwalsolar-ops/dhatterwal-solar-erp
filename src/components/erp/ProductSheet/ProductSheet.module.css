@@ -1,0 +1,177 @@
+.sheet {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--color-border);
+  background: #fafcfb;
+}
+
+.toolbar h1 {
+  font-size: 1.125rem;
+  color: var(--color-green-dark);
+}
+
+.toolbar p {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  margin-top: 0.2rem;
+  max-width: 46rem;
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.search {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  min-width: 200px;
+}
+
+.btnPrimary,
+.btnGold,
+.btnSave,
+.btnDel {
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  font: inherit;
+}
+
+.btnPrimary {
+  background: var(--color-green);
+  color: #fff;
+}
+
+.btnGold {
+  background: #ffcc00;
+  color: #1b1b1b;
+}
+
+.btnSave {
+  background: var(--color-green);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.btnDel {
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  padding: 0 0 1rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.55rem 0.65rem;
+}
+
+.table th {
+  background: #f8faf9;
+  text-align: left;
+  font-weight: 700;
+}
+
+.cellInput,
+.cellSelect {
+  width: 100%;
+  min-width: 7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  font: inherit;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.25rem;
+  width: min(420px, 100%);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+.modal h2 {
+  font-size: 1.05rem;
+  color: var(--color-green-dark);
+  margin-bottom: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.field input,
+.field select {
+  font-weight: 400;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+}
+
+.modalActions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.btnCancel {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+.empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-soft);
+}

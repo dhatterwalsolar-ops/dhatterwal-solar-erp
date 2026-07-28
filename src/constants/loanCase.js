@@ -1,5 +1,14 @@
 export const SETUP_KW_OPTIONS = ["02 kW", "03 kW", "05 kW"];
 
+export const SEVA_OPTIONS = [
+  "Installation",
+  "Site Survey",
+  "Documentation",
+  "Net Meter / Connection",
+  "Maintenance",
+  "Other",
+];
+
 export const LOAN_CASE_COLUMNS = [
   { key: "date", label: "Date", type: "text" },
   {
@@ -10,8 +19,9 @@ export const LOAN_CASE_COLUMNS = [
     placeholder: "Enter Consumer No. manually",
   },
   { key: "customerName", label: "Customer Name", type: "text" },
-  { key: "fatherName", label: "Father Name", type: "text" },
+  { key: "fatherName", label: "Father/Husband Name", type: "text" },
   { key: "address", label: "Address", type: "text" },
+  { key: "mobile", label: "Mobile Number", type: "text" },
   {
     key: "setupKw",
     label: "Setup (kW)",
@@ -19,10 +29,44 @@ export const LOAN_CASE_COLUMNS = [
     options: SETUP_KW_OPTIONS,
   },
   { key: "reference", label: "Reference", type: "text" },
+  {
+    key: "seva",
+    label: "Seva",
+    type: "select",
+    options: SEVA_OPTIONS,
+  },
   { key: "loanPayment", label: "Loan Payment", type: "text" },
   { key: "marginMoney", label: "Margin Money", type: "text" },
   { key: "bankName", label: "Bank Name", type: "text" },
   { key: "bankIfsc", label: "Bank IFSC Code", type: "text" },
+  {
+    key: "loanCreditAmount",
+    label: "Amount (Loan Credit ₹)",
+    type: "text",
+    placeholder: "Bank se aayi rakam",
+    syncCustomerPayment: true,
+  },
+  {
+    key: "loanCreditDate",
+    label: "Credit Date",
+    type: "text",
+    placeholder: "DD/MM/YYYY",
+    syncCustomerPayment: true,
+  },
+  {
+    key: "loanCreditMargin",
+    label: "Margin Money (Received ₹)",
+    type: "text",
+    placeholder: "Margin received",
+    syncCustomerPayment: true,
+  },
+  {
+    key: "loanCreditRemark",
+    label: "Remark",
+    type: "text",
+    placeholder: "Payment / connection note",
+    syncCustomerPayment: true,
+  },
 ];
 
 export const LOAN_CASE_SAMPLE_ROWS = [
@@ -32,12 +76,18 @@ export const LOAN_CASE_SAMPLE_ROWS = [
     customerName: "Ramesh Kumar",
     fatherName: "Suresh Kumar",
     address: "VPO Dhatterwal, Rohtak, Haryana",
+    mobile: "9992891023",
     setupKw: "02 kW",
     reference: "Self",
+    seva: "",
     loanPayment: "₹1,68,000",
     marginMoney: "₹42,000",
     bankName: "State Bank of India",
     bankIfsc: "SBIN0001234",
+    loanCreditAmount: "",
+    loanCreditDate: "",
+    loanCreditMargin: "",
+    loanCreditRemark: "",
   },
   {
     date: "18/07/2025",
@@ -45,27 +95,40 @@ export const LOAN_CASE_SAMPLE_ROWS = [
     customerName: "Sunita Devi",
     fatherName: "Ram Kishan",
     address: "Near Bus Stand, Jind, Haryana",
+    mobile: "9467564675",
     setupKw: "03 kW",
     reference: "Staff Referral",
+    seva: "",
     loanPayment: "₹2,10,000",
     marginMoney: "₹52,500",
     bankName: "Punjab National Bank",
     bankIfsc: "PUNB0123456",
+    loanCreditAmount: "",
+    loanCreditDate: "",
+    loanCreditMargin: "",
+    loanCreditRemark: "",
   },
 ];
 
 export function createEmptyLoanRow() {
   return {
+    _rowId: `loan-row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     date: "",
     consumerNo: "",
     customerName: "",
     fatherName: "",
     address: "",
+    mobile: "",
     setupKw: "",
     reference: "",
+    seva: "",
     loanPayment: "",
     marginMoney: "",
     bankName: "",
     bankIfsc: "",
+    loanCreditAmount: "",
+    loanCreditDate: "",
+    loanCreditMargin: "",
+    loanCreditRemark: "",
   };
 }

@@ -1,9 +1,18 @@
-import { useMemo, useState } from "react";
-import { getGstInvoices } from "../../../utils/invoiceStorage";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getGstInvoices,
+  INVOICE_FILE_SYNC_EVENT,
+} from "../../../utils/invoiceStorage";
 import styles from "./GstReportSheet.module.css";
 
 function GstReportSheet() {
   const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const onSync = () => setRefreshKey((k) => k + 1);
+    window.addEventListener(INVOICE_FILE_SYNC_EVENT, onSync);
+    return () => window.removeEventListener(INVOICE_FILE_SYNC_EVENT, onSync);
+  }, []);
 
   const invoices = useMemo(() => getGstInvoices(), [refreshKey]);
 
@@ -56,7 +65,8 @@ function GstReportSheet() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>Invoice ID</th>
+              <th>Sr.</th>
+              <th>Invoice No.</th>
               <th>Date</th>
               <th>Consumer No.</th>
               <th>Customer</th>
@@ -70,7 +80,8 @@ function GstReportSheet() {
           <tbody>
             {invoices.map((inv) => (
               <tr key={inv.id}>
-                <td>{inv.id}</td>
+                <td>{inv.srNo}</td>
+                <td>{inv.invoiceNo || inv.id}</td>
                 <td>{inv.date}</td>
                 <td>{inv.consumerNo}</td>
                 <td>{inv.customerName}</td>

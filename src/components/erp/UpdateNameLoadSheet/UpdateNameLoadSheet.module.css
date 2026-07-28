@@ -1,0 +1,135 @@
+.sheet {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--color-border);
+  background: #fafcfb;
+}
+
+.toolbar h1 {
+  font-size: 1.125rem;
+  color: var(--color-green-dark);
+}
+
+.toolbar p {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  margin-top: 0.2rem;
+  max-width: 52rem;
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.search {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  min-width: 200px;
+}
+
+.btnAdd,
+.btnSave {
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--color-green);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.btnAdd {
+  font-size: 0.8125rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: 1200px;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.45rem 0.4rem;
+  vertical-align: top;
+}
+
+.table th {
+  background: #f8faf9;
+  text-align: left;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cellInput,
+.cellSelect,
+.numInput {
+  width: 100%;
+  min-width: 5.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+  font: inherit;
+}
+
+.idInput {
+  min-width: 6.5rem;
+  font-weight: 600;
+}
+
+.numInput {
+  min-width: 4.5rem;
+}
+
+.readOnly {
+  width: 100%;
+  min-width: 5.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+  font: inherit;
+  background: #f4f6f5;
+  color: var(--color-text-soft);
+}
+
+.loadSelect {
+  display: block;
+  margin-top: 0.25rem;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.25rem 0.35rem;
+  font: inherit;
+  font-size: 0.7rem;
+}
+
+.totalCell {
+  font-weight: 800;
+  color: var(--color-green-dark);
+  white-space: nowrap;
+}

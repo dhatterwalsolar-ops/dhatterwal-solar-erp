@@ -53,6 +53,31 @@
   border: 1px solid var(--color-green-dark);
 }
 
+.btnBackup {
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  background: #fff8e1;
+  color: #e65100;
+  border: 1px solid #ffcc80;
+  cursor: pointer;
+  font: inherit;
+}
+
+.backupRow {
+  background: #fffdf5;
+}
+
+.backupBadge {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+  color: #e65100;
+  text-transform: uppercase;
+}
+
 .tableWrap {
   overflow: auto;
   max-height: calc(100vh - 220px);
@@ -123,7 +148,8 @@
   color: var(--color-green-dark);
 }
 
-.totalPending {
-  font-weight: 700;
-  color: #b45309;
+.grandTotal {
+  font-weight: 800;
+  color: #0d6e42;
+  background: #e8f5ee !important;
 }

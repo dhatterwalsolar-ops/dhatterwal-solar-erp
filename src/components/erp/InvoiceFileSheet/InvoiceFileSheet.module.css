@@ -1,0 +1,127 @@
+.sheet {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--color-border);
+  background: #fafcfb;
+}
+
+.toolbar h1 {
+  font-size: 1.125rem;
+  color: var(--color-green-dark);
+}
+
+.toolbar p {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  margin-top: 0.2rem;
+  max-width: 48rem;
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  min-width: 220px;
+}
+
+.refreshBtn {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  background: #fff;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  padding: 0 0 1rem;
+}
+
+.table {
+  width: 100%;
+  min-width: 960px;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+}
+
+.table th {
+  background: #f8faf9;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.srCol {
+  font-weight: 800;
+  color: var(--color-green-dark);
+}
+
+.invoiceNo {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 2rem 1.25rem;
+  color: var(--color-text-soft);
+}
+
+.tagGst {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #e8f0ff;
+  color: #1a4fd6;
+}
+
+.tagPlain {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.addressCell {
+  max-width: 14rem;
+  color: var(--color-text-soft);
+  font-size: 0.75rem;
+}
+
+.totalCell {
+  font-weight: 800;
+  color: var(--color-green-dark);
+  white-space: nowrap;
+}

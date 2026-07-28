@@ -1,0 +1,191 @@
+.sheet {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--color-border);
+  background: #fafcfb;
+}
+
+.toolbar h1 {
+  font-size: 1.125rem;
+  color: var(--color-green-dark);
+}
+
+.toolbar p {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  margin-top: 0.2rem;
+  max-width: 52rem;
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  min-width: 200px;
+}
+
+.btnPrimary,
+.btnOutline {
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  font: inherit;
+}
+
+.btnPrimary {
+  border: none;
+  background: var(--color-green);
+  color: #fff;
+}
+
+.btnOutline {
+  border: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-text);
+}
+
+.empty {
+  padding: 2rem 1.25rem;
+  color: var(--color-text-soft);
+  font-size: 0.9375rem;
+}
+
+.fileList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1rem 1.15rem 1.5rem;
+}
+
+.fileCard {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.fileHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(180deg, #f3faf6 0%, #fff 100%);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fileHead h2 {
+  font-size: 1rem;
+  color: var(--color-green-dark);
+  margin: 0;
+}
+
+.fileMeta {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  margin-top: 0.25rem;
+  line-height: 1.45;
+}
+
+.teamBadge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #e8f5ee;
+  color: var(--color-green-dark);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.grandTotalBox {
+  text-align: right;
+  align-self: flex-start;
+}
+
+.grandLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.grandValue {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-green-dark);
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.55rem 0.65rem;
+  vertical-align: middle;
+}
+
+.table th {
+  text-align: left;
+  background: #f8faf9;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.detailCell {
+  color: var(--color-text-soft);
+  max-width: 14rem;
+}
+
+.numInput {
+  width: 5.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  font: inherit;
+}
+
+.amountCell {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.totalRow td {
+  background: #f3faf6;
+  font-weight: 800;
+  border-top: 2px solid var(--color-green);
+}

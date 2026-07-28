@@ -16,7 +16,7 @@ export const DEMO_ACCOUNTS = {
   [AUTH_ROLES.STAFF]: {
     userId: "staff",
     password: "staff123",
-    displayName: "Staff User",
+    displayName: "Rohit Kumar",
     roleLabel: "Staff",
   },
 };
