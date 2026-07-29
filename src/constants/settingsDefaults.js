@@ -19,15 +19,17 @@ export const DEFAULT_ERP_USERS = [
 ];
 
 export const DEFAULT_INVOICE_SERIES = {
-  prefix: "DS/56/2026-27",
-  nextNumber: "000123",
-  suffix: "/INV",
+  prefix: "DS/",
+  nextNumber: "323",
+  suffix: "/2026-27",
+  separator: "",
 };
 
 export const DEFAULT_QUOTATION_SERIES = {
-  prefix: "DS/Q/98/2026-27",
+  prefix: "DS/Q/",
   nextNumber: "000045",
-  suffix: "/QT",
+  suffix: "/2026-27",
+  separator: "",
 };
 
 export const SETTINGS_ACTIVITY_LOG = [
@@ -36,6 +38,7 @@ export const SETTINGS_ACTIVITY_LOG = [
   ["15/07/2025 09:05 AM", "Rohit Kumar", "Staff login from new device"],
 ];
 
-export function buildSeriesPreview({ prefix, nextNumber, suffix }) {
-  return `${prefix}-${nextNumber}${suffix}`;
+export function buildSeriesPreview({ prefix, nextNumber, suffix, separator }) {
+  const join = separator === undefined || separator === null ? "-" : separator;
+  return `${prefix || ""}${join}${nextNumber || ""}${suffix || ""}`;
 }

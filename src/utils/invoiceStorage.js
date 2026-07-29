@@ -1,4 +1,6 @@
 import { buildSeriesPreview } from "../constants/settingsDefaults";
+import { buildInvoiceComputation } from "./saleInvoiceCompute";
+import { getInvoiceFormat } from "./invoiceFormatStorage";
 import { getSettingsState, saveInvoiceSeries } from "./settingsStorage";
 
 const INVOICE_FILE_KEY = "dhatterwal_invoice_file";
@@ -33,7 +35,11 @@ function incrementSeriesNumber(nextNumber) {
   return String(num).padStart(width, "0");
 }
 
-/** Next invoice number from Settings → Invoice Series (increments on each generate). */
+export function peekNextInvoiceSerial() {
+  const state = getSettingsState();
+  return buildSeriesPreview(state.invoiceSeries);
+}
+
 export function allocateNextInvoiceSerial() {
   const state = getSettingsState();
   const series = state.invoiceSeries;
@@ -51,57 +57,114 @@ export function getInvoiceFileRecords() {
     .sort((a, b) => (a.srNo || 0) - (b.srNo || 0));
 }
 
+export function getInvoiceById(id) {
+  if (!id) return null;
+  return readInvoiceFile().find((inv) => inv.id === id) || null;
+}
+
+export function getInvoiceByNo(invoiceNo) {
+  const key = String(invoiceNo || "").trim();
+  if (!key) return null;
+  return readInvoiceFile().find((inv) => String(inv.invoiceNo).trim() === key) || null;
+}
+
 export function getGstInvoices() {
   return getInvoiceFileRecords().filter((inv) => inv.withGst);
 }
 
 export function getMonthKeyFromDate(dateStr) {
-  const parts = String(dateStr || "").split("/");
+  const parts = String(dateStr || "").split(/[/-]/);
   if (parts.length !== 3) {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   }
-  const [, month, year] = parts;
-  return `${year}-${month.padStart(2, "0")}`;
+  const [d, month, year] = parts;
+  if (String(year).length === 4) {
+    return `${year}-${String(month).padStart(2, "0")}`;
+  }
+  return `${d}-${String(month).padStart(2, "0")}`;
+}
+
+function formatInvoiceDate(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()}`;
 }
 
 /**
- * Issue invoice: Sr. No. follows generate order (not sale row order).
- * Same sale date but generated later → higher Sr. No. and next serial from series.
+ * Issue invoice matching official Tax Invoice stationery fields.
  */
 export function issueSaleInvoice({
   consumerNo,
   customerName,
   fatherName,
   address,
+  mobile,
   setupKw,
   amount,
   withGst,
+  pinCode,
+  station,
+  panelName,
+  inverterName,
+  inverterSerial,
+  vehicleNo,
+  saleRowId,
+  transport,
+  bookNo,
 }) {
-  const taxable = Number(amount) || 0;
-  const gstAmount = withGst ? Math.round(taxable * 0.18) : 0;
-  const total = taxable + gstAmount;
+  const format = getInvoiceFormat();
+  const computation = buildInvoiceComputation({
+    taxableAmount: amount,
+    withGst: Boolean(withGst),
+    panelName,
+    inverterName,
+    inverterSerial,
+    setupKw,
+    format,
+  });
+
   const list = readInvoiceFile();
   const srNo = list.length + 1;
   const invoiceNo = allocateNextInvoiceSerial();
   const internalId = `inv-${Date.now()}`;
-  const generateDate = new Date().toLocaleDateString("en-GB");
+  const generateDate = formatInvoiceDate();
 
   const invoice = {
     id: internalId,
     srNo,
+    bookNo: bookNo || srNo,
     invoiceNo,
     date: generateDate,
     consumerNo,
     customerName,
     fatherName: fatherName || "",
     address: address || "",
+    mobile: mobile || "",
     setupKw,
-    taxableAmount: taxable,
-    gstAmount,
-    totalAmount: total,
+    taxableAmount: computation.taxableAmount,
+    gstAmount: computation.gstAmount,
+    totalAmount: computation.totalAmount,
     withGst: Boolean(withGst),
     gstType: withGst ? "With GST" : "Without GST",
+    pinCode: String(pinCode || "").trim(),
+    station: String(station || "").trim(),
+    panelName: String(panelName || "").trim(),
+    inverterName: String(inverterName || "").trim(),
+    inverterSerial: String(inverterSerial || "").trim(),
+    vehicleNo: String(vehicleNo || "").trim().toUpperCase(),
+    transport: String(transport || format.transportDefault).trim().toUpperCase(),
+    placeOfSupply: format.placeOfSupply,
+    reverseCharge: format.reverseCharge,
+    saleRowId: saleRowId || "",
+    lines: computation.lines,
+    taxRows: computation.taxRows,
+    hsnSummary: computation.hsnSummary,
+    totalQty: computation.totalQty,
+    amountInWords: computation.amountInWords,
+    ewayBillNo: "",
+    ewayDistanceKm: "",
+    ewayValidUpto: "",
+    ewayGeneratedAt: "",
     monthKey: getMonthKeyFromDate(generateDate),
     createdAt: new Date().toISOString(),
     generatedAt: new Date().toLocaleString("en-IN"),
@@ -110,4 +173,50 @@ export function issueSaleInvoice({
   list.push(invoice);
   writeInvoiceFile(list);
   return invoice;
+}
+
+export function updateInvoiceRecord(invoiceId, patch) {
+  const list = readInvoiceFile();
+  const idx = list.findIndex((inv) => inv.id === invoiceId);
+  if (idx < 0) return null;
+  list[idx] = { ...list[idx], ...patch };
+  writeInvoiceFile(list);
+  return list[idx];
+}
+
+export function attachEwayBillToInvoice(invoiceId, eway) {
+  return updateInvoiceRecord(invoiceId, {
+    ewayBillNo: eway.ewayBillNo,
+    ewayDistanceKm: String(eway.distanceKm ?? ""),
+    ewayValidUpto: eway.validUpto || "",
+    ewayGeneratedAt: new Date().toLocaleString("en-IN"),
+  });
+}
+
+/**
+ * TEMP (pre-live): delete invoice record + renumber Sr. No.
+ * Returns deleted invoice or null.
+ */
+export function deleteInvoiceRecord(invoiceId) {
+  if (!invoiceId) return null;
+  const list = readInvoiceFile();
+  const idx = list.findIndex((inv) => inv.id === invoiceId);
+  if (idx < 0) return null;
+  const [removed] = list.splice(idx, 1);
+  const renumbered = list.map((inv, i) => ({ ...inv, srNo: i + 1, bookNo: inv.bookNo || i + 1 }));
+  writeInvoiceFile(renumbered);
+  return removed;
+}
+
+export function findInvoiceForSaleRow(row) {
+  if (!row) return null;
+  if (row.invoiceId) {
+    const byId = getInvoiceById(row.invoiceId);
+    if (byId) return byId;
+  }
+  if (row.invoiceNo) {
+    const byNo = getInvoiceByNo(row.invoiceNo);
+    if (byNo) return byNo;
+  }
+  return null;
 }

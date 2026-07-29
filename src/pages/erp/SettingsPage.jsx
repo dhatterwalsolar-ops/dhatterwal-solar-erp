@@ -21,12 +21,14 @@ import {
   loadPaymentAccounts,
   savePaymentAccounts,
 } from "../../utils/paymentAccountStorage";
+import InvoiceFormatSettings from "./InvoiceFormatSettings";
 import styles from "./SettingsPage.module.css";
 
 const TABS = [
   { id: "general", label: "General Settings", icon: "⚙" },
   { id: "users", label: "User Management", icon: "👤" },
   { id: "invoice", label: "Invoice Series", icon: "🧾" },
+  { id: "invoiceFormat", label: "Invoice Format", icon: "🖨" },
   { id: "quotation", label: "Quotation Series", icon: "📄" },
   { id: "paymentTypes", label: "Payment Types", icon: "💳" },
   { id: "security", label: "Security & OTP", icon: "🔒" },
@@ -243,6 +245,8 @@ function SettingsPage() {
             </section>
           )}
 
+          {activeTab === "invoiceFormat" && <InvoiceFormatSettings session={session} />}
+
           {showPasswordBlock && (
             <section className={styles.card}>
               <div className={styles.cardHead}>
@@ -331,6 +335,19 @@ function SettingsPage() {
                         invoiceSeries: { ...s.invoiceSeries, suffix: e.target.value },
                       }))
                     }
+                  />
+                </label>
+                <label>
+                  Separator (blank = no dash)
+                  <input
+                    value={state.invoiceSeries.separator ?? "-"}
+                    onChange={(e) =>
+                      setState((s) => ({
+                        ...s,
+                        invoiceSeries: { ...s.invoiceSeries, separator: e.target.value },
+                      }))
+                    }
+                    placeholder="leave empty for DS/323/2026-27"
                   />
                 </label>
                 <label className={styles.previewField}>

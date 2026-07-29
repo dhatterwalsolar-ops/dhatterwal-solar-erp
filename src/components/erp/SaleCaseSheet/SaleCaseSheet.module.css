@@ -329,6 +329,93 @@
   width: min(520px, 100%);
 }
 
+.modalInvoice {
+  width: min(640px, 100%);
+  max-height: min(90vh, 820px);
+  overflow: auto;
+}
+
+.invoicePreviewNo {
+  margin-bottom: 0.85rem !important;
+  color: var(--color-green-dark) !important;
+}
+
+.partyBox {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.85rem;
+  background: #f7faf8;
+  font-size: 0.8125rem;
+}
+
+.partyBox strong {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--color-green-dark);
+}
+
+.partyGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.partyFull {
+  grid-column: 1 / -1;
+}
+
+.modalFormGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 0.75rem;
+}
+
+.modalLabelFull {
+  grid-column: 1 / -1;
+}
+
+.invoiceActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 11rem;
+}
+
+.invoiceNoBadge {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-green-dark);
+  background: #edf5ef;
+  border: 1px solid #c9d6cc;
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+  word-break: break-all;
+}
+
+.ewaySuccess {
+  color: #166534 !important;
+  font-weight: 700 !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.deleteInvoiceBtn {
+  border: 1px solid #ef9a9a;
+  background: #fff5f5;
+  color: #b71c1c;
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.deleteInvoiceBtn:hover {
+  background: #ffebee;
+}
+
 .modal h2 {
   font-size: 1.125rem;
   color: var(--color-green-dark);

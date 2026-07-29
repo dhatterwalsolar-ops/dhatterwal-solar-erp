@@ -125,3 +125,19 @@
   color: var(--color-green-dark);
   white-space: nowrap;
 }
+
+.deleteBtn {
+  border: 1px solid #ef9a9a;
+  background: #fff5f5;
+  color: #b71c1c;
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.deleteBtn:hover {
+  background: #ffebee;
+}

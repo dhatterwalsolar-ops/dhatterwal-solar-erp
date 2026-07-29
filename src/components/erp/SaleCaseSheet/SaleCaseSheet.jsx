@@ -32,8 +32,27 @@ import {
 } from "../../../utils/customerDocuments";
 import CustomerFolderModal from "./CustomerFolderModal";
 import {
+  attachEwayBillToInvoice,
+  findInvoiceForSaleRow,
+  getInvoiceById,
   issueSaleInvoice,
+  peekNextInvoiceSerial,
 } from "../../../utils/invoiceStorage";
+import {
+  clearedSaleInvoiceFields,
+  deleteOldInvoiceCompletely,
+} from "../../../utils/tempInvoiceDelete";
+import { TEMP_ALLOW_INVOICE_DELETE } from "../../../constants/tempInvoiceDelete";
+import {
+  downloadInvoiceDoc,
+  findEwayDocument,
+  findInvoiceDocument,
+  openHtmlDocument,
+  saveEwayDocumentToFolder,
+  saveInvoiceDocumentToFolder,
+} from "../../../utils/saleInvoiceDocuments";
+import { resolveInvoiceItemDetails } from "../../../utils/saleInvoiceItems";
+import { callEwayGenerateApi } from "../../../utils/ewayBillApi";
 import {
   addCustomerPayment,
   notifyPaymentSync,
@@ -137,7 +156,21 @@ function SaleCaseSheet() {
   const [rows, setRows] = useState(() => reloadSaleRowsFromStorage());
   const [query, setQuery] = useState("");
   const [invoiceRow, setInvoiceRow] = useState(null);
-  const [invoiceAmount, setInvoiceAmount] = useState("");
+  const [invoiceForm, setInvoiceForm] = useState({
+    amount: "",
+    pinCode: "",
+    station: "",
+    panelName: "",
+    inverterName: "",
+    inverterSerial: "",
+    vehicleNo: "",
+    previewInvoiceNo: "",
+  });
+  const [invoiceBusy, setInvoiceBusy] = useState(false);
+  const [ewayContext, setEwayContext] = useState(null);
+  const [ewayDistance, setEwayDistance] = useState("");
+  const [ewayBusy, setEwayBusy] = useState(false);
+  const [ewayResult, setEwayResult] = useState(null);
   const [completeRow, setCompleteRow] = useState(null);
   const [jointReport, setJointReport] = useState(null);
   const [folderRow, setFolderRow] = useState(null);
@@ -325,8 +358,28 @@ function SaleCaseSheet() {
 
   const openInvoiceModal = (row) => {
     if (!requireConsumerRow(row)) return;
+    if (row.invoiceNo) {
+      window.alert(
+        `Is sale par pehle se invoice hai: ${row.invoiceNo}. Download Invoice / E-Way Bill use karein.`,
+      );
+      return;
+    }
+    const items = resolveInvoiceItemDetails(row);
     setInvoiceRow(row);
-    setInvoiceAmount(row.amount || "");
+    setInvoiceForm({
+      amount: row.amount || "",
+      pinCode: row.invoicePinCode || "",
+      station: row.invoiceStation || "",
+      panelName: items.panelName,
+      inverterName: items.inverterName,
+      inverterSerial: items.inverterSerial,
+      vehicleNo: row.vehicleNo || "",
+      previewInvoiceNo: peekNextInvoiceSerial(),
+    });
+  };
+
+  const patchInvoiceForm = (key, value) => {
+    setInvoiceForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const openCompleteModal = (row) => {
@@ -344,43 +397,267 @@ function SaleCaseSheet() {
     setDocRefresh((n) => n + 1);
   };
 
-  const generateInvoice = (withGst) => {
-    if (!invoiceRow) return;
-    const invoice = issueSaleInvoice({
-      consumerNo: invoiceRow.consumerNo,
-      customerName: invoiceRow.customerName,
-      fatherName: invoiceRow.fatherName,
-      address: invoiceRow.address,
-      setupKw: invoiceRow.setupKw,
-      amount: invoiceAmount,
-      withGst,
-    });
+  const openEwayModalForRow = (row) => {
+    if (!row.invoiceId && !row.invoiceNo) {
+      window.alert("Pehle Generate Invoice karein.");
+      return;
+    }
+    const invoice = getInvoiceById(row.invoiceId) || {
+      id: row.invoiceId,
+      invoiceNo: row.invoiceNo,
+      consumerNo: row.consumerNo,
+      customerName: row.customerName,
+      vehicleNo: row.vehicleNo,
+      pinCode: row.invoicePinCode,
+      station: row.invoiceStation,
+      panelName: row.invoicePanelName,
+      inverterName: row.invoiceInverterName,
+      inverterSerial: row.invoiceInverterSerial,
+      setupKw: row.setupKw,
+      taxableAmount: Number(row.amount) || 0,
+      totalAmount: Number(row.amount) || 0,
+      gstType: row.invoiceGstType || "",
+      date: row.invoiceDate || "",
+      withGst: row.invoiceWithGst,
+    };
+    setEwayResult(
+      row.ewayBillNo
+        ? {
+            ewayBillNo: row.ewayBillNo,
+            distanceKm: row.ewayDistanceKm || "",
+            validUpto: row.ewayValidUpto || "",
+          }
+        : null,
+    );
+    setEwayDistance(row.ewayDistanceKm || "");
+    setEwayContext({ saleRow: row, invoice });
+  };
 
-    addCustomerPayment({
-      sourceRef: `sale-${invoice.id}`,
-      consumerNo: invoiceRow.consumerNo,
-      date: invoice.date,
-      amount: invoice.totalAmount,
-      category: PAYMENT_CATEGORIES.SALE,
-      label: `Sale Invoice (${invoice.gstType})`,
-      reference: invoice.invoiceNo,
-      applicationNo: invoice.invoiceNo,
-    });
-    notifyPaymentSync();
+  const downloadRowInvoice = (row) => {
+    const doc = findInvoiceDocument(row.consumerNo, row.invoiceNo);
+    if (!doc) {
+      window.alert("Invoice file folder me nahi mili. Open folder check karein.");
+      return;
+    }
+    downloadInvoiceDoc(doc);
+  };
 
+  const downloadRowEway = (row) => {
+    const doc = findEwayDocument(row.consumerNo, row.ewayBillNo);
+    if (!doc) {
+      window.alert("E-Way Bill file folder me nahi mili.");
+      return;
+    }
+    downloadInvoiceDoc(doc);
+  };
+
+  const deleteRowInvoice = (row) => {
+    if (!TEMP_ALLOW_INVOICE_DELETE) {
+      window.alert("Invoice delete live site pe available nahi hoga.");
+      return;
+    }
+    const invoice = findInvoiceForSaleRow(row);
+    if (!invoice?.id) {
+      window.alert("Invoice record nahi mili.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `TEMP: Invoice ${invoice.invoiceNo} delete karein?\n\nInvoice File, payment, folder files hatenge. Phir dubara Generate Invoice kar sakte ho.`,
+      )
+    ) {
+      return;
+    }
+    const result = deleteOldInvoiceCompletely(invoice.id);
+    if (!result.ok) {
+      window.alert(result.error || "Delete fail.");
+      return;
+    }
     setRows((prev) =>
-      prev.map((row) =>
-        rowsMatch(row, invoiceRow) ? { ...row, amount: invoiceAmount } : row,
-      ),
+      prev.map((r) => (rowsMatch(r, row) ? clearedSaleInvoiceFields(r) : r)),
     );
+    setDocRefresh((n) => n + 1);
+    if (ewayContext?.invoice?.id === invoice.id) {
+      setEwayContext(null);
+      setEwayResult(null);
+    }
+    window.alert(`Invoice ${invoice.invoiceNo} delete ho gayi. Ab naya generate kar sakte ho.`);
+  };
 
-    window.alert(
-      `Invoice ${invoice.invoiceNo} (Sr. ${invoice.srNo}) generated (${invoice.gstType}). Total: ₹${invoice.totalAmount.toLocaleString("en-IN")}${
-        withGst ? " — GST Report me bhi dikhega." : "."
-      } Invoice File me save ho gaya.`,
-    );
-    setInvoiceRow(null);
-    setInvoiceAmount("");
+  const generateInvoice = async (withGst) => {
+    if (!invoiceRow || invoiceBusy) return;
+
+    const pinCode = String(invoiceForm.pinCode || "").trim();
+    const station = String(invoiceForm.station || "").trim();
+    const vehicleNo = String(invoiceForm.vehicleNo || "").trim();
+    const amount = String(invoiceForm.amount || "").trim();
+
+    if (!pinCode || pinCode.length < 6) {
+      window.alert("Pin Code (6 digit) bharna zaroori hai.");
+      return;
+    }
+    if (!station) {
+      window.alert("Station fill karein.");
+      return;
+    }
+    if (!vehicleNo) {
+      window.alert("Vehicle Number fill karein.");
+      return;
+    }
+    if (!amount || !(Number(amount) > 0)) {
+      window.alert("Taxable Amount sahi bharen.");
+      return;
+    }
+
+    setInvoiceBusy(true);
+    try {
+      const invoice = issueSaleInvoice({
+        consumerNo: invoiceRow.consumerNo,
+        customerName: invoiceRow.customerName,
+        fatherName: invoiceRow.fatherName,
+        address: invoiceRow.address,
+        mobile: invoiceRow.mobile,
+        setupKw: invoiceRow.setupKw,
+        amount,
+        withGst,
+        pinCode,
+        station,
+        panelName: invoiceForm.panelName,
+        inverterName: invoiceForm.inverterName,
+        inverterSerial: invoiceForm.inverterSerial,
+        vehicleNo,
+        saleRowId: saleRowKey(invoiceRow),
+      });
+
+      await saveInvoiceDocumentToFolder(invoice);
+
+      addCustomerPayment({
+        sourceRef: `sale-${invoice.id}`,
+        consumerNo: invoiceRow.consumerNo,
+        date: invoice.date,
+        amount: invoice.totalAmount,
+        category: PAYMENT_CATEGORIES.SALE,
+        label: `Sale Invoice (${invoice.gstType})`,
+        reference: invoice.invoiceNo,
+        applicationNo: invoice.invoiceNo,
+      });
+      notifyPaymentSync();
+
+      setRows((prev) =>
+        prev.map((row) =>
+          rowsMatch(row, invoiceRow)
+            ? {
+                ...row,
+                amount,
+                invoiceId: invoice.id,
+                invoiceNo: invoice.invoiceNo,
+                invoiceWithGst: invoice.withGst,
+                invoiceGstType: invoice.gstType,
+                invoiceDate: invoice.date,
+                invoicePinCode: invoice.pinCode,
+                invoiceStation: invoice.station,
+                invoicePanelName: invoice.panelName,
+                invoiceInverterName: invoice.inverterName,
+                invoiceInverterSerial: invoice.inverterSerial,
+                vehicleNo: invoice.vehicleNo,
+              }
+            : row,
+        ),
+      );
+      setDocRefresh((n) => n + 1);
+
+      const saleSnapshot = {
+        ...invoiceRow,
+        amount,
+        invoiceId: invoice.id,
+        invoiceNo: invoice.invoiceNo,
+        vehicleNo: invoice.vehicleNo,
+        invoicePinCode: invoice.pinCode,
+        invoiceStation: invoice.station,
+      };
+
+      setInvoiceRow(null);
+      setEwayResult(null);
+      setEwayDistance("");
+      setEwayContext({ saleRow: saleSnapshot, invoice });
+    } catch (err) {
+      window.alert(err?.message || "Invoice generate / folder save fail hua.");
+    } finally {
+      setInvoiceBusy(false);
+    }
+  };
+
+  const generateEwayBill = async () => {
+    if (!ewayContext?.invoice || ewayBusy) return;
+    const distanceKm = String(ewayDistance || "").trim();
+    if (!distanceKm || !(Number(distanceKm) > 0)) {
+      window.alert("Distance (km) fill karein.");
+      return;
+    }
+
+    setEwayBusy(true);
+    setEwayResult(null);
+    try {
+      const invoice = ewayContext.invoice;
+      const api = await callEwayGenerateApi({
+        invoiceNo: invoice.invoiceNo,
+        consumerNo: invoice.consumerNo,
+        vehicleNo: invoice.vehicleNo,
+        pinCode: invoice.pinCode,
+        station: invoice.station,
+        distanceKm,
+      });
+
+      if (!api.ok) {
+        window.alert(api.error || "E-Way Bill API failed.");
+        return;
+      }
+
+      const ewayPayload = {
+        ewayBillNo: api.ewayBillNo,
+        distanceKm: Number(distanceKm),
+        validUpto: api.validUpto,
+      };
+
+      const updatedInvoice = attachEwayBillToInvoice(invoice.id, ewayPayload) || {
+        ...invoice,
+        ewayBillNo: api.ewayBillNo,
+      };
+
+      await saveEwayDocumentToFolder(updatedInvoice, ewayPayload);
+      await saveInvoiceDocumentToFolder({
+        ...updatedInvoice,
+        ewayBillNo: api.ewayBillNo,
+      });
+
+      setRows((prev) =>
+        prev.map((row) =>
+          rowsMatch(row, ewayContext.saleRow) ||
+          (row.invoiceId && row.invoiceId === invoice.id)
+            ? {
+                ...row,
+                ewayBillNo: api.ewayBillNo,
+                ewayDistanceKm: String(distanceKm),
+                ewayValidUpto: api.validUpto || "",
+              }
+            : row,
+        ),
+      );
+      setDocRefresh((n) => n + 1);
+      setEwayResult(ewayPayload);
+      setEwayContext((prev) =>
+        prev
+          ? {
+              ...prev,
+              invoice: { ...updatedInvoice, ewayBillNo: api.ewayBillNo },
+            }
+          : prev,
+      );
+    } catch (err) {
+      window.alert(err?.message || "E-Way Bill generate fail hua.");
+    } finally {
+      setEwayBusy(false);
+    }
   };
 
   const onJointReportPick = async (event) => {
@@ -660,13 +937,57 @@ function SaleCaseSheet() {
                   />
                 </td>
                 <td>
-                  <button
-                    type="button"
-                    className={styles.actionBtn}
-                    onClick={() => openInvoiceModal(row)}
-                  >
-                    Generate Invoice
-                  </button>
+                  <div className={styles.invoiceActions}>
+                    {row.invoiceNo ? (
+                      <>
+                        <span className={styles.invoiceNoBadge} title="Invoice number">
+                          {row.invoiceNo}
+                        </span>
+                        <button
+                          type="button"
+                          className={styles.actionBtn}
+                          onClick={() => downloadRowInvoice(row)}
+                        >
+                          Download Invoice
+                        </button>
+                        {row.ewayBillNo ? (
+                          <button
+                            type="button"
+                            className={`${styles.actionBtn} ${styles.actionBtnGold}`}
+                            onClick={() => downloadRowEway(row)}
+                          >
+                            Download E-Way ({row.ewayBillNo})
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className={`${styles.actionBtn} ${styles.actionBtnGold}`}
+                            onClick={() => openEwayModalForRow(row)}
+                          >
+                            E-Way Bill
+                          </button>
+                        )}
+                        {TEMP_ALLOW_INVOICE_DELETE ? (
+                          <button
+                            type="button"
+                            className={styles.deleteInvoiceBtn}
+                            onClick={() => deleteRowInvoice(row)}
+                            title="Temporary — live pe hata denge"
+                          >
+                            Delete Invoice (TEMP)
+                          </button>
+                        ) : null}
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.actionBtn}
+                        onClick={() => openInvoiceModal(row)}
+                      >
+                        Generate Invoice
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td>
                   <button
@@ -699,33 +1020,220 @@ function SaleCaseSheet() {
 
       {invoiceRow && (
         <div className={styles.modalBackdrop} role="presentation">
-          <div className={styles.modal} role="dialog" aria-modal="true">
+          <div className={`${styles.modal} ${styles.modalInvoice}`} role="dialog" aria-modal="true">
             <h2>Generate Invoice</h2>
-            <p>
-              Consumer: <strong>{invoiceRow.consumerNo}</strong> —{" "}
-              {invoiceRow.customerName}
+            <p className={styles.invoicePreviewNo}>
+              Next Invoice No. (series): <strong>{invoiceForm.previewInvoiceNo}</strong>
             </p>
-            <label className={styles.modalLabel}>
-              Taxable Amount (₹)
-              <input
-                type="number"
-                value={invoiceAmount}
-                onChange={(e) => setInvoiceAmount(e.target.value)}
-                min="0"
-              />
-            </label>
+
+            <div className={styles.partyBox}>
+              <strong>Party detail (Sale Sheet)</strong>
+              <div className={styles.partyGrid}>
+                <span>Consumer: {invoiceRow.consumerNo}</span>
+                <span>Mobile: {invoiceRow.mobile || "—"}</span>
+                <span>Name: {invoiceRow.customerName}</span>
+                <span>Father/Husband: {invoiceRow.fatherName || "—"}</span>
+                <span className={styles.partyFull}>Address: {invoiceRow.address || "—"}</span>
+                <span>Setup: {invoiceRow.setupKw || "—"}</span>
+              </div>
+            </div>
+
+            <div className={styles.modalFormGrid}>
+              <label className={styles.modalLabel}>
+                Pin Code *
+                <input
+                  value={invoiceForm.pinCode}
+                  onChange={(e) => patchInvoiceForm("pinCode", e.target.value)}
+                  placeholder="6 digit"
+                  maxLength={6}
+                />
+              </label>
+              <label className={styles.modalLabel}>
+                Station *
+                <input
+                  value={invoiceForm.station}
+                  onChange={(e) => patchInvoiceForm("station", e.target.value)}
+                  placeholder="Delivery station / place"
+                />
+              </label>
+              <label className={`${styles.modalLabel} ${styles.modalLabelFull}`}>
+                Panel Name (Setup Detail)
+                <input
+                  value={invoiceForm.panelName}
+                  onChange={(e) => patchInvoiceForm("panelName", e.target.value)}
+                />
+              </label>
+              <label className={styles.modalLabel}>
+                Inverter Name
+                <input
+                  value={invoiceForm.inverterName}
+                  onChange={(e) => patchInvoiceForm("inverterName", e.target.value)}
+                />
+              </label>
+              <label className={styles.modalLabel}>
+                Inverter Sr. No.
+                <input
+                  value={invoiceForm.inverterSerial}
+                  onChange={(e) => patchInvoiceForm("inverterSerial", e.target.value)}
+                />
+              </label>
+              <label className={styles.modalLabel}>
+                Vehicle Number *
+                <input
+                  value={invoiceForm.vehicleNo}
+                  onChange={(e) => patchInvoiceForm("vehicleNo", e.target.value.toUpperCase())}
+                  placeholder="HRXXAB1234"
+                />
+              </label>
+              <label className={styles.modalLabel}>
+                Taxable Amount (₹) *
+                <input
+                  type="number"
+                  value={invoiceForm.amount}
+                  onChange={(e) => patchInvoiceForm("amount", e.target.value)}
+                  min="0"
+                />
+              </label>
+            </div>
+
             <p className={styles.modalHint}>Choose invoice type:</p>
             <div className={styles.modalActions}>
-              <button type="button" className={styles.btnGold} onClick={() => generateInvoice(true)}>
-                With GST (18%)
+              <button
+                type="button"
+                className={styles.btnGold}
+                disabled={invoiceBusy}
+                onClick={() => generateInvoice(true)}
+              >
+                {invoiceBusy ? "Generating…" : "With GST (5% + 18%)"}
               </button>
-              <button type="button" className={styles.btnOutline} onClick={() => generateInvoice(false)}>
+              <button
+                type="button"
+                className={styles.btnOutline}
+                disabled={invoiceBusy}
+                onClick={() => generateInvoice(false)}
+              >
                 Without GST
               </button>
-              <button type="button" className={styles.btnCancel} onClick={() => setInvoiceRow(null)}>
+              <button
+                type="button"
+                className={styles.btnCancel}
+                disabled={invoiceBusy}
+                onClick={() => setInvoiceRow(null)}
+              >
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {ewayContext && (
+        <div className={styles.modalBackdrop} role="presentation">
+          <div className={`${styles.modal} ${styles.modalInvoice}`} role="dialog" aria-modal="true">
+            <h2>E-Way Bill</h2>
+            <p>
+              Invoice <strong>{ewayContext.invoice?.invoiceNo}</strong> —{" "}
+              {ewayContext.invoice?.customerName}
+            </p>
+            <div className={styles.partyBox}>
+              <div className={styles.partyGrid}>
+                <span>Vehicle: {ewayContext.invoice?.vehicleNo || "—"}</span>
+                <span>Pin: {ewayContext.invoice?.pinCode || "—"}</span>
+                <span>Station: {ewayContext.invoice?.station || "—"}</span>
+                <span>
+                  Panel: {ewayContext.invoice?.panelName || "—"}
+                </span>
+              </div>
+            </div>
+
+            {!ewayResult ? (
+              <>
+                <label className={styles.modalLabel}>
+                  Distance (km) *
+                  <input
+                    type="number"
+                    min="1"
+                    value={ewayDistance}
+                    onChange={(e) => setEwayDistance(e.target.value)}
+                    placeholder="e.g. 45"
+                  />
+                </label>
+                <p className={styles.modalHintSmall}>
+                  Generate pe API data match karke E-Way Bill number issue hoga. Invoice + E-Way Bill
+                  customer Open folder (Invoices) me save honge.
+                </p>
+                <div className={styles.modalActions}>
+                  <button
+                    type="button"
+                    className={styles.btnGold}
+                    disabled={ewayBusy}
+                    onClick={generateEwayBill}
+                  >
+                    {ewayBusy ? "Matching API…" : "Generate E-Way Bill"}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnCancel}
+                    disabled={ewayBusy}
+                    onClick={() => setEwayContext(null)}
+                  >
+                    Close
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className={styles.ewaySuccess}>Successfully — E-Way Bill generated</p>
+                <p>
+                  E-Way Bill No.: <strong>{ewayResult.ewayBillNo}</strong>
+                  {ewayResult.validUpto ? (
+                    <>
+                      <br />
+                      Valid upto: {ewayResult.validUpto}
+                    </>
+                  ) : null}
+                </p>
+                <div className={styles.modalActions}>
+                  <button
+                    type="button"
+                    className={styles.btnGold}
+                    onClick={() => {
+                      const doc = findEwayDocument(
+                        ewayContext.invoice.consumerNo,
+                        ewayResult.ewayBillNo,
+                      );
+                      if (doc) openHtmlDocument(doc);
+                      else downloadRowEway(ewayContext.saleRow);
+                    }}
+                  >
+                    Download E-Way Bill
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnOutline}
+                    onClick={() => {
+                      const doc = findInvoiceDocument(
+                        ewayContext.invoice.consumerNo,
+                        ewayContext.invoice.invoiceNo,
+                      );
+                      if (doc) openHtmlDocument(doc);
+                    }}
+                  >
+                    Download Invoice
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnCancel}
+                    onClick={() => {
+                      setEwayContext(null);
+                      setEwayResult(null);
+                    }}
+                  >
+                    Done
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

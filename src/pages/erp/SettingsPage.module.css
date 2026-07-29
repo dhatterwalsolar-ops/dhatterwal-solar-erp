@@ -327,3 +327,130 @@
 .btnDangerSmall:hover {
   background: #ffebee;
 }
+
+.formatActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.btnOutline {
+  background: #fff;
+  border: 1px solid var(--color-green-dark);
+  color: var(--color-green-dark);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.formatLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .formatLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formatFields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.subHead {
+  margin: 0.85rem 0 0.45rem;
+  font-size: 0.875rem;
+  color: var(--color-green-dark);
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.logoRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.logoPreview {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.logoPlaceholder {
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--color-border);
+  border-radius: 10px;
+  font-size: 0.7rem;
+  color: var(--color-text-soft);
+  text-align: center;
+  padding: 0.35rem;
+}
+
+.logoButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.hiddenFile {
+  display: none;
+}
+
+.bankBlock {
+  border: 1px solid #e5ebe7;
+  border-radius: 10px;
+  padding: 0.65rem;
+  margin-bottom: 0.5rem;
+  background: #fafcfb;
+}
+
+.termsArea {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  resize: vertical;
+}
+
+.previewPane {
+  position: sticky;
+  top: 0.5rem;
+}
+
+.previewFrame {
+  width: 100%;
+  height: min(78vh, 920px);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.sampleRef {
+  margin-top: 0.65rem;
+}
+
+.sampleRef img {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}

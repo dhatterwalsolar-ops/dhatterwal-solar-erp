@@ -4,6 +4,8 @@ const CATEGORY_LABELS = {
   annexure: "Annexure — Panel & Inverter details",
   "joint-report": "Joint Report",
   "complete-package": "Complete file manifest (index)",
+  "sale-invoice": "Sale Invoice",
+  "eway-bill": "E-Way Bill",
 };
 
 const SOURCE_LABELS = {
@@ -13,6 +15,8 @@ const SOURCE_LABELS = {
 };
 
 const CATEGORY_ORDER = [
+  "sale-invoice",
+  "eway-bill",
   "complete-package",
   "safety-certificate",
   "annexure",
@@ -137,6 +141,21 @@ export function groupCustomerFolderDocuments(documents) {
       title: `Complete file package — ${formatPackageTitle(pkg)}`,
       hint: "Generated from Sale Sheet (safety certificate, annexure, joint report, manifest)",
       items: sortDocs(items),
+    });
+  }
+
+  const invoiceDocs = docs.filter(
+    (d) =>
+      d.category === "sale-invoice" ||
+      d.category === "eway-bill" ||
+      String(d.folder || "").includes("/Invoices/"),
+  );
+  if (invoiceDocs.length) {
+    sections.push({
+      id: "sale-invoices",
+      title: "Sale invoices & E-Way bills",
+      hint: "Generated from Sale Sheet — invoice + e-way bill saved under Invoices folder",
+      items: sortDocs(invoiceDocs),
     });
   }
 
