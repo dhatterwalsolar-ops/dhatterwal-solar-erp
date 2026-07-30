@@ -27,6 +27,39 @@ app.use(
 );
 app.use(express.json({ limit: "40mb" }));
 
+app.get("/", (_req, res) => {
+  res.json({
+    ok: true,
+    service: "dhatterwal-erp-api",
+    message: "Dhatterwal Solar ERP API is running.",
+    health: "/health",
+    apiHealth: "/api/health",
+    dbTest: "/api/db/test",
+    login: "POST /api/auth/login",
+  });
+});
+
+app.get("/health", async (_req, res) => {
+  try {
+    const { keys, updatedAt } = await getAllKeys();
+    res.json({
+      ok: true,
+      service: "dhatterwal-erp-api",
+      database: getStoreBackendName(),
+      keyCount: Object.keys(keys).length,
+      updatedAt,
+      time: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      service: "dhatterwal-erp-api",
+      database: getStoreBackendName(),
+      error: err?.message || "db error",
+    });
+  }
+});
+
 app.get("/api/health", async (_req, res) => {
   try {
     const { keys, updatedAt } = await getAllKeys();
