@@ -1,10 +1,11 @@
 import { DEFAULT_SUPPLIERS } from "../constants/supplierRegistry";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const KEY = "dhatterwal_suppliers";
 
 function readCustom() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = erpGetItem(KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -15,7 +16,7 @@ function readCustom() {
 
 function writeCustom(list) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(list));
+    erpSetItem(KEY, JSON.stringify(list));
   } catch {
     /* ignore */
   }

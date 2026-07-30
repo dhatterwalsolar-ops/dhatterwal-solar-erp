@@ -1,4 +1,5 @@
 import { PAYMENT_MODES } from "../constants/paymentManagement";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const STORAGE_KEY = "dhatterwal_payment_accounts";
 
@@ -21,7 +22,7 @@ function defaultAccounts() {
 }
 
 export function loadPaymentAccounts() {
-  const stored = safeParse(localStorage.getItem(STORAGE_KEY), null);
+  const stored = safeParse(erpGetItem(STORAGE_KEY), null);
   if (Array.isArray(stored) && stored.length > 0) {
     return stored.map((a) => ({
       id: a.id || `acc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -39,7 +40,7 @@ export function savePaymentAccounts(accounts) {
     currentBalance: Number(a.currentBalance) || 0,
   }));
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+    erpSetItem(STORAGE_KEY, JSON.stringify(cleaned));
   } catch {
     /* ignore */
   }

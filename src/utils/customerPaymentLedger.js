@@ -1,5 +1,6 @@
 import { parseAmountValue } from "../constants/customerDetail";
 import { ensureCustomerDetailRow } from "./customerDetailStorage";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const STORAGE_KEY = "dhatterwal_customer_payment_ledger";
 
@@ -16,12 +17,12 @@ function safeParse(raw, fallback) {
 }
 
 function readAll() {
-  return safeParse(localStorage.getItem(STORAGE_KEY), []);
+  return safeParse(erpGetItem(STORAGE_KEY), []);
 }
 
 function writeAll(items) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    erpSetItem(STORAGE_KEY, JSON.stringify(items));
   } catch {
     /* ignore */
   }

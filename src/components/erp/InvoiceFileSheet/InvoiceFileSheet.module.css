@@ -36,6 +36,54 @@
   flex-wrap: wrap;
 }
 
+.seriesPanel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.75rem;
+  padding: 0.85rem 1.15rem;
+  border-bottom: 1px solid var(--color-border);
+  background: #fff;
+}
+
+.seriesCard {
+  border: 1px solid #dce6e0;
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  background: #f7faf8;
+}
+
+.seriesCard h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--color-green-dark);
+}
+
+.seriesCard p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+}
+
+.nmFreeList {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  max-height: 120px;
+  overflow: auto;
+  font-size: 0.75rem;
+}
+
+.nmFreeList li {
+  padding: 0.2rem 0;
+  border-bottom: 1px dashed #e2ebe5;
+}
+
+.emptyMini {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+}
+
 .search {
   border: 1px solid var(--color-border);
   border-radius: 8px;

@@ -1,9 +1,17 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ErpIcon } from "../components/erp/ErpIcon";
 import { getPageTitleByPath } from "../constants/erpMenu";
 import { CONTACT } from "../constants/contact";
 import { ROUTES } from "../constants/routes";
 import { clearAuthSession, getAuthSession } from "../utils/authSession";
+import {
+  getApiToken,
+  hydrateFromServer,
+  isHydrated,
+  logoutCloud,
+  startPolling,
+} from "../utils/erpStorage";
 import { getErpMenuForSession, isAdminSession } from "../utils/erpAccess";
 import styles from "./DashboardLayout.module.css";
 
@@ -29,11 +37,50 @@ function DashboardLayout() {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+  const [syncReady, setSyncReady] = useState(() => isHydrated());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!session) return;
+      if (!getApiToken()) {
+        navigate(ROUTES.LOGIN, { replace: true });
+        return;
+      }
+      if (!isHydrated()) {
+        try {
+          await hydrateFromServer({ uploadLocalIfEmpty: false });
+        } catch {
+          if (!cancelled) {
+            logoutCloud();
+            clearAuthSession();
+            navigate(ROUTES.LOGIN, { replace: true });
+          }
+          return;
+        }
+      } else {
+        startPolling();
+      }
+      if (!cancelled) setSyncReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session, navigate]);
 
   const handleLogout = () => {
+    logoutCloud();
     clearAuthSession();
     navigate(ROUTES.LOGIN, { replace: true });
   };
+
+  if (!syncReady) {
+    return (
+      <div className={styles.shell} style={{ display: "grid", placeItems: "center", minHeight: "100vh" }}>
+        <p>Shared ERP sync ho raha hai…</p>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.shell}>
@@ -108,7 +155,7 @@ function DashboardLayout() {
             </button>
             <div>
               <p className={styles.pageTitle}>{pageTitle}</p>
-              <p className={styles.welcome}>Welcome, {displayName}</p>
+              <p className={styles.welcome}>Welcome, {displayName} · Shared ERP</p>
             </div>
           </div>
 
@@ -140,7 +187,7 @@ function DashboardLayout() {
 
         <footer className={styles.footer}>
           <p>© {new Date().getFullYear()} Dhatterwal Solar Energy System ERP. All Rights Reserved.</p>
-          <p>Designed for your business</p>
+          <p>Shared live ERP — same data on every PC</p>
         </footer>
       </div>
     </div>

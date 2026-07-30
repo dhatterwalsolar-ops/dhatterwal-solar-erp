@@ -1,6 +1,7 @@
 import { loadPurchaseDraft } from "./purchaseStorage";
 import { findPurchaseHistoryByInvoiceNo, loadPurchaseHistory, normalizePurchaseInvoiceNo } from "./purchaseHistoryStorage";
 import { loadProducts, findProductByName } from "./productStorage";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const BALANCES_KEY = "dhatterwal_stock_balances";
 const APPLIED_PURCHASES_KEY = "dhatterwal_stock_purchase_applied";
@@ -19,36 +20,36 @@ function safeParse(raw, fallback) {
 }
 
 function readBalances() {
-  return safeParse(localStorage.getItem(BALANCES_KEY), []);
+  return safeParse(erpGetItem(BALANCES_KEY), []);
 }
 
 function writeBalances(list) {
   try {
-    localStorage.setItem(BALANCES_KEY, JSON.stringify(list));
+    erpSetItem(BALANCES_KEY, JSON.stringify(list));
   } catch {
     /* ignore */
   }
 }
 
 function readAppliedPurchaseInvoices() {
-  return safeParse(localStorage.getItem(APPLIED_PURCHASES_KEY), []);
+  return safeParse(erpGetItem(APPLIED_PURCHASES_KEY), []);
 }
 
 function writeAppliedPurchaseInvoices(list) {
   try {
-    localStorage.setItem(APPLIED_PURCHASES_KEY, JSON.stringify(list.slice(0, 500)));
+    erpSetItem(APPLIED_PURCHASES_KEY, JSON.stringify(list.slice(0, 500)));
   } catch {
     /* ignore */
   }
 }
 
 function readLedger() {
-  return safeParse(localStorage.getItem(LEDGER_KEY), []);
+  return safeParse(erpGetItem(LEDGER_KEY), []);
 }
 
 function writeLedger(list) {
   try {
-    localStorage.setItem(LEDGER_KEY, JSON.stringify(list.slice(0, 2000)));
+    erpSetItem(LEDGER_KEY, JSON.stringify(list.slice(0, 2000)));
   } catch {
     /* ignore */
   }

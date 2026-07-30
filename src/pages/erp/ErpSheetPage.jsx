@@ -9,6 +9,7 @@ import SaleCaseSheet from "../../components/erp/SaleCaseSheet/SaleCaseSheet";
 import BomSheet from "../../components/erp/BomSheet/BomSheet";
 import UpdateNameLoadSheet from "../../components/erp/UpdateNameLoadSheet/UpdateNameLoadSheet";
 import ProductSheet from "../../components/erp/ProductSheet/ProductSheet";
+import QuerySheet from "../../components/erp/QuerySheet/QuerySheet";
 import StockSheet from "../../components/erp/StockSheet/StockSheet";
 import { ERP_MENU, ERP_SHEET_CONFIG } from "../../constants/erpMenu";
 import { ROUTES } from "../../constants/routes";
@@ -52,6 +53,8 @@ function ErpSheetPage() {
     content = <BomSheet />;
   } else if (menuItem.key === "stock") {
     content = <StockSheet />;
+  } else if (menuItem.key === "query") {
+    content = <QuerySheet />;
   } else {
     const config = ERP_SHEET_CONFIG[menuItem.key];
     content = (

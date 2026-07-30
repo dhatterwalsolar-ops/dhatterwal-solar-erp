@@ -34,15 +34,25 @@ import CustomerFolderModal from "./CustomerFolderModal";
 import {
   attachEwayBillToInvoice,
   findInvoiceForSaleRow,
+  findNetMeterInvoiceForSaleRow,
   getInvoiceById,
+  issueNetMeterInvoice,
   issueSaleInvoice,
+  listAvailableNetMeterInvoicesForWithoutGst,
   peekNextInvoiceSerial,
 } from "../../../utils/invoiceStorage";
 import {
+  clearedNetMeterInvoiceFields,
   clearedSaleInvoiceFields,
   deleteOldInvoiceCompletely,
 } from "../../../utils/tempInvoiceDelete";
 import { TEMP_ALLOW_INVOICE_DELETE } from "../../../constants/tempInvoiceDelete";
+import { getAuthSession } from "../../../utils/authSession";
+import { consumerMatchesReference } from "../../../utils/consumerReference";
+import {
+  getSaleReferenceFilter,
+  isSaleInvoiceDownloadOnly,
+} from "../../../utils/erpAccess";
 import {
   downloadInvoiceDoc,
   findEwayDocument,
@@ -53,6 +63,12 @@ import {
 } from "../../../utils/saleInvoiceDocuments";
 import { resolveInvoiceItemDetails } from "../../../utils/saleInvoiceItems";
 import { callEwayGenerateApi } from "../../../utils/ewayBillApi";
+import {
+  EWAY_ITEM_AMOUNT_LIMIT,
+  invoiceNeedsEwayBill,
+} from "../../../utils/ewayThreshold";
+import { resolveProductHsn } from "../../../utils/saleInvoiceCompute";
+import { ensureProductItem } from "../../../utils/productStorage";
 import {
   addCustomerPayment,
   notifyPaymentSync,
@@ -154,6 +170,9 @@ function reloadSaleRowsFromStorage() {
 
 function SaleCaseSheet() {
   const [rows, setRows] = useState(() => reloadSaleRowsFromStorage());
+  const session = getAuthSession();
+  const saleRefFilter = getSaleReferenceFilter(session);
+  const invoiceDownloadOnly = isSaleInvoiceDownloadOnly(session);
   const [query, setQuery] = useState("");
   const [invoiceRow, setInvoiceRow] = useState(null);
   const [invoiceForm, setInvoiceForm] = useState({
@@ -165,19 +184,32 @@ function SaleCaseSheet() {
     inverterSerial: "",
     vehicleNo: "",
     previewInvoiceNo: "",
+    nmSearch: "",
+    selectedNmNo: "",
+    selectedNmDate: "",
   });
   const [invoiceBusy, setInvoiceBusy] = useState(false);
+  const [netMeterRow, setNetMeterRow] = useState(null);
+  const [netMeterForm, setNetMeterForm] = useState({
+    itemName: "Net Meter Single Phase",
+    meterSrNo: "",
+    applicationNo: "",
+    meterCompanyName: "",
+    hsn: "",
+    amount: "",
+    gstPercent: "18",
+    previewInvoiceNo: "",
+  });
+  const [netMeterBusy, setNetMeterBusy] = useState(false);
   const [ewayContext, setEwayContext] = useState(null);
   const [ewayDistance, setEwayDistance] = useState("");
   const [ewayBusy, setEwayBusy] = useState(false);
   const [ewayResult, setEwayResult] = useState(null);
   const [completeRow, setCompleteRow] = useState(null);
-  const [jointReport, setJointReport] = useState(null);
   const [folderRow, setFolderRow] = useState(null);
   const [docRefresh, setDocRefresh] = useState(0);
   const [lanUrlDraft, setLanUrlDraft] = useState(() => getSavedPublicAppBaseUrl());
   const [linkBaseTick, setLinkBaseTick] = useState(0);
-  const jointInputRef = useRef(null);
   const consumerSyncTimers = useRef(new Map());
 
   useEffect(() => {
@@ -216,12 +248,16 @@ function SaleCaseSheet() {
   }, []);
 
   const filteredRows = useMemo(() => {
-    if (!query.trim()) return rows;
+    let list = rows;
+    if (saleRefFilter) {
+      list = list.filter((row) => consumerMatchesReference(row.consumerNo, saleRefFilter));
+    }
+    if (!query.trim()) return list;
     const q = query.toLowerCase();
-    return rows.filter((row) =>
+    return list.filter((row) =>
       Object.values(row).some((value) => String(value).toLowerCase().includes(q)),
     );
-  }, [query, rows]);
+  }, [query, rows, saleRefFilter]);
 
   const updateCell = (rowRef, key, value) => {
     setRows((prev) =>
@@ -365,6 +401,11 @@ function SaleCaseSheet() {
       return;
     }
     const items = resolveInvoiceItemDetails(row);
+    const availableNm = listAvailableNetMeterInvoicesForWithoutGst({
+      consumerNo: row.consumerNo,
+    });
+    const preferred =
+      availableNm.find((n) => n.invoiceNo === row.netMeterInvoiceNo) || availableNm[0] || null;
     setInvoiceRow(row);
     setInvoiceForm({
       amount: row.amount || "",
@@ -375,6 +416,9 @@ function SaleCaseSheet() {
       inverterSerial: items.inverterSerial,
       vehicleNo: row.vehicleNo || "",
       previewInvoiceNo: peekNextInvoiceSerial(),
+      nmSearch: "",
+      selectedNmNo: preferred?.invoiceNo || "",
+      selectedNmDate: preferred?.date || "",
     });
   };
 
@@ -385,7 +429,6 @@ function SaleCaseSheet() {
   const openCompleteModal = (row) => {
     if (!requireConsumerRow(row)) return;
     setCompleteRow(row);
-    setJointReport(null);
   };
 
   const openFolderModal = (row) => {
@@ -397,44 +440,107 @@ function SaleCaseSheet() {
     setDocRefresh((n) => n + 1);
   };
 
-  const openEwayModalForRow = (row) => {
-    if (!row.invoiceId && !row.invoiceNo) {
-      window.alert("Pehle Generate Invoice karein.");
+  const openEwayModalForRow = (row, kind = "sale") => {
+    const isNet = kind === "net-meter";
+    const invoice = isNet
+      ? findNetMeterInvoiceForSaleRow(row) || getInvoiceById(row.netMeterInvoiceId)
+      : findInvoiceForSaleRow(row) ||
+        getInvoiceById(row.invoiceId) || {
+          id: row.invoiceId,
+          invoiceNo: row.invoiceNo,
+          consumerNo: row.consumerNo,
+          customerName: row.customerName,
+          vehicleNo: row.vehicleNo,
+          pinCode: row.invoicePinCode,
+          station: row.invoiceStation,
+          panelName: row.invoicePanelName,
+          inverterName: row.invoiceInverterName,
+          inverterSerial: row.invoiceInverterSerial,
+          setupKw: row.setupKw,
+          taxableAmount: Number(row.amount) || 0,
+          totalAmount: Number(row.amount) || 0,
+          gstType: row.invoiceGstType || "",
+          date: row.invoiceDate || "",
+          withGst: row.invoiceWithGst,
+        };
+
+    if (!invoice?.invoiceNo && !invoice?.id) {
+      window.alert(isNet ? "Pehle Net Meter Invoice generate karein." : "Pehle Generate Invoice karein.");
       return;
     }
-    const invoice = getInvoiceById(row.invoiceId) || {
-      id: row.invoiceId,
-      invoiceNo: row.invoiceNo,
-      consumerNo: row.consumerNo,
-      customerName: row.customerName,
-      vehicleNo: row.vehicleNo,
-      pinCode: row.invoicePinCode,
-      station: row.invoiceStation,
-      panelName: row.invoicePanelName,
-      inverterName: row.invoiceInverterName,
-      inverterSerial: row.invoiceInverterSerial,
-      setupKw: row.setupKw,
-      taxableAmount: Number(row.amount) || 0,
-      totalAmount: Number(row.amount) || 0,
-      gstType: row.invoiceGstType || "",
-      date: row.invoiceDate || "",
-      withGst: row.invoiceWithGst,
-    };
+    if (!invoiceNeedsEwayBill(invoice)) {
+      window.alert(
+        `E-Way Bill tab jaruri hai jab item / invoice amount ₹${EWAY_ITEM_AMOUNT_LIMIT.toLocaleString("en-IN")} se jyada ho.`,
+      );
+      return;
+    }
+
+    const existingEwayNo = isNet ? row.netMeterEwayBillNo : row.ewayBillNo;
     setEwayResult(
-      row.ewayBillNo
+      existingEwayNo
         ? {
-            ewayBillNo: row.ewayBillNo,
-            distanceKm: row.ewayDistanceKm || "",
-            validUpto: row.ewayValidUpto || "",
+            ewayBillNo: existingEwayNo,
+            distanceKm: (isNet ? row.netMeterEwayDistanceKm : row.ewayDistanceKm) || "",
+            validUpto: (isNet ? row.netMeterEwayValidUpto : row.ewayValidUpto) || "",
           }
         : null,
     );
-    setEwayDistance(row.ewayDistanceKm || "");
-    setEwayContext({ saleRow: row, invoice });
+    setEwayDistance((isNet ? row.netMeterEwayDistanceKm : row.ewayDistanceKm) || "");
+    setEwayContext({ saleRow: row, invoice, kind: isNet ? "net-meter" : "sale" });
   };
 
-  const downloadRowInvoice = (row) => {
-    const doc = findInvoiceDocument(row.consumerNo, row.invoiceNo);
+  const openNetMeterModal = (row) => {
+    if (!requireConsumerRow(row)) return;
+    if (row.netMeterInvoiceNo) {
+      window.alert(`Net Meter Invoice pehle se hai: ${row.netMeterInvoiceNo}`);
+      return;
+    }
+    ensureProductItem({
+      itemName: "Net Meter Single Phase",
+      category: "GENERAL",
+      hsn: "90283010",
+    });
+    const itemName = "Net Meter Single Phase";
+    setNetMeterRow(row);
+    setNetMeterForm({
+      itemName,
+      meterSrNo: "",
+      applicationNo: "",
+      meterCompanyName: "",
+      hsn: resolveProductHsn(itemName, "90283010"),
+      amount: "",
+      gstPercent: "18",
+      previewInvoiceNo: peekNextInvoiceSerial(),
+    });
+  };
+
+  const patchNetMeterForm = (key, value) => {
+    setNetMeterForm((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "itemName") {
+        next.hsn = resolveProductHsn(value, prev.hsn || "90283010");
+      }
+      return next;
+    });
+  };
+
+  const downloadRowInvoice = async (row) => {
+    const inv = findInvoiceForSaleRow(row) || getInvoiceById(row.invoiceId);
+    if (inv?.id) {
+      try {
+        await saveInvoiceDocumentToFolder({
+          ...inv,
+          ewayBillNo: inv.ewayBillNo || row.ewayBillNo || "",
+        });
+      } catch {
+        /* ignore — fall through to existing file */
+      }
+    }
+    const doc = findInvoiceDocument(
+      row.consumerNo,
+      row.invoiceNo,
+      row.invoiceWithGst === false ? "without-gst" : "with-gst",
+    );
     if (!doc) {
       window.alert("Invoice file folder me nahi mili. Open folder check karein.");
       return;
@@ -442,8 +548,30 @@ function SaleCaseSheet() {
     downloadInvoiceDoc(doc);
   };
 
-  const downloadRowEway = (row) => {
-    const doc = findEwayDocument(row.consumerNo, row.ewayBillNo);
+  const downloadNetMeterInvoice = async (row) => {
+    const inv =
+      findNetMeterInvoiceForSaleRow(row) || getInvoiceById(row.netMeterInvoiceId);
+    if (inv?.id) {
+      try {
+        await saveInvoiceDocumentToFolder({
+          ...inv,
+          ewayBillNo: inv.ewayBillNo || row.netMeterEwayBillNo || "",
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+    const doc = findInvoiceDocument(row.consumerNo, row.netMeterInvoiceNo, "net-meter");
+    if (!doc) {
+      window.alert("Net Meter Invoice file folder me nahi mili.");
+      return;
+    }
+    downloadInvoiceDoc(doc);
+  };
+
+  const downloadRowEway = (row, kind = "sale") => {
+    const ewayNo = kind === "net-meter" ? row.netMeterEwayBillNo : row.ewayBillNo;
+    const doc = findEwayDocument(row.consumerNo, ewayNo);
     if (!doc) {
       window.alert("E-Way Bill file folder me nahi mili.");
       return;
@@ -505,7 +633,13 @@ function SaleCaseSheet() {
       return;
     }
     if (!amount || !(Number(amount) > 0)) {
-      window.alert("Taxable Amount sahi bharen.");
+      window.alert(withGst ? "Amount With Tax sahi bharen." : "Amount sahi bharen.");
+      return;
+    }
+    if (!withGst && !String(invoiceForm.selectedNmNo || "").trim()) {
+      window.alert(
+        "Without GST ke liye Net Meter Invoice number select karein (jo abhi free ho).",
+      );
       return;
     }
 
@@ -527,6 +661,7 @@ function SaleCaseSheet() {
         inverterSerial: invoiceForm.inverterSerial,
         vehicleNo,
         saleRowId: saleRowKey(invoiceRow),
+        linkedNetMeterInvoiceNo: withGst ? "" : invoiceForm.selectedNmNo,
       });
 
       await saveInvoiceDocumentToFolder(invoice);
@@ -579,12 +714,153 @@ function SaleCaseSheet() {
       setInvoiceRow(null);
       setEwayResult(null);
       setEwayDistance("");
-      setEwayContext({ saleRow: saleSnapshot, invoice });
+      if (invoiceNeedsEwayBill(invoice)) {
+        setEwayContext({ saleRow: saleSnapshot, invoice, kind: "sale" });
+      } else {
+        setEwayContext(null);
+      }
     } catch (err) {
       window.alert(err?.message || "Invoice generate / folder save fail hua.");
     } finally {
       setInvoiceBusy(false);
     }
+  };
+
+  const saveNetMeterInvoice = async () => {
+    if (!netMeterRow || netMeterBusy) return;
+
+    const itemName = String(netMeterForm.itemName || "").trim();
+    const meterSrNo = String(netMeterForm.meterSrNo || "").trim();
+    const applicationNo = String(netMeterForm.applicationNo || "").trim();
+    const meterCompanyName = String(netMeterForm.meterCompanyName || "").trim();
+    const amount = String(netMeterForm.amount || "").trim();
+    const gstPercent = String(netMeterForm.gstPercent || "").trim();
+    const hsn = String(netMeterForm.hsn || "").trim() || resolveProductHsn(itemName, "90283010");
+
+    if (!itemName) {
+      window.alert("Item name bharen (jaise Net Meter Single Phase).");
+      return;
+    }
+    if (!meterSrNo) {
+      window.alert("Meter Sr. No. bharen.");
+      return;
+    }
+    if (!applicationNo) {
+      window.alert("Application No. bharen.");
+      return;
+    }
+    if (!meterCompanyName) {
+      window.alert("Meter Company Name bharen.");
+      return;
+    }
+    if (!amount || !(Number(amount) > 0)) {
+      window.alert("Amount sahi bharen.");
+      return;
+    }
+    if (gstPercent === "" || Number.isNaN(Number(gstPercent)) || Number(gstPercent) < 0) {
+      window.alert("GST % sahi bharen (0 bhi chalega).");
+      return;
+    }
+
+    setNetMeterBusy(true);
+    try {
+      ensureProductItem({ itemName, category: "GENERAL", hsn });
+      const invoice = issueNetMeterInvoice({
+        consumerNo: netMeterRow.consumerNo,
+        customerName: netMeterRow.customerName,
+        fatherName: netMeterRow.fatherName,
+        address: netMeterRow.address,
+        mobile: netMeterRow.mobile,
+        setupKw: netMeterRow.setupKw,
+        pinCode: netMeterRow.invoicePinCode || "",
+        station: netMeterRow.invoiceStation || "",
+        vehicleNo: netMeterRow.vehicleNo || "",
+        saleRowId: saleRowKey(netMeterRow),
+        itemName,
+        meterSrNo,
+        applicationNo,
+        meterCompanyName,
+        hsn,
+        amount,
+        gstPercent,
+      });
+
+      await saveInvoiceDocumentToFolder(invoice);
+
+      addCustomerPayment({
+        sourceRef: `sale-nm-${invoice.id}`,
+        consumerNo: netMeterRow.consumerNo,
+        date: invoice.date,
+        amount: invoice.totalAmount,
+        category: PAYMENT_CATEGORIES.SALE,
+        label: `Net Meter Invoice (${invoice.gstType})`,
+        reference: invoice.invoiceNo,
+        applicationNo: applicationNo || invoice.invoiceNo,
+      });
+      notifyPaymentSync();
+
+      const saleSnapshot = {
+        ...netMeterRow,
+        netMeterInvoiceId: invoice.id,
+        netMeterInvoiceNo: invoice.invoiceNo,
+      };
+
+      setRows((prev) =>
+        prev.map((row) =>
+          rowsMatch(row, netMeterRow)
+            ? {
+                ...row,
+                netMeterInvoiceId: invoice.id,
+                netMeterInvoiceNo: invoice.invoiceNo,
+              }
+            : row,
+        ),
+      );
+      setDocRefresh((n) => n + 1);
+      setNetMeterRow(null);
+      setEwayResult(null);
+      setEwayDistance("");
+      if (invoiceNeedsEwayBill(invoice)) {
+        setEwayContext({ saleRow: saleSnapshot, invoice, kind: "net-meter" });
+      }
+    } catch (err) {
+      window.alert(err?.message || "Net Meter Invoice save fail hua.");
+    } finally {
+      setNetMeterBusy(false);
+    }
+  };
+
+  const deleteNetMeterInvoice = (row) => {
+    if (!TEMP_ALLOW_INVOICE_DELETE) {
+      window.alert("Invoice delete live site pe available nahi hoga.");
+      return;
+    }
+    const invoice = findNetMeterInvoiceForSaleRow(row);
+    if (!invoice?.id) {
+      window.alert("Net Meter Invoice record nahi mili.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `TEMP: Net Meter Invoice ${invoice.invoiceNo} delete karein?\n\nPhir dubara Net Meter Invoice bana sakte ho.`,
+      )
+    ) {
+      return;
+    }
+    const result = deleteOldInvoiceCompletely(invoice.id);
+    if (!result.ok) {
+      window.alert(result.error || "Delete fail.");
+      return;
+    }
+    setRows((prev) =>
+      prev.map((r) => (rowsMatch(r, row) ? clearedNetMeterInvoiceFields(r) : r)),
+    );
+    setDocRefresh((n) => n + 1);
+    if (ewayContext?.invoice?.id === invoice.id) {
+      setEwayContext(null);
+      setEwayResult(null);
+    }
+    window.alert(`Net Meter Invoice ${invoice.invoiceNo} delete ho gayi.`);
   };
 
   const generateEwayBill = async () => {
@@ -599,6 +875,7 @@ function SaleCaseSheet() {
     setEwayResult(null);
     try {
       const invoice = ewayContext.invoice;
+      const isNet = ewayContext.kind === "net-meter";
       const api = await callEwayGenerateApi({
         invoiceNo: invoice.invoiceNo,
         consumerNo: invoice.consumerNo,
@@ -619,29 +896,50 @@ function SaleCaseSheet() {
         validUpto: api.validUpto,
       };
 
-      const updatedInvoice = attachEwayBillToInvoice(invoice.id, ewayPayload) || {
+      let updatedInvoice = null;
+      if (invoice.id) {
+        updatedInvoice = attachEwayBillToInvoice(invoice.id, ewayPayload);
+      }
+      updatedInvoice = updatedInvoice || {
         ...invoice,
         ewayBillNo: api.ewayBillNo,
+        ewayDistanceKm: String(distanceKm),
+        ewayValidUpto: api.validUpto || "",
       };
+      /* Fresh record from Invoice File so HTML me E-Way No. pakka likhe */
+      const fresh = (invoice.id && getInvoiceById(invoice.id)) || updatedInvoice;
 
-      await saveEwayDocumentToFolder(updatedInvoice, ewayPayload);
+      await saveEwayDocumentToFolder(fresh, ewayPayload);
       await saveInvoiceDocumentToFolder({
-        ...updatedInvoice,
+        ...fresh,
         ewayBillNo: api.ewayBillNo,
+        ewayDistanceKm: String(distanceKm),
+        ewayValidUpto: api.validUpto || "",
       });
 
       setRows((prev) =>
-        prev.map((row) =>
-          rowsMatch(row, ewayContext.saleRow) ||
-          (row.invoiceId && row.invoiceId === invoice.id)
-            ? {
-                ...row,
-                ewayBillNo: api.ewayBillNo,
-                ewayDistanceKm: String(distanceKm),
-                ewayValidUpto: api.validUpto || "",
-              }
-            : row,
-        ),
+        prev.map((row) => {
+          const matchSale =
+            rowsMatch(row, ewayContext.saleRow) ||
+            (isNet
+              ? row.netMeterInvoiceId && row.netMeterInvoiceId === invoice.id
+              : row.invoiceId && row.invoiceId === invoice.id);
+          if (!matchSale) return row;
+          if (isNet) {
+            return {
+              ...row,
+              netMeterEwayBillNo: api.ewayBillNo,
+              netMeterEwayDistanceKm: String(distanceKm),
+              netMeterEwayValidUpto: api.validUpto || "",
+            };
+          }
+          return {
+            ...row,
+            ewayBillNo: api.ewayBillNo,
+            ewayDistanceKm: String(distanceKm),
+            ewayValidUpto: api.validUpto || "",
+          };
+        }),
       );
       setDocRefresh((n) => n + 1);
       setEwayResult(ewayPayload);
@@ -649,7 +947,7 @@ function SaleCaseSheet() {
         prev
           ? {
               ...prev,
-              invoice: { ...updatedInvoice, ewayBillNo: api.ewayBillNo },
+              invoice: { ...fresh, ewayBillNo: api.ewayBillNo },
             }
           : prev,
       );
@@ -658,14 +956,6 @@ function SaleCaseSheet() {
     } finally {
       setEwayBusy(false);
     }
-  };
-
-  const onJointReportPick = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    const dataUrl = await readFileAsDataUrl(file);
-    setJointReport({ fileName: file.name, dataUrl });
   };
 
   const runCompleteFile = async () => {
@@ -682,15 +972,12 @@ function SaleCaseSheet() {
         bom,
         setupKw: completeRow.setupKw,
         date: completeRow.date || new Date().toLocaleDateString("en-GB"),
-        jointReportDataUrl: jointReport?.dataUrl,
-        jointReportFileName: jointReport?.fileName,
       });
       setDocRefresh((n) => n + 1);
       window.alert(
         `Complete file package created (${included.length} items).\nSaved under:\n${packageFolder}\n\nManifest downloaded to your PC.`,
       );
       setCompleteRow(null);
-      setJointReport(null);
     } catch (err) {
       window.alert(err.message || "Could not generate complete file.");
     }
@@ -734,8 +1021,9 @@ function SaleCaseSheet() {
         <div>
           <h1>Sale Sheet</h1>
           <p>
-            Team Work select par *sirf us team leader* ko WhatsApp (7876686572 Web login).
-            Message me consumer naam/detail + Google Form link. ERP form se stock less.
+            {invoiceDownloadOnly && saleRefFilter
+              ? `Sirf Reference "${saleRefFilter}" wale customers — invoice download.`
+              : "Team Work select par *sirf us team leader* ko WhatsApp (7876686572 Web login). Message me consumer naam/detail + Google Form link. ERP form se stock less."}
           </p>
         </div>
         <div className={styles.toolbarActions}>
@@ -746,16 +1034,20 @@ function SaleCaseSheet() {
             placeholder="Search sale rows..."
             className={styles.search}
           />
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={() => setRows((prev) => [...prev, createEmptySaleRow()])}
-          >
-            + Add Row
-          </button>
-          <button type="button" className={styles.btnBackup} onClick={handleAddBackupEntry}>
-            + Backup Entry
-          </button>
+          {!invoiceDownloadOnly ? (
+            <>
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                onClick={() => setRows((prev) => [...prev, createEmptySaleRow()])}
+              >
+                + Add Row
+              </button>
+              <button type="button" className={styles.btnBackup} onClick={handleAddBackupEntry}>
+                + Backup Entry
+              </button>
+            </>
+          ) : null}
         </div>
       </header>
 
@@ -938,7 +1230,40 @@ function SaleCaseSheet() {
                 </td>
                 <td>
                   <div className={styles.invoiceActions}>
-                    {row.invoiceNo ? (
+                    {invoiceDownloadOnly ? (
+                      <>
+                        {row.invoiceNo ? (
+                          <>
+                            <span className={styles.invoiceNoBadge} title="Invoice number">
+                              {row.invoiceNo}
+                            </span>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => downloadRowInvoice(row)}
+                            >
+                              Download Invoice
+                            </button>
+                          </>
+                        ) : (
+                          <span className={styles.siteFormMuted}>Invoice pending</span>
+                        )}
+                        {row.netMeterInvoiceNo ? (
+                          <>
+                            <span className={styles.invoiceNoBadge} title="Net Meter Invoice">
+                              NM: {row.netMeterInvoiceNo}
+                            </span>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => downloadNetMeterInvoice(row)}
+                            >
+                              Download Net Meter Inv.
+                            </button>
+                          </>
+                        ) : null}
+                      </>
+                    ) : row.invoiceNo ? (
                       <>
                         <span className={styles.invoiceNoBadge} title="Invoice number">
                           {row.invoiceNo}
@@ -950,21 +1275,87 @@ function SaleCaseSheet() {
                         >
                           Download Invoice
                         </button>
-                        {row.ewayBillNo ? (
-                          <button
-                            type="button"
-                            className={`${styles.actionBtn} ${styles.actionBtnGold}`}
-                            onClick={() => downloadRowEway(row)}
-                          >
-                            Download E-Way ({row.ewayBillNo})
-                          </button>
+                        {(() => {
+                          const saleInv =
+                            findInvoiceForSaleRow(row) || getInvoiceById(row.invoiceId);
+                          const needsEway = invoiceNeedsEwayBill(
+                            saleInv || {
+                              totalAmount: Number(row.amount) || 0,
+                              taxableAmount: Number(row.amount) || 0,
+                            },
+                          );
+                          if (!needsEway) return null;
+                          return row.ewayBillNo ? (
+                            <button
+                              type="button"
+                              className={`${styles.actionBtn} ${styles.actionBtnGold}`}
+                              onClick={() => downloadRowEway(row, "sale")}
+                            >
+                              Download E-Way ({row.ewayBillNo})
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className={`${styles.actionBtn} ${styles.actionBtnGold}`}
+                              onClick={() => openEwayModalForRow(row, "sale")}
+                            >
+                              E-Way Bill (req.)
+                            </button>
+                          );
+                        })()}
+                        {row.netMeterInvoiceNo ? (
+                          <>
+                            <span className={styles.invoiceNoBadge} title="Net Meter Invoice">
+                              NM: {row.netMeterInvoiceNo}
+                            </span>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => downloadNetMeterInvoice(row)}
+                            >
+                              Download Net Meter Inv.
+                            </button>
+                            {(() => {
+                              const nmInv =
+                                findNetMeterInvoiceForSaleRow(row) ||
+                                getInvoiceById(row.netMeterInvoiceId);
+                              const needsEway = invoiceNeedsEwayBill(nmInv);
+                              if (!needsEway) return null;
+                              return row.netMeterEwayBillNo ? (
+                                <button
+                                  type="button"
+                                  className={`${styles.actionBtn} ${styles.actionBtnGold}`}
+                                  onClick={() => downloadRowEway(row, "net-meter")}
+                                >
+                                  NM E-Way ({row.netMeterEwayBillNo})
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className={`${styles.actionBtn} ${styles.actionBtnGold}`}
+                                  onClick={() => openEwayModalForRow(row, "net-meter")}
+                                >
+                                  NM E-Way Bill (req.)
+                                </button>
+                              );
+                            })()}
+                            {TEMP_ALLOW_INVOICE_DELETE ? (
+                              <button
+                                type="button"
+                                className={styles.deleteInvoiceBtn}
+                                onClick={() => deleteNetMeterInvoice(row)}
+                              >
+                                Delete NM Inv. (TEMP)
+                              </button>
+                            ) : null}
+                          </>
                         ) : (
                           <button
                             type="button"
                             className={`${styles.actionBtn} ${styles.actionBtnGold}`}
-                            onClick={() => openEwayModalForRow(row)}
+                            onClick={() => openNetMeterModal(row)}
                           >
-                            E-Way Bill
+                            Net Meter Invoice
                           </button>
                         )}
                         {TEMP_ALLOW_INVOICE_DELETE ? (
@@ -979,24 +1370,52 @@ function SaleCaseSheet() {
                         ) : null}
                       </>
                     ) : (
-                      <button
-                        type="button"
-                        className={styles.actionBtn}
-                        onClick={() => openInvoiceModal(row)}
-                      >
-                        Generate Invoice
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className={styles.actionBtn}
+                          onClick={() => openInvoiceModal(row)}
+                        >
+                          Generate Invoice
+                        </button>
+                        {!row.netMeterInvoiceNo ? (
+                          <button
+                            type="button"
+                            className={`${styles.actionBtn} ${styles.actionBtnGold}`}
+                            onClick={() => openNetMeterModal(row)}
+                          >
+                            Net Meter Invoice
+                          </button>
+                        ) : (
+                          <>
+                            <span className={styles.invoiceNoBadge} title="Net Meter Invoice">
+                              NM: {row.netMeterInvoiceNo}
+                            </span>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => downloadNetMeterInvoice(row)}
+                            >
+                              Download Net Meter Inv.
+                            </button>
+                          </>
+                        )}
+                      </>
                     )}
                   </div>
                 </td>
                 <td>
-                  <button
-                    type="button"
-                    className={`${styles.actionBtn} ${styles.actionBtnGold}`}
-                    onClick={() => openCompleteModal(row)}
-                  >
-                    Generate Complete File
-                  </button>
+                  {!invoiceDownloadOnly ? (
+                    <button
+                      type="button"
+                      className={`${styles.actionBtn} ${styles.actionBtnGold}`}
+                      onClick={() => openCompleteModal(row)}
+                    >
+                      Generate Complete File
+                    </button>
+                  ) : (
+                    <span className={styles.siteFormMuted}>—</span>
+                  )}
                 </td>
                 <td>
                   <button
@@ -1008,9 +1427,13 @@ function SaleCaseSheet() {
                   </button>
                 </td>
                 <td>
-                  <button type="button" className={styles.deleteBtn} onClick={() => deleteRow(row)}>
-                    Delete
-                  </button>
+                  {!invoiceDownloadOnly ? (
+                    <button type="button" className={styles.deleteBtn} onClick={() => deleteRow(row)}>
+                      Delete
+                    </button>
+                  ) : (
+                    <span className={styles.siteFormMuted}>—</span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -1086,16 +1509,74 @@ function SaleCaseSheet() {
                 />
               </label>
               <label className={styles.modalLabel}>
-                Taxable Amount (₹) *
+                Amount With Tax (₹) *
                 <input
                   type="number"
                   value={invoiceForm.amount}
                   onChange={(e) => patchInvoiceForm("amount", e.target.value)}
                   min="0"
+                  placeholder="Grand total / tax-inclusive"
                 />
               </label>
             </div>
 
+            <p className={styles.modalHint}>
+              With GST: naya series number (Settings) allocate hoga — Invoice File auto update.
+              Without GST: pehle se kate hue Net Meter Invoice number search/select karein; wahi
+              number + wahi date lagegi (dobara use nahi hoga).
+            </p>
+            <div className={styles.nmPickBox}>
+              <label className={`${styles.modalLabel} ${styles.modalLabelFull}`}>
+                Without GST — Net Meter Invoice No. search
+                <input
+                  value={invoiceForm.nmSearch}
+                  onChange={(e) => patchInvoiceForm("nmSearch", e.target.value)}
+                  placeholder="Invoice no / name / consumer"
+                />
+              </label>
+              {invoiceForm.selectedNmNo ? (
+                <p className={styles.modalHintSmall}>
+                  Selected: <strong>{invoiceForm.selectedNmNo}</strong> — Date:{" "}
+                  <strong>{invoiceForm.selectedNmDate || "—"}</strong>
+                </p>
+              ) : (
+                <p className={styles.modalHintSmall}>
+                  Without GST ke liye koi free Net Meter number select karein.
+                </p>
+              )}
+              <ul className={styles.nmPickList}>
+                {listAvailableNetMeterInvoicesForWithoutGst({
+                  query: invoiceForm.nmSearch,
+                })
+                  .slice(0, 12)
+                  .map((nm) => (
+                    <li key={nm.id}>
+                      <button
+                        type="button"
+                        className={
+                          invoiceForm.selectedNmNo === nm.invoiceNo
+                            ? styles.nmPickActive
+                            : styles.nmPickBtn
+                        }
+                        onClick={() =>
+                          setInvoiceForm((prev) => ({
+                            ...prev,
+                            selectedNmNo: nm.invoiceNo,
+                            selectedNmDate: nm.date || "",
+                          }))
+                        }
+                      >
+                        {nm.invoiceNo} · {nm.date} · {nm.customerName || nm.consumerNo}
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+            <p className={styles.modalHintSmall}>
+              With GST / Net Meter: next series <strong>{invoiceForm.previewInvoiceNo}</strong>
+              {" · "}
+              E-Way tabhi jab amount ₹{EWAY_ITEM_AMOUNT_LIMIT.toLocaleString("en-IN")} se jyada.
+            </p>
             <p className={styles.modalHint}>Choose invoice type:</p>
             <div className={styles.modalActions}>
               <button
@@ -1109,7 +1590,7 @@ function SaleCaseSheet() {
               <button
                 type="button"
                 className={styles.btnOutline}
-                disabled={invoiceBusy}
+                disabled={invoiceBusy || !invoiceForm.selectedNmNo}
                 onClick={() => generateInvoice(false)}
               >
                 Without GST
@@ -1127,13 +1608,112 @@ function SaleCaseSheet() {
         </div>
       )}
 
+      {netMeterRow && (
+        <div className={styles.modalBackdrop} role="presentation">
+          <div className={`${styles.modal} ${styles.modalInvoice}`} role="dialog" aria-modal="true">
+            <h2>Net Meter Invoice</h2>
+            <p className={styles.invoicePreviewNo}>
+              Next Invoice No. (series): <strong>{netMeterForm.previewInvoiceNo}</strong>
+            </p>
+            <div className={styles.partyBox}>
+              <strong>Party — {netMeterRow.customerName}</strong>
+              <div className={styles.partyGrid}>
+                <span>Consumer: {netMeterRow.consumerNo}</span>
+                <span>Main Inv: {netMeterRow.invoiceNo || "— (optional)"}</span>
+              </div>
+            </div>
+            <div className={styles.modalFormGrid}>
+              <label className={`${styles.modalLabel} ${styles.modalLabelFull}`}>
+                Item *
+                <input
+                  value={netMeterForm.itemName}
+                  onChange={(e) => patchNetMeterForm("itemName", e.target.value)}
+                  placeholder="Net Meter Single Phase"
+                />
+              </label>
+              <label className={styles.modalLabel}>
+                Meter Sr. No. *
+                <input
+                  value={netMeterForm.meterSrNo}
+                  onChange={(e) => patchNetMeterForm("meterSrNo", e.target.value)}
+                />
+              </label>
+              <label className={styles.modalLabel}>
+                Application No. *
+                <input
+                  value={netMeterForm.applicationNo}
+                  onChange={(e) => patchNetMeterForm("applicationNo", e.target.value)}
+                />
+              </label>
+              <label className={`${styles.modalLabel} ${styles.modalLabelFull}`}>
+                Meter Company Name *
+                <input
+                  value={netMeterForm.meterCompanyName}
+                  onChange={(e) => patchNetMeterForm("meterCompanyName", e.target.value)}
+                />
+              </label>
+              <label className={styles.modalLabel}>
+                HSN (Product Sheet)
+                <input value={netMeterForm.hsn} readOnly />
+              </label>
+              <label className={styles.modalLabel}>
+                Amount (₹) *
+                <input
+                  type="number"
+                  min="0"
+                  value={netMeterForm.amount}
+                  onChange={(e) => patchNetMeterForm("amount", e.target.value)}
+                />
+              </label>
+              <label className={styles.modalLabel}>
+                GST % *
+                <input
+                  type="number"
+                  min="0"
+                  value={netMeterForm.gstPercent}
+                  onChange={(e) => patchNetMeterForm("gstPercent", e.target.value)}
+                />
+              </label>
+            </div>
+            <p className={styles.modalHintSmall}>
+              Amount taxable hogi; GST % us par add hoga. Amount ₹
+              {EWAY_ITEM_AMOUNT_LIMIT.toLocaleString("en-IN")} se jyada ho to E-Way Bill jaruri.
+            </p>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.btnGold}
+                disabled={netMeterBusy}
+                onClick={saveNetMeterInvoice}
+              >
+                {netMeterBusy ? "Saving…" : "Save Net Meter Invoice"}
+              </button>
+              <button
+                type="button"
+                className={styles.btnCancel}
+                disabled={netMeterBusy}
+                onClick={() => setNetMeterRow(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {ewayContext && (
         <div className={styles.modalBackdrop} role="presentation">
           <div className={`${styles.modal} ${styles.modalInvoice}`} role="dialog" aria-modal="true">
-            <h2>E-Way Bill</h2>
+            <h2>
+              E-Way Bill
+              {ewayContext.kind === "net-meter" ? " (Net Meter)" : ""}
+            </h2>
             <p>
               Invoice <strong>{ewayContext.invoice?.invoiceNo}</strong> —{" "}
               {ewayContext.invoice?.customerName}
+            </p>
+            <p className={styles.modalHintSmall}>
+              Required because amount &gt; ₹{EWAY_ITEM_AMOUNT_LIMIT.toLocaleString("en-IN")}
             </p>
             <div className={styles.partyBox}>
               <div className={styles.partyGrid}>
@@ -1141,7 +1721,9 @@ function SaleCaseSheet() {
                 <span>Pin: {ewayContext.invoice?.pinCode || "—"}</span>
                 <span>Station: {ewayContext.invoice?.station || "—"}</span>
                 <span>
-                  Panel: {ewayContext.invoice?.panelName || "—"}
+                  {ewayContext.kind === "net-meter"
+                    ? `Item: ${ewayContext.invoice?.itemName || "Net Meter"}`
+                    : `Panel: ${ewayContext.invoice?.panelName || "—"}`}
                 </span>
               </div>
             </div>
@@ -1203,7 +1785,11 @@ function SaleCaseSheet() {
                         ewayResult.ewayBillNo,
                       );
                       if (doc) openHtmlDocument(doc);
-                      else downloadRowEway(ewayContext.saleRow);
+                      else
+                        downloadRowEway(
+                          ewayContext.saleRow,
+                          ewayContext.kind === "net-meter" ? "net-meter" : "sale",
+                        );
                     }}
                   >
                     Download E-Way Bill
@@ -1211,10 +1797,27 @@ function SaleCaseSheet() {
                   <button
                     type="button"
                     className={styles.btnOutline}
-                    onClick={() => {
+                    onClick={async () => {
+                      const inv = ewayContext.invoice;
+                      if (inv) {
+                        try {
+                          await saveInvoiceDocumentToFolder({
+                            ...inv,
+                            ewayBillNo:
+                              inv.ewayBillNo || ewayResult?.ewayBillNo || "",
+                          });
+                        } catch {
+                          /* ignore */
+                        }
+                      }
                       const doc = findInvoiceDocument(
                         ewayContext.invoice.consumerNo,
                         ewayContext.invoice.invoiceNo,
+                        ewayContext.kind === "net-meter"
+                          ? "net-meter"
+                          : ewayContext.invoice?.withGst === false
+                            ? "without-gst"
+                            : "with-gst",
                       );
                       if (doc) openHtmlDocument(doc);
                     }}
@@ -1250,27 +1853,7 @@ function SaleCaseSheet() {
               <li>Work OS Safety Certificate (proforma — auto by setup + BOM)</li>
               <li>Annexure: panel, inverter, wire, stand (from BOM / labour form)</li>
               <li>All documents uploaded in Loan Case &amp; Cash Case for this consumer</li>
-              <li>Joint Report (optional — upload below)</li>
             </ul>
-            <input
-              ref={jointInputRef}
-              type="file"
-              className={styles.hiddenFile}
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-              onChange={onJointReportPick}
-            />
-            <div className={styles.jointRow}>
-              <button
-                type="button"
-                className={styles.btnOutline}
-                onClick={() => jointInputRef.current?.click()}
-              >
-                Upload Joint Report
-              </button>
-              <span className={styles.jointName}>
-                {jointReport ? jointReport.fileName : "No joint report selected"}
-              </span>
-            </div>
             <p className={styles.modalHintSmall}>
               Files save under: {customerFolderPath(completeRow.consumerNo)}/CompleteFile-…
             </p>
@@ -1283,7 +1866,6 @@ function SaleCaseSheet() {
                 className={styles.btnCancel}
                 onClick={() => {
                   setCompleteRow(null);
-                  setJointReport(null);
                 }}
               >
                 Cancel

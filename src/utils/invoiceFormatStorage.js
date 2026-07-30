@@ -1,11 +1,12 @@
 import { DEFAULT_INVOICE_FORMAT } from "../constants/companyInvoice";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const KEY = "dhatterwal_erp_settings";
 const MAX_LOGO_BYTES = 1.5 * 1024 * 1024;
 
 function read() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = erpGetItem(KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -14,7 +15,7 @@ function read() {
 
 function write(data) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(data));
+    erpSetItem(KEY, JSON.stringify(data));
     return true;
   } catch {
     return false;
@@ -57,6 +58,11 @@ export function saveInvoiceFormat(format) {
     ...format,
     banks: normalizeBanks(format.banks),
     terms: normalizeTerms(format.terms),
+    solarSharePercent: Number(format.solarSharePercent ?? DEFAULT_INVOICE_FORMAT.solarSharePercent),
+    solarGstPercent: Number(format.solarGstPercent ?? DEFAULT_INVOICE_FORMAT.solarGstPercent),
+    installGstPercent: Number(format.installGstPercent ?? DEFAULT_INVOICE_FORMAT.installGstPercent),
+    logoDataUrl: format.logoDataUrl || "",
+    signDataUrl: format.signDataUrl || "",
   };
   const ok = write({ ...saved, invoiceFormat: next });
   if (ok && typeof window !== "undefined") {
@@ -84,7 +90,7 @@ export function readFileAsDataUrlLimited(file, maxBytes = MAX_LOGO_BYTES) {
     if (file.size > maxBytes) {
       reject(
         new Error(
-          `Logo max ${(maxBytes / (1024 * 1024)).toFixed(1)} MB tak allow hai (browser storage).`,
+          `Image max ${(maxBytes / (1024 * 1024)).toFixed(1)} MB tak allow hai (browser storage).`,
         ),
       );
       return;

@@ -1,5 +1,5 @@
 /**
- * TEMP — old invoice delete (testing / pre-live only).
- * Live site pe is flag ko `false` kar dena ya feature hata dena.
+ * Invoice delete — sirf local/dev testing.
+ * Production (`npm run build`) me automatically band.
  */
-export const TEMP_ALLOW_INVOICE_DELETE = true;
+export const TEMP_ALLOW_INVOICE_DELETE = import.meta.env.DEV;

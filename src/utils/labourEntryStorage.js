@@ -1,12 +1,13 @@
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 const STORAGE_KEY = "dhatterwal_labour_daily_entry";
 
 export function saveLabourEntry(payload) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    localStorage.setItem(
+    erpSetItem(STORAGE_KEY, JSON.stringify(payload));
+    erpSetItem(
       `${STORAGE_KEY}_history`,
       JSON.stringify([
-        ...(JSON.parse(localStorage.getItem(`${STORAGE_KEY}_history`) || "[]") || []),
+        ...(JSON.parse(erpGetItem(`${STORAGE_KEY}_history`) || "[]") || []),
         { ...payload, savedAt: new Date().toISOString() },
       ].slice(-30)),
     );
@@ -17,7 +18,7 @@ export function saveLabourEntry(payload) {
 
 export function loadLabourEntryDraft() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = erpGetItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;

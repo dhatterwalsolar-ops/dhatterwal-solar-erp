@@ -217,6 +217,29 @@
   font: inherit;
 }
 
+.seriesGrid select {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+  background: #fff;
+}
+
+.addUserBox {
+  border: 1px solid #d7e0da;
+  border-radius: 12px;
+  padding: 0.85rem 1rem 1rem;
+  margin-bottom: 1rem;
+  background: #f7faf8;
+}
+
+.userActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
 .previewField {
   grid-column: span 2;
 }
@@ -389,6 +412,16 @@
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: #fff;
+}
+
+.signPreview {
+  width: 160px;
+  height: 64px;
+  object-fit: contain;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+  padding: 4px;
 }
 
 .logoPlaceholder {

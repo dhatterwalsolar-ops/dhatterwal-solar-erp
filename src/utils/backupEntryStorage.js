@@ -1,4 +1,5 @@
 import { BACKUP_ENTRY_SYNC_EVENT, createEmptyBackupEntry } from "../constants/backupEntry";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const STORAGE_KEY = "dhatterwal_backup_entries";
 
@@ -11,12 +12,12 @@ function safeParse(raw, fallback) {
 }
 
 function readAll() {
-  return safeParse(localStorage.getItem(STORAGE_KEY), []);
+  return safeParse(erpGetItem(STORAGE_KEY), []);
 }
 
 function writeAll(list) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    erpSetItem(STORAGE_KEY, JSON.stringify(list));
   } catch {
     /* ignore */
   }

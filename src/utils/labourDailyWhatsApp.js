@@ -7,6 +7,7 @@ import {
 import { getSaleTeamLeaderConfig } from "../constants/saleTeamMapping";
 import { getPublicAppBaseUrl, isLocalhostBaseUrl } from "./siteOrderUrl";
 import { getLabourEmployees } from "./labourEmployeeStorage";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const LABOUR_GOOGLE_FORM_KEY = "dhatterwal_labour_daily_google_form_url";
 const LABOUR_FORM_PREFILL_KEY = "dhatterwal_labour_google_form_entry_ids";
@@ -21,7 +22,7 @@ function safeParseJson(raw, fallback) {
 
 export function getLabourDailyGoogleFormUrl() {
   try {
-    return localStorage.getItem(LABOUR_GOOGLE_FORM_KEY) || "";
+    return erpGetItem(LABOUR_GOOGLE_FORM_KEY) || "";
   } catch {
     return "";
   }
@@ -29,7 +30,7 @@ export function getLabourDailyGoogleFormUrl() {
 
 export function setLabourDailyGoogleFormUrl(url) {
   try {
-    localStorage.setItem(LABOUR_GOOGLE_FORM_KEY, String(url || "").trim());
+    erpSetItem(LABOUR_GOOGLE_FORM_KEY, String(url || "").trim());
   } catch {
     /* ignore */
   }
@@ -48,7 +49,7 @@ function leaderMobileByName(leaderName) {
 export function buildLabourDailyGoogleFormUrl(form) {
   const base = getLabourDailyGoogleFormUrl();
   if (!base) return "";
-  const ids = safeParseJson(localStorage.getItem(LABOUR_FORM_PREFILL_KEY), {});
+  const ids = safeParseJson(erpGetItem(LABOUR_FORM_PREFILL_KEY), {});
   const pairs = [];
   const add = (key, value) => {
     const entry = ids[key];

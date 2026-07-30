@@ -1,8 +1,9 @@
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 const KEY = "dhatterwal_purchase_drafts";
 
 export function savePurchaseDraft(payload) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(payload));
+    erpSetItem(KEY, JSON.stringify(payload));
   } catch {
     /* ignore */
   }
@@ -10,7 +11,7 @@ export function savePurchaseDraft(payload) {
 
 export function loadPurchaseDraft() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = erpGetItem(KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -19,7 +20,7 @@ export function loadPurchaseDraft() {
 
 export function clearPurchaseDraft() {
   try {
-    localStorage.removeItem(KEY);
+    erpRemoveItem(KEY);
   } catch {
     /* ignore */
   }

@@ -9,6 +9,7 @@ import {
   getPublicAppBaseUrl,
   isLocalhostBaseUrl,
 } from "./siteOrderUrl";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const GOOGLE_FORM_KEY = "dhatterwal_site_order_google_form_url";
 /** Map field → Google Form query key, e.g. { "customerName": "entry.123456789" } */
@@ -33,7 +34,7 @@ function safeParseJson(raw, fallback) {
 
 export function getSiteOrderGoogleFormUrl() {
   try {
-    return localStorage.getItem(GOOGLE_FORM_KEY) || "";
+    return erpGetItem(GOOGLE_FORM_KEY) || "";
   } catch {
     return "";
   }
@@ -41,14 +42,14 @@ export function getSiteOrderGoogleFormUrl() {
 
 export function setSiteOrderGoogleFormUrl(url) {
   try {
-    localStorage.setItem(GOOGLE_FORM_KEY, String(url || "").trim());
+    erpSetItem(GOOGLE_FORM_KEY, String(url || "").trim());
   } catch {
     /* ignore */
   }
 }
 
 export function getGoogleFormEntryIdMap() {
-  return safeParseJson(localStorage.getItem(GOOGLE_FORM_PREFILL_KEY), {});
+  return safeParseJson(erpGetItem(GOOGLE_FORM_PREFILL_KEY), {});
 }
 
 export function buildGoogleFormUrlForOrder(order) {

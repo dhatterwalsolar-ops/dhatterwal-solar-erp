@@ -101,7 +101,7 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
       return `<tr>
         <td class="c sn">${esc(line.sn)}</td>
         <td class="desc"><div class="item-title">${esc(line.title)}</div>${details}</td>
-        <td class="c">${esc(line.hsn)}</td>
+        <td class="c hsn-cell">${esc(line.hsn)}</td>
         <td class="r">${esc(fmtQty(line.qty))}</td>
         <td class="c">${esc(line.unit || unit)}</td>
         <td class="r">${esc(fmtMoney(line.price))}</td>
@@ -120,30 +120,8 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
     )
     .join("");
 
-  const hsnRows = (calc.hsnSummary || [])
-    .map(
-      (row) => `<tr>
-        <td class="c">${esc(row.hsn)}</td>
-        <td class="c">${esc(fmtRate(row.taxRate))}%</td>
-        <td class="r">${esc(fmtMoney(row.taxableAmt))}</td>
-        <td class="r">${esc(fmtMoney(row.cgstAmt))}</td>
-        <td class="r">${esc(fmtMoney(row.sgstAmt))}</td>
-        <td class="r">${esc(fmtMoney(row.totalTax))}</td>
-      </tr>`,
-    )
-    .join("");
-
-  const hsnTotals = (calc.hsnSummary || []).reduce(
-    (acc, row) => ({
-      taxable: acc.taxable + (Number(row.taxableAmt) || 0),
-      cgst: acc.cgst + (Number(row.cgstAmt) || 0),
-      sgst: acc.sgst + (Number(row.sgstAmt) || 0),
-      tax: acc.tax + (Number(row.totalTax) || 0),
-    }),
-    { taxable: 0, cgst: 0, sgst: 0, tax: 0 },
-  );
-
   const banks = (fmt.banks || [])
+    .filter((b) => String(b?.name || "").trim() || String(b?.accountNo || "").trim())
     .map(
       (b) => `<td class="bank-cell">
         <div class="bank-name">${esc(b.name)}</div>
@@ -154,7 +132,10 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
     )
     .join("");
 
-  const terms = (fmt.terms || []).map((t) => `<div>${esc(t)}</div>`).join("");
+  const terms = (fmt.terms || [])
+    .filter((t) => String(t || "").trim())
+    .map((t) => `<div>${esc(t)}</div>`)
+    .join("");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -181,6 +162,7 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
   .meta-inner { width: 100%; }
   .meta-inner td { border: none; padding: 3px 8px; font-family: Arial, sans-serif; font-size: 12px; }
   .meta-inner .k { font-weight: 700; width: 120px; }
+  .eway-no { font-weight: 700; }
   .party td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 6px 8px; width: 50%; font-family: Arial, sans-serif; }
   .party-head { font-weight: 700; margin-bottom: 4px; }
   .party-name { font-weight: 700; text-transform: uppercase; }
@@ -188,24 +170,28 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
   .gstin-line { margin-top: 10px; }
   .items th, .items td { border: 1px solid #000; padding: 4px 5px; font-family: Arial, sans-serif; font-size: 11.5px; vertical-align: top; }
   .items th { font-weight: 700; }
-  .sn { width: 34px; }
+  .sn { width: 28px; }
+  .desc { width: 48%; }
+  .hsn-cell { width: 52px; max-width: 58px; font-size: 10px; padding: 4px 2px !important; word-break: break-all; }
+  .items th:nth-child(3) { width: 52px; max-width: 58px; font-size: 10px; padding: 4px 2px; }
   .item-title { font-weight: 700; text-transform: uppercase; }
   .item-sub { font-size: 11px; margin-top: 1px; text-transform: uppercase; }
   .tax-label { white-space: nowrap; }
   .grand td { font-weight: 900; }
   .words { padding: 6px 8px; border: 1px solid #000; border-top: none; font-weight: 700; font-family: Arial, sans-serif; }
-  .hsn th, .hsn td { border: 1px solid #000; padding: 4px 5px; font-family: Arial, sans-serif; font-size: 11px; }
   .pay-head { border: 1px solid #000; border-top: none; padding: 5px 8px; font-weight: 700; font-family: Arial, sans-serif; }
   .banks td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 6px 8px; width: 50%; font-family: Arial, sans-serif; font-size: 11px; }
   .bank-name { font-weight: 700; margin-bottom: 2px; }
   .foot td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 6px 8px; font-family: Arial, sans-serif; font-size: 11px; }
   .terms-title { font-weight: 700; margin-bottom: 4px; }
-  .sign-wrap { height: 110px; position: relative; }
-  .recv { margin-top: 2px; }
-  .auth { text-align: right; margin-top: 28px; }
-  .auth-for { font-weight: 700; }
-  .auth-space { height: 36px; }
-  .auth-label { font-weight: 700; }
+  .sign-wrap { min-height: 110px; position: relative; }
+  .recv-row td { min-height: 56px; padding: 10px 8px 28px; }
+  .recv { font-weight: 700; }
+  .auth { text-align: right; margin-top: 8px; }
+  .auth-for { font-weight: 900; font-size: 12.5px; font-family: Arial, sans-serif; }
+  .auth-space { height: 48px; display: flex; align-items: flex-end; justify-content: flex-end; }
+  .auth-sign { max-height: 46px; max-width: 160px; object-fit: contain; }
+  .auth-label { font-weight: 900; font-size: 12.5px; margin-top: 4px; font-family: Arial, sans-serif; }
   @media print { body { padding: 0; } }
 </style>
 </head>
@@ -242,7 +228,11 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
             <tr><td class="k">Transport</td><td>: ${esc(invoice.transport || fmt.transportDefault)}</td></tr>
             <tr><td class="k">Vehicle No.</td><td>: ${esc(invoice.vehicleNo || "")}</td></tr>
             <tr><td class="k">Station</td><td>: ${esc(String(invoice.station || "").toUpperCase())}</td></tr>
-            <tr><td class="k">E-Way Bill No.</td><td>: ${esc(invoice.ewayBillNo || "")}</td></tr>
+            <tr><td class="k">E-Way Bill No.</td><td class="eway-no">: ${
+              invoice.ewayBillNo
+                ? `<strong>${esc(invoice.ewayBillNo)}</strong>`
+                : ""
+            }</td></tr>
           </table>
         </td>
       </tr>
@@ -280,7 +270,7 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
       <tbody>
         ${itemRows}
         <tr>
-          <td></td><td></td><td></td><td></td><td></td><td></td>
+          <td colspan="6" class="r b">Taxable Amount</td>
           <td class="r b">${esc(fmtMoney(calc.taxableAmount))}</td>
         </tr>
         ${taxRowsHtml}
@@ -298,30 +288,6 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
 
     <div class="words">Amount in Words : ${esc(calc.amountInWords)}</div>
 
-    <table class="hsn">
-      <thead>
-        <tr>
-          <th>HSN/SAC</th>
-          <th>Tax Rate</th>
-          <th>Taxable Amt.</th>
-          <th>CGST Amt.</th>
-          <th>SGST Amt.</th>
-          <th>Total Tax</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${hsnRows || `<tr><td class="c" colspan="6">—</td></tr>`}
-        <tr class="b">
-          <td class="c">Total</td>
-          <td></td>
-          <td class="r">${esc(fmtMoney(hsnTotals.taxable))}</td>
-          <td class="r">${esc(fmtMoney(hsnTotals.cgst))}</td>
-          <td class="r">${esc(fmtMoney(hsnTotals.sgst))}</td>
-          <td class="r">${esc(fmtMoney(hsnTotals.tax))}</td>
-        </tr>
-      </tbody>
-    </table>
-
     <div class="pay-head">${esc(fmt.paymentHeading)}</div>
     <table class="banks"><tr>${banks}</tr></table>
 
@@ -330,16 +296,26 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
         <td style="width:58%">
           <div class="terms-title">${esc(fmt.termsHeading)}</div>
           ${terms}
-          <div class="recv" style="margin-top:28px">${esc(fmt.receiverLabel)}</div>
         </td>
         <td>
           <div class="sign-wrap">
             <div class="auth">
               <div class="auth-for">${esc(fmt.signatoryFor)}</div>
-              <div class="auth-space"></div>
+              <div class="auth-space">
+                ${
+                  fmt.signDataUrl
+                    ? `<img class="auth-sign" src="${fmt.signDataUrl}" alt="Authorised signature" />`
+                    : ""
+                }
+              </div>
               <div class="auth-label">${esc(fmt.authorisedLabel)}</div>
             </div>
           </div>
+        </td>
+      </tr>
+      <tr class="recv-row">
+        <td colspan="2">
+          <div class="recv">${esc(fmt.receiverLabel)}</div>
         </td>
       </tr>
     </table>
@@ -381,15 +357,39 @@ export function buildEwayBillHtml(invoice, eway) {
 </html>`;
 }
 
-export async function saveInvoiceDocumentToFolder(invoice) {
-  const html = buildSaleInvoiceHtml(invoice);
-  const fileName = `Invoice-${String(invoice.invoiceNo).replace(/[^\w/-]+/g, "_")}.html`;
-  const subfolder = invoiceSubfolder(invoice.invoiceNo);
+function invoiceFileKindTag(invoice) {
+  if (invoice?.invoiceKind === "net-meter") return "NetMeter";
+  if (invoice && !invoice.withGst) return "WithoutGST";
+  return "WithGST";
+}
 
-  const existing = listCustomerDocuments(invoice.consumerNo, { source: "sale" }).filter(
-    (d) => d.category === "sale-invoice" && d.fileName === fileName,
+function purgeMatchingInvoiceDocs(consumerNo, invoiceNo, kind) {
+  const safe = String(invoiceNo || "").replace(/[^\w/-]+/g, "_");
+  const docs = listCustomerDocuments(consumerNo, { source: "sale" }).filter(
+    (d) => d.category === "sale-invoice",
   );
-  existing.forEach((doc) => removeCustomerDocument(doc.id));
+  docs.forEach((doc) => {
+    const name = String(doc.fileName || "");
+    if (!name.includes(safe)) return;
+    /* Same kind, or legacy file without kind tag */
+    if (name.includes(kind) || (!name.includes("WithGST") && !name.includes("WithoutGST") && !name.includes("NetMeter"))) {
+      removeCustomerDocument(doc.id);
+    }
+  });
+}
+
+export async function saveInvoiceDocumentToFolder(invoice) {
+  const withEway = {
+    ...invoice,
+    ewayBillNo: invoice.ewayBillNo || "",
+  };
+  const html = buildSaleInvoiceHtml(withEway);
+  const safeNo = String(invoice.invoiceNo).replace(/[^\w/-]+/g, "_");
+  const kind = invoiceFileKindTag(invoice);
+  const fileName = `Invoice-${safeNo}-${kind}.html`;
+  const subfolder = `${invoiceSubfolder(invoice.invoiceNo)}/${kind}`;
+
+  purgeMatchingInvoiceDocs(invoice.consumerNo, invoice.invoiceNo, kind);
 
   return addCustomerDocument({
     consumerNo: invoice.consumerNo,
@@ -404,8 +404,9 @@ export async function saveInvoiceDocumentToFolder(invoice) {
 
 export async function saveEwayDocumentToFolder(invoice, eway) {
   const html = buildEwayBillHtml(invoice, eway);
-  const fileName = `EWayBill-${String(eway.ewayBillNo).replace(/[^\w/-]+/g, "_")}.html`;
-  const subfolder = invoiceSubfolder(invoice.invoiceNo);
+  const kind = invoiceFileKindTag(invoice);
+  const fileName = `EWayBill-${String(eway.ewayBillNo).replace(/[^\w/-]+/g, "_")}-${kind}.html`;
+  const subfolder = `${invoiceSubfolder(invoice.invoiceNo)}/${kind}`;
   return addCustomerDocument({
     consumerNo: invoice.consumerNo,
     source: "sale",
@@ -417,12 +418,27 @@ export async function saveEwayDocumentToFolder(invoice, eway) {
   });
 }
 
-export function findInvoiceDocument(consumerNo, invoiceNo) {
+export function findInvoiceDocument(consumerNo, invoiceNo, kindHint) {
   const docs = listCustomerDocuments(consumerNo, { source: "sale" });
   const safe = String(invoiceNo || "").replace(/[^\w/-]+/g, "_");
+  const tag =
+    kindHint === "net-meter"
+      ? "NetMeter"
+      : kindHint === "without-gst"
+        ? "WithoutGST"
+        : kindHint === "with-gst"
+          ? "WithGST"
+          : "";
+  const invoiceDocs = docs.filter((d) => d.category === "sale-invoice");
+  if (tag) {
+    const hit = invoiceDocs.find(
+      (d) =>
+        String(d.fileName || "").includes(safe) && String(d.fileName || "").includes(tag),
+    );
+    if (hit) return hit;
+  }
   return (
-    docs.find((d) => d.category === "sale-invoice" && String(d.fileName || "").includes(safe)) ||
-    docs.find((d) => d.category === "sale-invoice")
+    invoiceDocs.find((d) => String(d.fileName || "").includes(safe)) || invoiceDocs[0] || null
   );
 }
 
@@ -473,6 +489,7 @@ export function buildInvoiceFormatPreviewHtml(format) {
   const calc = buildInvoiceComputation({
     taxableAmount: sample.taxableAmount,
     withGst: true,
+    amountInclusive: false,
     panelName: sample.panelName,
     inverterName: sample.inverterName,
     inverterSerial: sample.inverterSerial,

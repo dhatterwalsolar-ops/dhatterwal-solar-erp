@@ -1,0 +1,22 @@
+# Render Blueprint — API (Neon PostgreSQL)
+# Dashboard: https://dashboard.render.com → New → Blueprint
+services:
+  - type: web
+    name: dhatterwal-erp-api
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install && npx prisma generate && npx prisma db push
+    startCommand: node index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: USE_PGLITE
+        value: "false"
+      - key: PGSSL
+        value: "true"
+      - key: ERP_JWT_SECRET
+        generateValue: true
+      - key: NODE_VERSION
+        value: "20"

@@ -4,6 +4,8 @@ import { AUTH_ROLES, DEMO_ACCOUNTS } from "../../constants/auth";
 import { BRANCH_MD, CONTACT } from "../../constants/contact";
 import { ROUTES } from "../../constants/routes";
 import { setAuthSession } from "../../utils/authSession";
+import { loadLoginUsers } from "../../utils/erpLoginUsers";
+import { getApiBase, hydrateFromServer, loginToApi } from "../../utils/erpStorage";
 import styles from "./LoginPage.module.css";
 
 function LoginPage() {
@@ -18,6 +20,7 @@ function LoginPage() {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const roleMeta = useMemo(
     () => ({
@@ -44,25 +47,40 @@ function LoginPage() {
     setError("");
   }, [role]);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    const demo = DEMO_ACCOUNTS[role];
-
-    if (userId.trim() !== demo.userId || password !== demo.password) {
-      setError("Invalid User ID or password for selected role.");
-      return;
+    setError("");
+    setBusy(true);
+    try {
+      if (!getApiBase()) {
+        throw new Error("API URL missing. VITE_API_URL set karein.");
+      }
+      const user = await loginToApi({
+        userId: userId.trim(),
+        password,
+        role,
+      });
+      await hydrateFromServer({ uploadLocalIfEmpty: true });
+      loadLoginUsers();
+      setAuthSession({
+        role: user.role,
+        roleLabel: user.roleLabel,
+        displayName: user.displayName,
+        userId: user.userId,
+        accessProfile: user.accessProfile || "",
+        remember,
+        loggedInAt: new Date().toISOString(),
+        cloud: true,
+      });
+      navigate(ROUTES.DASHBOARD, { replace: true });
+    } catch (err) {
+      setError(
+        err?.message ||
+          "Login fail. Pehle shared ERP API chalao: npm run server",
+      );
+    } finally {
+      setBusy(false);
     }
-
-    setAuthSession({
-      role,
-      roleLabel: demo.roleLabel,
-      displayName: demo.displayName,
-      userId: demo.userId,
-      remember,
-      loggedInAt: new Date().toISOString(),
-    });
-
-    navigate(ROUTES.DASHBOARD, { replace: true });
   };
 
   return (
@@ -88,8 +106,8 @@ function LoginPage() {
         </p>
 
         <p className={styles.brandText}>
-          Secure login for admin and staff teams. Manage loan cases, sales,
-          purchases, stock, GST and customer records from one dashboard.
+          Shared live ERP — sabhi PC pe same data (API server). Login pe cloud se sync hota hai.
+          API: <strong>{getApiBase() || "—"}</strong>
         </p>
 
         <div className={styles.supportBox}>
@@ -185,13 +203,22 @@ function LoginPage() {
               </p>
             )}
 
-            <button type="submit" className={styles.submitBtn}>
-              Sign in as {role === AUTH_ROLES.ADMIN ? "Admin" : "Staff"}
+            <button type="submit" className={styles.submitBtn} disabled={busy}>
+              {busy
+                ? "Connecting shared ERP…"
+                : `Sign in as ${role === AUTH_ROLES.ADMIN ? "Admin" : "Staff"}`}
             </button>
           </form>
 
           <p className={styles.demoHint}>
-            Demo: Admin <code>admin / admin123</code> · Staff <code>staff / staff123</code>
+            Admin: <code>admin / admin123</code> · Staff: <code>staff / staff123</code>
+            <br />
+            Jagdeep/Randeep (Staff): <code>jagdeep / jagdeep123</code> ·{" "}
+            <code>randeep / randeep123</code> — Loan/Cash/Sale/Labour/Query
+            <br />
+            Ajay Nain: <code>ajaynain / ajaynain123</code> (Staff tab)
+            <br />
+            Local me pehle <code>npm run server</code> chalao.
           </p>
 
           <Link to={ROUTES.HOME} className={styles.backLink}>

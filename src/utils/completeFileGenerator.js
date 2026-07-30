@@ -52,8 +52,6 @@ export async function generateCompleteFilePackage({
   bom,
   setupKw,
   date,
-  jointReportDataUrl,
-  jointReportFileName,
 }) {
   const subfolder = `CompleteFile-${timestampSlug()}`;
   const included = [];
@@ -93,19 +91,6 @@ export async function generateCompleteFilePackage({
       fileName: doc.fileName,
       source: doc.source,
     });
-  }
-
-  if (jointReportDataUrl && jointReportFileName) {
-    await addCustomerDocument({
-      consumerNo: customer.consumerNo,
-      source: "sale",
-      category: "joint-report",
-      fileName: jointReportFileName,
-      mimeType: "application/octet-stream",
-      dataUrl: jointReportDataUrl,
-      subfolder,
-    });
-    included.push({ type: "Joint Report", fileName: jointReportFileName, source: "upload (Sale Sheet)" });
   }
 
   const packageFolder = `CustomerDocuments/${customer.consumerNo}/${subfolder}`;

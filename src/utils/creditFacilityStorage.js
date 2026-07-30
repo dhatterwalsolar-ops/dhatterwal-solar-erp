@@ -3,6 +3,7 @@ import {
   createEmptyCreditFacility,
 } from "../constants/creditFacility";
 import { addPaymentGiven, formatPaymentDate } from "./paymentManagementStorage";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const FACILITIES_KEY = "dhatterwal_credit_facilities";
 const TXN_KEY = "dhatterwal_credit_facility_txns";
@@ -16,12 +17,12 @@ function safeParse(raw, fallback) {
 }
 
 function readFacilities() {
-  return safeParse(localStorage.getItem(FACILITIES_KEY), []);
+  return safeParse(erpGetItem(FACILITIES_KEY), []);
 }
 
 function writeFacilities(list) {
   try {
-    localStorage.setItem(FACILITIES_KEY, JSON.stringify(list));
+    erpSetItem(FACILITIES_KEY, JSON.stringify(list));
   } catch {
     /* ignore */
   }
@@ -29,12 +30,12 @@ function writeFacilities(list) {
 }
 
 function readTxns() {
-  return safeParse(localStorage.getItem(TXN_KEY), []);
+  return safeParse(erpGetItem(TXN_KEY), []);
 }
 
 function writeTxns(list) {
   try {
-    localStorage.setItem(TXN_KEY, JSON.stringify(list));
+    erpSetItem(TXN_KEY, JSON.stringify(list));
   } catch {
     /* ignore */
   }

@@ -20,11 +20,12 @@ function CashCaseSheet() {
       backupSheetKind="cash"
       actions={[
         { key: "vendor", label: "Generate Vendor Agreement", tone: "green" },
+        { key: "generateFiles", label: "Generate Files", tone: "gold" },
       ]}
       documentLabels={{
         vendor: "Vendor Agreement",
+        generateFiles: "Generate Files",
       }}
-      rowEditLock
       deleteRequiresOtp
     />
   );

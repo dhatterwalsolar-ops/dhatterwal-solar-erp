@@ -1,3 +1,4 @@
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 const STORAGE_KEY = "dhatterwal_customer_documents";
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
 
@@ -8,7 +9,7 @@ function normalizeConsumerNo(consumerNo) {
 function readAll() {
   try {
     if (typeof localStorage === "undefined") return [];
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = erpGetItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -21,7 +22,7 @@ function readAll() {
 function writeAll(items) {
   try {
     if (typeof localStorage === "undefined") return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    erpSetItem(STORAGE_KEY, JSON.stringify(items));
   } catch {
     /* quota or private mode — ignore */
   }

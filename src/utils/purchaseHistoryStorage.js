@@ -1,3 +1,4 @@
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 const HISTORY_KEY = "dhatterwal_purchase_history";
 
 export const PURCHASE_HISTORY_SYNC_EVENT = "dhatterwal-purchase-history-sync";
@@ -44,9 +45,9 @@ const DEMO_PURCHASES = [
 ];
 
 export function loadPurchaseHistory() {
-  const stored = safeParse(localStorage.getItem(HISTORY_KEY), null);
+  const stored = safeParse(erpGetItem(HISTORY_KEY), null);
   if (Array.isArray(stored) && stored.length > 0) return stored;
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(DEMO_PURCHASES));
+  erpSetItem(HISTORY_KEY, JSON.stringify(DEMO_PURCHASES));
   return DEMO_PURCHASES;
 }
 
@@ -76,7 +77,7 @@ export function savePurchaseHistoryRecord(record) {
 
   list.unshift(record);
   try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 200)));
+    erpSetItem(HISTORY_KEY, JSON.stringify(list.slice(0, 200)));
   } catch {
     return { ok: false, reason: "storage_error" };
   }
@@ -92,7 +93,7 @@ export function deletePurchaseHistoryRecord(id) {
 
   const next = list.filter((p) => p.id !== id);
   try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    erpSetItem(HISTORY_KEY, JSON.stringify(next));
   } catch {
     return { ok: false, reason: "storage_error" };
   }

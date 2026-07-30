@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Vendor overlay calibrate</title>
+  <style>
+    body { margin: 0; background: #333; color: #fff; font-family: Arial; }
+    canvas { display: block; max-width: 100%; margin: 0 auto; background: #fff; }
+    .bar { padding: 8px 12px; background: #111; position: sticky; top: 0; z-index: 2; }
+  </style>
+</head>
+<body>
+  <div class="bar">Loading…</div>
+  <canvas id="c"></canvas>
+  <script>
+    const OVERLAYS = {
+      page1: {
+        day: { x: 0.355, y: 0.218, font: 0.0135, maxW: 0.055 },
+        month: { x: 0.45, y: 0.218, font: 0.0135, maxW: 0.12 },
+        year: { x: 0.61, y: 0.218, font: 0.0135, maxW: 0.08 },
+        name: { x: 0.09, y: 0.292, font: 0.0155, maxW: 0.50 },
+        address: { x: 0.28, y: 0.326, font: 0.0145, maxW: 0.52 },
+      },
+      page4: {
+        name: { x: 0.195, y: 0.792, font: 0.0135, maxW: 0.28 },
+        address: { x: 0.195, y: 0.822, font: 0.0125, maxW: 0.28 },
+        sign: { x: 0.175, y: 0.848, w: 0.28, h: 0.032 },
+        date: { x: 0.195, y: 0.895, font: 0.0125, maxW: 0.17 },
+        date2: { x: 0.605, y: 0.895, font: 0.0125, maxW: 0.17 },
+      },
+    };
+    const page = new URLSearchParams(location.search).get("p") === "4" ? 4 : 1;
+    const src = page === 4 ? "/vendor-agreement/page-4.png" : "/vendor-agreement/page-1.png";
+    const img = new Image();
+    img.onload = () => {
+      const c = document.getElementById("c");
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const ctx = c.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const o = page === 4 ? OVERLAYS.page4 : OVERLAYS.page1;
+      const draw = (text, spec) => {
+        const x = spec.x * c.width;
+        const y = spec.y * c.height;
+        const fontPx = Math.max(11, (spec.font || 0.015) * c.height);
+        ctx.font = `bold ${fontPx}px Arial`;
+        ctx.fillStyle = "red";
+        ctx.fillText(text, x, y);
+        ctx.strokeStyle = "lime";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - 2, y - fontPx, (spec.maxW || 0.2) * c.width, fontPx + 4);
+      };
+      if (page === 1) {
+        draw("29", o.day); draw("July", o.month); draw("2026", o.year);
+        draw("SOHAN LAL S/O RAM SINGH", o.name);
+        draw("VPO MUWANA, DISTRICT JIND", o.address);
+      } else {
+        draw("SOHAN LAL S/O RAM SINGH", o.name);
+        draw("VPO MUWANA, DISTRICT JIND", o.address);
+        draw("29-07-2026", o.date); draw("29-07-2026", o.date2);
+        ctx.strokeStyle = "cyan";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(o.sign.x * c.width, o.sign.y * c.height, o.sign.w * c.width, o.sign.h * c.height);
+      }
+      document.querySelector(".bar").textContent =
+        `Page ${page} ${c.width}x${c.height} — check red text on form lines`;
+    };
+    img.src = src;
+  </script>
+</body>
+</html>

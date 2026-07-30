@@ -2,7 +2,7 @@ import { AUTH_ROLES } from "../constants/auth";
 import { ERP_MENU } from "../constants/erpMenu";
 import { ROUTES } from "../constants/routes";
 
-/** Sidebar sheets staff may open (admin gets full ERP_MENU). */
+/** Sidebar sheets default staff may open. */
 export const STAFF_ALLOWED_MENU_KEYS = new Set([
   "loan",
   "cash",
@@ -12,28 +12,85 @@ export const STAFF_ALLOWED_MENU_KEYS = new Set([
   "invoiceFile",
 ]);
 
+/**
+ * Access profiles (Settings → Add User).
+ * Ajay Dhatterwal / Jagdeep / Randeep = Loan + Cash + Sale + Labour + Query (Staff).
+ * Ajay Nain = Loan + Cash + Sale (sirf apne reference) + Query.
+ */
+export const ACCESS_PROFILES = {
+  admin: {
+    id: "admin",
+    label: "Admin (full)",
+    role: AUTH_ROLES.ADMIN,
+    menuKeys: null,
+  },
+  ajay_dhatterwal: {
+    id: "ajay_dhatterwal",
+    label: "Ajay Dhatterwal (Loan/Cash/Sale/Labour/Query)",
+    role: AUTH_ROLES.STAFF,
+    menuKeys: ["loan", "cash", "sale", "labour", "query"],
+  },
+  staff: {
+    id: "staff",
+    label: "Staff (default)",
+    role: AUTH_ROLES.STAFF,
+    menuKeys: [...STAFF_ALLOWED_MENU_KEYS],
+  },
+  ajay_nain: {
+    id: "ajay_nain",
+    label: "Ajay Nain (Loan/Cash/Sale-ref/Query)",
+    role: AUTH_ROLES.STAFF,
+    menuKeys: ["loan", "cash", "sale", "query"],
+    /** Sale Sheet me sirf is reference wale customers */
+    saleReferenceFilter: "Ajay Nain",
+    saleInvoiceDownloadOnly: true,
+  },
+};
+
+export function getAccessProfile(profileId) {
+  const id = String(profileId || "").trim();
+  if (id && ACCESS_PROFILES[id]) return ACCESS_PROFILES[id];
+  return null;
+}
+
+export function resolveAccessProfile(session) {
+  const fromSession = getAccessProfile(session?.accessProfile);
+  if (fromSession) return fromSession;
+  if (session?.role === AUTH_ROLES.ADMIN) return ACCESS_PROFILES.admin;
+  if (session?.role === AUTH_ROLES.STAFF) return ACCESS_PROFILES.staff;
+  return null;
+}
+
 export function isAdminSession(session) {
+  const profile = resolveAccessProfile(session);
+  if (profile) return profile.role === AUTH_ROLES.ADMIN;
   return session?.role === AUTH_ROLES.ADMIN;
 }
 
 export function canAccessMenuKey(session, menuKey) {
-  if (isAdminSession(session)) return true;
-  if (session?.role === AUTH_ROLES.STAFF) {
-    return STAFF_ALLOWED_MENU_KEYS.has(menuKey);
-  }
-  return false;
+  const profile = resolveAccessProfile(session);
+  if (!profile) return false;
+  if (!profile.menuKeys) return true;
+  return profile.menuKeys.includes(menuKey);
 }
 
 export function getErpMenuForSession(session) {
-  if (isAdminSession(session)) return ERP_MENU;
-  if (session?.role === AUTH_ROLES.STAFF) {
-    return ERP_MENU.filter((item) => STAFF_ALLOWED_MENU_KEYS.has(item.key));
-  }
-  return [];
+  const profile = resolveAccessProfile(session);
+  if (!profile) return [];
+  if (!profile.menuKeys) return ERP_MENU;
+  return ERP_MENU.filter((item) => profile.menuKeys.includes(item.key));
+}
+
+export function getSaleReferenceFilter(session) {
+  return resolveAccessProfile(session)?.saleReferenceFilter || "";
+}
+
+export function isSaleInvoiceDownloadOnly(session) {
+  return Boolean(resolveAccessProfile(session)?.saleInvoiceDownloadOnly);
 }
 
 export function canAccessPath(session, pathname) {
-  if (!session?.role) return false;
+  if (!session?.role && !session?.accessProfile) return false;
   if (pathname === ROUTES.DASHBOARD) return true;
   if (pathname === ROUTES.SETTINGS) return isAdminSession(session);
 

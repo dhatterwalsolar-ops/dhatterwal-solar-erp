@@ -133,3 +133,125 @@
   color: var(--color-green-dark);
   white-space: nowrap;
 }
+
+.actionCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 5.5rem;
+}
+
+.btnDelete {
+  border: 1px solid #c62828;
+  background: #fff;
+  color: #c62828;
+  border-radius: 8px;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btnDelete:hover {
+  background: #ffebee;
+}
+
+.deleteModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.deleteModal {
+  background: var(--color-white);
+  border-radius: 14px;
+  padding: 1.25rem 1.35rem;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--color-border);
+}
+
+.deleteModalTitle {
+  font-size: 1.05rem;
+  color: #c62828;
+  margin-bottom: 0.5rem;
+}
+
+.deleteModalText {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  line-height: 1.45;
+}
+
+.deleteModalMobile {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-green-dark);
+  margin-top: 0.65rem;
+}
+
+.deleteOtpRow {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.deleteOtpInput {
+  flex: 1;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+}
+
+.deleteSendOtpBtn {
+  border: 1px solid var(--color-green-dark);
+  background: #edf5ef;
+  color: var(--color-green-dark);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.deleteModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.15rem;
+}
+
+.btnOutline {
+  border: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-text);
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.deleteConfirmBtn {
+  border: 1px solid #c62828;
+  background: #c62828;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+

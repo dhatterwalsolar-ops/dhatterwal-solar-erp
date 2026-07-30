@@ -219,6 +219,35 @@
   color: #1b1b1b;
 }
 
+.actionStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 9.5rem;
+}
+
+.downloadBtn {
+  border: 1px solid var(--color-green-dark);
+  background: #edf5ef;
+  color: var(--color-green-dark);
+  border-radius: 8px;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1.25;
+}
+
+.downloadBtn:hover:not(:disabled) {
+  background: #dceee2;
+}
+
+.downloadBtn:disabled,
+.actionBtn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .hiddenFile {
   display: none;
 }
@@ -331,6 +360,117 @@
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 1.15rem;
+}
+
+.vendorModal {
+  max-width: 520px;
+}
+
+.vendorModalTitle {
+  font-size: 1.05rem;
+  color: var(--color-green-dark);
+  margin-bottom: 0.5rem;
+}
+
+.vendorField {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.vendorField input,
+.vendorField textarea,
+.vendorField select {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  font-weight: 500;
+  color: var(--color-text);
+  resize: vertical;
+}
+
+.vendorPreview {
+  margin-top: 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: #f4f8f5;
+  border: 1px solid #d7e6db;
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.vendorPreview strong {
+  color: var(--color-green-dark);
+  font-size: 0.8125rem;
+}
+
+.vendorConfirmBtn {
+  border: 1px solid var(--color-green-dark);
+  background: var(--color-green-dark);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vendorConfirmBtn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.filesModal {
+  max-width: 640px;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.filesTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.85rem 0 0.5rem;
+}
+
+.filesTab {
+  border: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-text-muted);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filesTabActive {
+  border-color: var(--color-green-dark);
+  background: #edf5ef;
+  color: var(--color-green-dark);
+}
+
+.filesTabPanel {
+  margin-top: 0.35rem;
+}
+
+.filesTemplateNote {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+}
+
+.filesTemplateNote a {
+  color: var(--color-green-dark);
+  font-weight: 700;
 }
 
 .deleteConfirmBtn {

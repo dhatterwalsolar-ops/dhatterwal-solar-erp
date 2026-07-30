@@ -1,5 +1,6 @@
 import { panelCountFromSetupKw } from "./panelCountFromKw";
 import { getSaleTeamLeaderConfig } from "../constants/saleTeamMapping";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const ORDERS_KEY = "dhatterwal_site_orders";
 export const SITE_ORDER_SYNC_EVENT = "dhatterwal-site-order-sync";
@@ -13,12 +14,12 @@ function safeParse(raw, fallback) {
 }
 
 function readOrders() {
-  return safeParse(localStorage.getItem(ORDERS_KEY), []);
+  return safeParse(erpGetItem(ORDERS_KEY), []);
 }
 
 function writeOrders(list) {
   try {
-    localStorage.setItem(ORDERS_KEY, JSON.stringify(list.slice(0, 500)));
+    erpSetItem(ORDERS_KEY, JSON.stringify(list.slice(0, 500)));
     window.dispatchEvent(new Event(SITE_ORDER_SYNC_EVENT));
   } catch {
     /* ignore */

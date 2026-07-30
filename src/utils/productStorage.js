@@ -1,4 +1,5 @@
 import { DEFAULT_PRODUCT_ITEMS } from "../constants/productSheet";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const STORAGE_KEY = "dhatterwal_product_catalog";
 
@@ -11,7 +12,7 @@ function safeParse(raw, fallback) {
 }
 
 function seedIfEmpty() {
-  const existing = safeParse(localStorage.getItem(STORAGE_KEY), null);
+  const existing = safeParse(erpGetItem(STORAGE_KEY), null);
   if (Array.isArray(existing) && existing.length > 0) return existing;
 
   const seeded = DEFAULT_PRODUCT_ITEMS.map((row, index) => ({
@@ -22,17 +23,17 @@ function seedIfEmpty() {
     status: "Active",
     createdAt: new Date().toISOString(),
   }));
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+  erpSetItem(STORAGE_KEY, JSON.stringify(seeded));
   return seeded;
 }
 
 export function loadProducts() {
-  return safeParse(localStorage.getItem(STORAGE_KEY), null) ?? seedIfEmpty();
+  return safeParse(erpGetItem(STORAGE_KEY), null) ?? seedIfEmpty();
 }
 
 export function saveProducts(list) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    erpSetItem(STORAGE_KEY, JSON.stringify(list));
   } catch {
     /* ignore */
   }
@@ -84,4 +85,24 @@ export function getProductById(id) {
 export function findProductByName(itemName) {
   const key = String(itemName || "").trim().toLowerCase();
   return loadProducts().find((p) => p.itemName?.toLowerCase() === key) ?? null;
+}
+
+/** Ensure a catalog row exists (e.g. Net Meter Single Phase). */
+export function ensureProductItem({ itemName, category = "GENERAL", hsn = "" }) {
+  const name = String(itemName || "").trim();
+  if (!name) return null;
+  const existing = findProductByName(name);
+  if (existing) {
+    if (hsn && !existing.hsn) {
+      return upsertProduct({ ...existing, hsn });
+    }
+    return existing;
+  }
+  return upsertProduct({
+    id: `prod-${Date.now()}`,
+    itemName: name,
+    category,
+    hsn,
+    status: "Active",
+  });
 }

@@ -1,10 +1,11 @@
 import { DEFAULT_LABOUR_EMPLOYEES } from "../constants/labourEmployees";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const KEY = "dhatterwal_labour_employees";
 
 export function getLabourEmployees() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = erpGetItem(KEY);
     if (!raw) return DEFAULT_LABOUR_EMPLOYEES.map((e) => normalizeEmployee(e));
     const parsed = JSON.parse(raw);
     const list = Array.isArray(parsed) ? parsed : DEFAULT_LABOUR_EMPLOYEES;
@@ -34,7 +35,7 @@ function normalizeEmployee(e) {
 
 export function saveLabourEmployees(list) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(list));
+    erpSetItem(KEY, JSON.stringify(list));
     window.dispatchEvent(new Event("dhatterwal-labour-employees-sync"));
   } catch {
     /* ignore */

@@ -3,12 +3,13 @@ import {
   DEFAULT_INVOICE_SERIES,
   DEFAULT_QUOTATION_SERIES,
 } from "../constants/settingsDefaults";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const KEY = "dhatterwal_erp_settings";
 
 function read() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = erpGetItem(KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -17,7 +18,7 @@ function read() {
 
 function write(data) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(data));
+    erpSetItem(KEY, JSON.stringify(data));
   } catch {
     /* ignore */
   }

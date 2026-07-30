@@ -8,7 +8,14 @@ import {
 } from "../../constants/settingsDefaults";
 import { ROUTES } from "../../constants/routes";
 import { getAuthSession } from "../../utils/authSession";
-import { isAdminSession } from "../../utils/erpAccess";
+import { ACCESS_PROFILES, isAdminSession } from "../../utils/erpAccess";
+import {
+  loadLoginUsers,
+  removeLoginUser,
+  saveLoginUsers,
+  settingsUsersFromLogins,
+  upsertLoginUser,
+} from "../../utils/erpLoginUsers";
 import {
   appendActivityLog,
   getSettingsState,
@@ -22,6 +29,7 @@ import {
   savePaymentAccounts,
 } from "../../utils/paymentAccountStorage";
 import InvoiceFormatSettings from "./InvoiceFormatSettings";
+import LoanQuotationFormatSettings from "./LoanQuotationFormatSettings";
 import styles from "./SettingsPage.module.css";
 
 const TABS = [
@@ -30,18 +38,33 @@ const TABS = [
   { id: "invoice", label: "Invoice Series", icon: "🧾" },
   { id: "invoiceFormat", label: "Invoice Format", icon: "🖨" },
   { id: "quotation", label: "Quotation Series", icon: "📄" },
+  { id: "loanQuotationFormat", label: "Loan Quotation Format", icon: "📝" },
   { id: "paymentTypes", label: "Payment Types", icon: "💳" },
   { id: "security", label: "Security & OTP", icon: "🔒" },
   { id: "activity", label: "Activity Log", icon: "📋" },
 ];
 
+const EMPTY_USER_FORM = {
+  loginId: "",
+  userName: "",
+  userType: "Staff",
+  accessProfile: "staff",
+  password: "",
+};
+
 function SettingsPage() {
   const session = getAuthSession();
   const [activeTab, setActiveTab] = useState("general");
-  const [state, setState] = useState(() => getSettingsState());
+  const [state, setState] = useState(() => {
+    const base = getSettingsState();
+    const logins = loadLoginUsers();
+    return { ...base, users: settingsUsersFromLogins(logins) };
+  });
   const [paymentAccounts, setPaymentAccounts] = useState(() => loadPaymentAccounts());
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [userForm, setUserForm] = useState(EMPTY_USER_FORM);
+  const [showAddUser, setShowAddUser] = useState(false);
   const demoOtp = "482916";
 
   const invoicePreview = useMemo(
@@ -56,6 +79,13 @@ function SettingsPage() {
   if (!isAdminSession(session)) {
     return <Navigate to={ROUTES.DASHBOARD} replace />;
   }
+
+  const refreshUsersFromLogins = (logins) => {
+    const users = settingsUsersFromLogins(logins);
+    setState((s) => ({ ...s, users }));
+    saveUsers(users);
+    return users;
+  };
 
   const requireOtp = () => {
     if (!otpSent) {
@@ -98,38 +128,117 @@ function SettingsPage() {
 
   const managePasswords = () => {
     if (!requireOtp()) return;
-    const adminPass = window.prompt("New Admin password (demo):", "");
+    const logins = loadLoginUsers();
+    const adminPass = window.prompt("New Admin password:", "");
     if (adminPass === null) return;
-    const staffPass = window.prompt("New Staff password (demo):", "");
+    const staffPass = window.prompt("New Staff password (blank = skip staff):", "");
     if (staffPass === null) return;
-    const today = new Date().toLocaleDateString("en-GB");
-    const users = state.users.map((u) => ({
-      ...u,
-      lastUpdated: today,
-      passwordMask: "********",
-    }));
-    setState((s) => ({ ...s, users }));
-    saveUsers(users);
+    const next = logins.map((u) => {
+      if (u.role === "admin" && adminPass.trim()) {
+        return { ...u, password: adminPass.trim() };
+      }
+      if (u.role === "staff" && staffPass.trim()) {
+        return { ...u, password: staffPass.trim() };
+      }
+      return u;
+    });
+    refreshUsersFromLogins(saveLoginUsers(next));
     appendActivityLog({
       user: session?.displayName ?? "Admin",
-      action: "Passwords updated for Admin & Staff",
+      action: "Passwords updated",
     });
-    window.alert("Passwords updated (demo — login abhi bhi auth.js demo se chalega jab tak backend na ho).");
+    window.alert("Passwords update ho gaye — naya login inhi se chalega (shared ERP).");
   };
 
   const editUserRow = (userId) => {
     if (!requireOtp()) return;
-    const user = state.users.find((u) => u.id === userId);
+    const logins = loadLoginUsers();
+    const user = logins.find((u) => u.userId === userId);
     if (!user) return;
-    const name = window.prompt("User name:", user.userName);
+    const name = window.prompt("Display name:", user.displayName);
     if (name === null) return;
-    const users = state.users.map((u) =>
-      u.id === userId
-        ? { ...u, userName: name, lastUpdated: new Date().toLocaleDateString("en-GB") }
-        : u,
+    const pass = window.prompt("Naya password (blank = same rakho):", "");
+    if (pass === null) return;
+    const rolePick = window.prompt("Role — Admin ya Staff:", user.roleLabel);
+    if (rolePick === null) return;
+    const role = String(rolePick).toLowerCase().includes("admin") ? "admin" : "staff";
+    const profileKeys = Object.keys(ACCESS_PROFILES).join(", ");
+    const profilePick = window.prompt(
+      `Access profile (${profileKeys}):`,
+      user.accessProfile || (role === "admin" ? "admin" : "staff"),
     );
-    setState((s) => ({ ...s, users }));
-    saveUsers(users);
+    if (profilePick === null) return;
+    try {
+      const next = upsertLoginUser({
+        userId: user.userId,
+        displayName: name.trim() || user.displayName,
+        password: pass.trim() || user.password,
+        role,
+        accessProfile: String(profilePick).trim() || (role === "admin" ? "admin" : "staff"),
+      });
+      refreshUsersFromLogins(next);
+      appendActivityLog({
+        user: session?.displayName ?? "Admin",
+        action: `User updated: ${user.userId}`,
+      });
+    } catch (err) {
+      window.alert(err?.message || "Update fail.");
+    }
+  };
+
+  const deleteUserRow = (userId) => {
+    if (!requireOtp()) return;
+    if (!window.confirm(`User "${userId}" delete karein?`)) return;
+    try {
+      const next = removeLoginUser(userId);
+      refreshUsersFromLogins(next);
+      appendActivityLog({
+        user: session?.displayName ?? "Admin",
+        action: `User deleted: ${userId}`,
+      });
+    } catch (err) {
+      window.alert(err?.message || "Delete fail.");
+    }
+  };
+
+  const addNewUser = () => {
+    if (!requireOtp()) return;
+    const loginId = String(userForm.loginId || "").trim();
+    const userName = String(userForm.userName || "").trim();
+    const password = String(userForm.password || "").trim();
+    const accessProfile = String(userForm.accessProfile || "").trim() || "staff";
+    const profile = ACCESS_PROFILES[accessProfile];
+    const role = profile?.role || (userForm.userType === "Admin" ? "admin" : "staff");
+    if (!loginId || !userName || !password) {
+      window.alert("Login ID, Name aur Password sab bharna zaroori hai.");
+      return;
+    }
+    const exists = loadLoginUsers().some(
+      (u) => u.userId.toLowerCase() === loginId.toLowerCase(),
+    );
+    if (exists) {
+      window.alert("Ye Login ID pehle se hai — dusra ID choose karein.");
+      return;
+    }
+    try {
+      const next = upsertLoginUser({
+        userId: loginId,
+        displayName: userName,
+        password,
+        role,
+        accessProfile,
+      });
+      refreshUsersFromLogins(next);
+      appendActivityLog({
+        user: session?.displayName ?? "Admin",
+        action: `User added: ${loginId} (${accessProfile})`,
+      });
+      setUserForm(EMPTY_USER_FORM);
+      setShowAddUser(false);
+      window.alert(`User add ho gaya.\nLogin ID: ${loginId}\nAb isi se ERP login kar sakte ho.`);
+    } catch (err) {
+      window.alert(err?.message || "Add user fail.");
+    }
   };
 
   const showPasswordBlock = activeTab === "general" || activeTab === "users";
@@ -246,19 +355,123 @@ function SettingsPage() {
           )}
 
           {activeTab === "invoiceFormat" && <InvoiceFormatSettings session={session} />}
+          {activeTab === "loanQuotationFormat" && (
+            <LoanQuotationFormatSettings session={session} />
+          )}
 
           {showPasswordBlock && (
             <section className={styles.card}>
               <div className={styles.cardHead}>
-                <h2>Admin &amp; Staff Password Management</h2>
-                <button type="button" className={styles.btnManage} onClick={managePasswords}>
-                  Manage Passwords
-                </button>
+                <h2>User Management</h2>
+                <div className={styles.formatActions}>
+                  <button
+                    type="button"
+                    className={styles.btnPurple}
+                    onClick={() => {
+                      if (!requireOtp()) return;
+                      setShowAddUser((v) => !v);
+                    }}
+                  >
+                    {showAddUser ? "Close Form" : "+ Add User"}
+                  </button>
+                  <button type="button" className={styles.btnManage} onClick={managePasswords}>
+                    Manage Passwords
+                  </button>
+                </div>
               </div>
+              <p className={styles.cardHint}>
+                Naye users yahan add karo — Login ID + password se shared ERP pe login hoga. Critical
+                actions ke liye pehle OTP bhejo.
+              </p>
+
+              {showAddUser ? (
+                <div className={styles.addUserBox}>
+                  <h3 className={styles.subHead}>Add new user</h3>
+                  <div className={styles.seriesGrid}>
+                    <label>
+                      Login ID *
+                      <input
+                        value={userForm.loginId}
+                        onChange={(e) =>
+                          setUserForm((f) => ({ ...f, loginId: e.target.value.trim() }))
+                        }
+                        placeholder="e.g. ravi"
+                      />
+                    </label>
+                    <label>
+                      Display name *
+                      <input
+                        value={userForm.userName}
+                        onChange={(e) => setUserForm((f) => ({ ...f, userName: e.target.value }))}
+                        placeholder="e.g. Ravi Kumar"
+                      />
+                    </label>
+                    <label>
+                      User type *
+                      <select
+                        value={userForm.userType}
+                        onChange={(e) => setUserForm((f) => ({ ...f, userType: e.target.value }))}
+                      >
+                        <option value="Staff">Staff</option>
+                        <option value="Admin">Admin</option>
+                      </select>
+                    </label>
+                    <label>
+                      Access excess *
+                      <select
+                        value={userForm.accessProfile}
+                        onChange={(e) => {
+                          const accessProfile = e.target.value;
+                          const profile = ACCESS_PROFILES[accessProfile];
+                          setUserForm((f) => ({
+                            ...f,
+                            accessProfile,
+                            userType:
+                              profile?.role === "admin" ? "Admin" : "Staff",
+                          }));
+                        }}
+                      >
+                        {Object.values(ACCESS_PROFILES).map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Password *
+                      <input
+                        type="text"
+                        value={userForm.password}
+                        onChange={(e) => setUserForm((f) => ({ ...f, password: e.target.value }))}
+                        placeholder="Login password"
+                      />
+                    </label>
+                  </div>
+                  <div className={styles.formatActions} style={{ marginTop: "0.75rem" }}>
+                    <button type="button" className={styles.btnPurple} onClick={addNewUser}>
+                      Save User
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.btnOutline}
+                      onClick={() => {
+                        setShowAddUser(false);
+                        setUserForm(EMPTY_USER_FORM);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               <table className={styles.dataTable}>
                 <thead>
                   <tr>
+                    <th>Login ID</th>
                     <th>User Type</th>
+                    <th>Access Excess</th>
                     <th>User Name</th>
                     <th>Password</th>
                     <th>Last Updated</th>
@@ -269,6 +482,9 @@ function SettingsPage() {
                   {state.users.map((user) => (
                     <tr key={user.id}>
                       <td>
+                        <code>{user.loginId || user.id}</code>
+                      </td>
+                      <td>
                         <span
                           className={
                             user.userType === "Admin" ? styles.badgeAdmin : styles.badgeStaff
@@ -277,18 +493,32 @@ function SettingsPage() {
                           {user.userType}
                         </span>
                       </td>
+                      <td style={{ fontSize: "0.75rem", maxWidth: "11rem" }}>
+                        {user.accessProfileLabel || user.accessProfile || "—"}
+                      </td>
                       <td>{user.userName}</td>
                       <td className={styles.masked}>{user.passwordMask}</td>
                       <td>{user.lastUpdated}</td>
                       <td>
-                        <button
-                          type="button"
-                          className={styles.iconBtn}
-                          onClick={() => editUserRow(user.id)}
-                          aria-label={`Edit ${user.userName}`}
-                        >
-                          ✎
-                        </button>
+                        <div className={styles.userActions}>
+                          <button
+                            type="button"
+                            className={styles.iconBtn}
+                            onClick={() => editUserRow(user.id)}
+                            aria-label={`Edit ${user.userName}`}
+                            title="Edit"
+                          >
+                            ✎
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.btnDangerSmall}
+                            onClick={() => deleteUserRow(user.id)}
+                            title="Delete user"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

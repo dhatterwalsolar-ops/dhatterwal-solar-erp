@@ -1,0 +1,6 @@
+data/erp-store.json
+data/erp-store.json.tmp
+data/pglite/
+.env
+*.log
+node_modules/

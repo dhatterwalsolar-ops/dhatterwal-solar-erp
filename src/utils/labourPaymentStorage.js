@@ -1,8 +1,9 @@
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 const KEY = "dhatterwal_labour_employee_payments";
 
 function readAll() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = erpGetItem(KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -13,7 +14,7 @@ function readAll() {
 
 function writeAll(list) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(list));
+    erpSetItem(KEY, JSON.stringify(list));
   } catch {
     /* ignore */
   }

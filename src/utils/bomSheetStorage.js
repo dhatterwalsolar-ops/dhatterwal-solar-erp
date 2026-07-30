@@ -1,5 +1,6 @@
 import { BOM_BY_CONSUMER, lookupBom as lookupStaticBom } from "../constants/bomRegistry";
 import { parseFirstNumber } from "../constants/labourSheet";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const STORAGE_KEY = "dhatterwal_bom_sheet_files";
 
@@ -83,12 +84,12 @@ export function buildItemsFromMaterials(materials, previousItems = []) {
 }
 
 function loadAllFilesMap() {
-  return safeParse(localStorage.getItem(STORAGE_KEY), {});
+  return safeParse(erpGetItem(STORAGE_KEY), {});
 }
 
 function saveAllFilesMap(map) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+    erpSetItem(STORAGE_KEY, JSON.stringify(map));
   } catch {
     /* ignore */
   }

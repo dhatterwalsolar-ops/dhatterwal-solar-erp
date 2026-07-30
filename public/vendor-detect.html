@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Detect dotted lines</title>
+</head>
+<body>
+<pre id="out">loading…</pre>
+<canvas id="c"></canvas>
+<script>
+async function analyze(src, label) {
+  const img = new Image();
+  img.src = src;
+  await img.decode();
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, w, h).data;
+
+  // Find rows with many dark-ish pixels that look like dotted baselines
+  // in left-center content area
+  const x0 = Math.floor(w * 0.08);
+  const x1 = Math.floor(w * 0.85);
+  const rows = [];
+  for (let y = Math.floor(h * 0.15); y < Math.floor(h * 0.95); y++) {
+    let dark = 0;
+    let transitions = 0;
+    let prevDark = false;
+    for (let x = x0; x < x1; x++) {
+      const i = (y * w + x) * 4;
+      const lum = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      const isDark = lum < 140;
+      if (isDark) dark++;
+      if (isDark !== prevDark) transitions++;
+      prevDark = isDark;
+    }
+    const span = x1 - x0;
+    // dotted lines: moderate dark density + high transitions
+    if (dark > span * 0.08 && dark < span * 0.45 && transitions > 40) {
+      rows.push({ y, yFrac: +(y / h).toFixed(4), dark, transitions });
+    }
+  }
+
+  // Cluster consecutive rows
+  const clusters = [];
+  let cur = null;
+  for (const r of rows) {
+    if (!cur || r.y - cur.end > 3) {
+      cur = { start: r.y, end: r.y, rows: [r] };
+      clusters.push(cur);
+    } else {
+      cur.end = r.y;
+      cur.rows.push(r);
+    }
+  }
+  const tops = clusters.map((cl) => {
+    const best = cl.rows.reduce((a, b) => (b.transitions > a.transitions ? b : a));
+    return {
+      y: best.y,
+      yFrac: best.yFrac,
+      midFrac: +(((cl.start + cl.end) / 2) / h).toFixed(4),
+      transitions: best.transitions,
+    };
+  });
+
+  return { label, w, h, tops: tops.slice(0, 25) };
+}
+
+(async () => {
+  const p1 = await analyze("/vendor-agreement/page-1.png", "page1");
+  const p4 = await analyze("/vendor-agreement/page-4.png", "page4");
+  document.getElementById("out").textContent = JSON.stringify({ p1, p4 }, null, 2);
+
+  // draw page1 with markers
+  const img = new Image();
+  img.src = "/vendor-agreement/page-1.png";
+  await img.decode();
+  const canvas = document.getElementById("c");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  ctx.strokeStyle = "red";
+  ctx.fillStyle = "red";
+  ctx.font = "12px Arial";
+  p1.tops.forEach((t, i) => {
+    ctx.beginPath();
+    ctx.moveTo(0, t.y);
+    ctx.lineTo(canvas.width, t.y);
+    ctx.stroke();
+    ctx.fillText(String(i) + " " + t.yFrac, 4, t.y - 2);
+  });
+})();
+</script>
+</body>
+</html>

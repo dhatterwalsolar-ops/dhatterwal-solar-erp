@@ -1,11 +1,12 @@
 import { getSiteOrderById } from "./siteOrderStorage";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const PUBLIC_URL_KEY = "dhatterwal_public_app_url";
 
 /** WhatsApp link ke liye — localhost team leader ke phone par kaam nahi karta. */
 export function getPublicAppBaseUrl() {
   try {
-    const stored = localStorage.getItem(PUBLIC_URL_KEY);
+    const stored = erpGetItem(PUBLIC_URL_KEY);
     if (stored?.trim()) return stored.trim().replace(/\/$/, "");
   } catch {
     /* ignore */
@@ -18,7 +19,7 @@ export function getPublicAppBaseUrl() {
 
 export function setPublicAppBaseUrl(url) {
   try {
-    localStorage.setItem(PUBLIC_URL_KEY, String(url || "").trim());
+    erpSetItem(PUBLIC_URL_KEY, String(url || "").trim());
   } catch {
     /* ignore */
   }
@@ -40,7 +41,7 @@ export function needsLanUrlForTeamLinks() {
 
 export function getSavedPublicAppBaseUrl() {
   try {
-    const stored = localStorage.getItem(PUBLIC_URL_KEY);
+    const stored = erpGetItem(PUBLIC_URL_KEY);
     if (stored?.trim()) return stored.trim().replace(/\/$/, "");
   } catch {
     /* ignore */

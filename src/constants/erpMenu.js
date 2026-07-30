@@ -25,10 +25,9 @@ export const ERP_MENU = [
   { key: "invoiceFile", label: "Invoice File", path: ROUTES.INVOICE_FILE, icon: "invoiceFile" },
   {
     key: "query",
-    label: "Query Pending",
+    label: "Query Sheet",
     path: ROUTES.QUERY_PENDING,
     icon: "query",
-    badge: 7,
   },
   { key: "reports", label: "Reports", path: ROUTES.REPORTS, icon: "report" },
 ];

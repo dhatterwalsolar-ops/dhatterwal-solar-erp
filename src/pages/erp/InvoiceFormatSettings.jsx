@@ -38,6 +38,23 @@ function InvoiceFormatSettings({ session }) {
     }
   };
 
+  const onSignPick = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const dataUrl = await readFileAsDataUrlLimited(file);
+      patch("signDataUrl", dataUrl);
+    } catch (err) {
+      window.alert(err?.message || "Signature upload fail.");
+    }
+  };
+
+  const installSharePercent = Math.max(
+    0,
+    100 - (Number(format.solarSharePercent) || 0),
+  );
+
   const save = () => {
     if (!format.legalName?.trim()) {
       window.alert("Company name zaroori hai.");
@@ -96,7 +113,8 @@ function InvoiceFormatSettings({ session }) {
         </div>
         <p className={styles.cardHint}>
           Yahan jo format save karoge wahi Sale Sheet → Generate Invoice / Download me dikhega.
-          Logo upload karke company details, bank, HSN, item titles edit kar sakte ho.
+          Logo / digital sign upload, company details, bank, HSN, GST split (70% @ 5% + 30% @ 18%)
+          edit kar sakte ho.
         </p>
 
         <div className={styles.formatLayout}>
@@ -170,7 +188,10 @@ function InvoiceFormatSettings({ session }) {
               </label>
             </div>
 
-            <h3 className={styles.subHead}>Item lines &amp; GST</h3>
+            <h3 className={styles.subHead}>Item lines &amp; GST split</h3>
+            <p className={styles.cardHint}>
+              Default: Solar share 70% @ GST 5%, Installation share 30% @ GST 18%.
+            </p>
             <div className={styles.seriesGrid}>
               <label className={styles.fullWidth}>
                 Solar item title
@@ -180,12 +201,16 @@ function InvoiceFormatSettings({ session }) {
                 />
               </label>
               <label className={styles.fullWidth}>
-                Installation item title (use {"{setupKw}"})
+                Installation item title
                 <input
                   value={format.installItemTitle}
                   onChange={(e) => patch("installItemTitle", e.target.value)}
                 />
               </label>
+              <p className={styles.cardHint}>
+                Setup (02 KW / 03 KW / 05 KW) installation ke neeche alag row me auto aata hai —
+                Sale Sheet setup se.
+              </p>
               <label>
                 Solar HSN
                 <input value={format.solarHsn} onChange={(e) => patch("solarHsn", e.target.value)} />
@@ -198,15 +223,21 @@ function InvoiceFormatSettings({ session }) {
                 />
               </label>
               <label>
-                Solar share %
+                Solar share % (70)
                 <input
                   type="number"
+                  min={0}
+                  max={100}
                   value={format.solarSharePercent}
                   onChange={(e) => patch("solarSharePercent", e.target.value)}
                 />
               </label>
               <label>
-                Solar GST %
+                Install share % (auto)
+                <input type="number" value={installSharePercent} readOnly />
+              </label>
+              <label>
+                Solar GST % (5)
                 <input
                   type="number"
                   value={format.solarGstPercent}
@@ -214,7 +245,7 @@ function InvoiceFormatSettings({ session }) {
                 />
               </label>
               <label>
-                Install GST %
+                Install GST % (18)
                 <input
                   type="number"
                   value={format.installGstPercent}
@@ -279,6 +310,32 @@ function InvoiceFormatSettings({ session }) {
             </label>
 
             <h3 className={styles.subHead}>Signatures</h3>
+            <div className={styles.logoRow}>
+              {format.signDataUrl ? (
+                <img
+                  src={format.signDataUrl}
+                  alt="Authorised signature"
+                  className={styles.signPreview}
+                />
+              ) : (
+                <div className={styles.logoPlaceholder}>No digital sign</div>
+              )}
+              <div className={styles.logoButtons}>
+                <label className={styles.btnManage}>
+                  Upload Digital Sign
+                  <input type="file" accept="image/*" className={styles.hiddenFile} onChange={onSignPick} />
+                </label>
+                {format.signDataUrl ? (
+                  <button
+                    type="button"
+                    className={styles.btnOutline}
+                    onClick={() => patch("signDataUrl", "")}
+                  >
+                    Remove Sign
+                  </button>
+                ) : null}
+              </div>
+            </div>
             <div className={styles.seriesGrid}>
               <label className={styles.fullWidth}>
                 Signatory for

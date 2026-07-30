@@ -18,10 +18,13 @@ export const DEFAULT_INVOICE_FORMAT = {
   paymentHeading: "Payment Instructions : Our Bank Details",
   termsHeading: "Terms & Conditions",
   logoDataUrl: "",
+  /** Digital signature image under Authorised Signatory */
+  signDataUrl: "",
   solarItemTitle: "SOLAR POWER GENERATING SYSTEM",
-  installItemTitle: "SOLAR INSTALATION ({setupKw} SETUP)",
+  installItemTitle: "SOLAR INSTALATION",
   solarHsn: "85414011",
   installHsn: "7308",
+  /** Solar system share of taxable (rest = installation) */
   solarSharePercent: 70,
   solarGstPercent: 5,
   installGstPercent: 18,
@@ -74,4 +77,47 @@ export const INVOICE_TAX_SPLIT = {
   installShare: 1 - DEFAULT_INVOICE_FORMAT.solarSharePercent / 100,
   solarRate: DEFAULT_INVOICE_FORMAT.solarGstPercent / 100,
   installRate: DEFAULT_INVOICE_FORMAT.installGstPercent / 100,
+};
+
+/** Default Loan Quotation stationery — Settings → Loan Quotation Format. */
+export const DEFAULT_LOAN_QUOTATION_FORMAT = {
+  ...DEFAULT_INVOICE_FORMAT,
+  title: "Sales Quotation",
+  copyLabel: "Original Copy",
+  billedToLabel: "Party Details:",
+  solarItemTitle: "SOLAR POWER GENERATING SYSTEM",
+  installItemTitle: "SOLAR INSTALATION",
+  /** Quotation item-1 sub lines: "{setupKw} DCR PANNEL" / "{setupKw} ONGRID INVERTER" */
+  panelDetailLabel: "DCR PANNEL",
+  inverterDetailLabel: "ONGRID INVERTER",
+  /** Quotation item-2 fixed detail rows (same as stationery sample) */
+  installDetailLines: [
+    "AC-DB AND DC-DB BOX",
+    "EARTHING AND LA, STRUTURE, WIRING, ETC COMPLETE SETUP",
+  ],
+  paymentHeading: "Payment Instructions : Our Bank Details",
+  termsHeading: "Terms & Conditions",
+  address:
+    "Dhatterwal Bhawan, Ward No 13, KALAYAT, BEHIND MAIDA MILL, RAILWAY ROAD, Surja Nagar, Kalayat, Kaithal, Haryana, 136117",
+  telEmailLine: "Tel:- 9992891723 email: dhatterwalsolar@gmail.com",
+  banks: [
+    {
+      name: "CANARA BANK",
+      accountNo: "120033553157",
+      ifsc: "CNRB0007411",
+      branch: "RAILWAY ROAD, KALAYAT, DISTT KAITHAL",
+    },
+    {
+      name: "HDFC BANK",
+      accountNo: "50200104863419",
+      ifsc: "HDFC0001723",
+      branch: "ANAJ MANDI, KALAYAT, DISTT KAITHAL",
+    },
+  ],
+  terms: [
+    "E. & O.E.",
+    "1. Goods once sold will not be taken back.",
+    "2. Interest @ 18% p.a. will be charged if the payment is not made within the stipulated time.",
+    "3. Subject to 'Kaithal' Jurisdiction only.",
+  ],
 };

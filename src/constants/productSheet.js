@@ -21,6 +21,7 @@ export const DEFAULT_PRODUCT_ITEMS = [
   { itemName: "AC Wire 6 sq mm", category: "WIRE", hsn: "85444999" },
   { itemName: "Earthing Kit", category: "GENERAL", hsn: "74130000" },
   { itemName: "PVC Conduit Pipe", category: "CONDUTER", hsn: "39172390" },
+  { itemName: "Net Meter Single Phase", category: "GENERAL", hsn: "90283010" },
 ];
 
 export function createDraftProductRow() {

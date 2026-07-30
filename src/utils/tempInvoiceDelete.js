@@ -46,6 +46,18 @@ export function clearedSaleInvoiceFields(row = {}) {
   };
 }
 
+/** Clear net-meter invoice / e-way fields only. */
+export function clearedNetMeterInvoiceFields(row = {}) {
+  return {
+    ...row,
+    netMeterInvoiceId: "",
+    netMeterInvoiceNo: "",
+    netMeterEwayBillNo: "",
+    netMeterEwayDistanceKm: "",
+    netMeterEwayValidUpto: "",
+  };
+}
+
 /**
  * TEMP delete: invoice file + payment ledger + folder docs.
  * Does not touch sale rows — caller updates UI/storage.
@@ -65,6 +77,7 @@ export function deleteOldInvoiceCompletely(invoiceId) {
   }
 
   removePaymentBySourceRef(`sale-${invoiceId}`);
+  removePaymentBySourceRef(`sale-nm-${invoiceId}`);
   notifyPaymentSync();
   removeInvoiceFolderDocs(removed.consumerNo, removed.invoiceNo);
 

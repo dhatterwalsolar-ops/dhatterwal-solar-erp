@@ -14,6 +14,7 @@ import {
 import { loadCustomerDetailRows } from "./customerDetailStorage";
 import { listBackupEntries, backupToCustomerRow } from "./backupEntryStorage";
 import { parseAmountValue } from "../constants/customerDetail";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const RECEIVED_KEY = "dhatterwal_payment_received";
 const GIVEN_KEY = "dhatterwal_payment_given";
@@ -60,24 +61,24 @@ function isInMonth(dateStr, month, year) {
 }
 
 function readReceived() {
-  return safeParse(localStorage.getItem(RECEIVED_KEY), []);
+  return safeParse(erpGetItem(RECEIVED_KEY), []);
 }
 
 function writeReceived(list) {
   try {
-    localStorage.setItem(RECEIVED_KEY, JSON.stringify(list));
+    erpSetItem(RECEIVED_KEY, JSON.stringify(list));
   } catch {
     /* ignore */
   }
 }
 
 function readGiven() {
-  return safeParse(localStorage.getItem(GIVEN_KEY), []);
+  return safeParse(erpGetItem(GIVEN_KEY), []);
 }
 
 function writeGiven(list) {
   try {
-    localStorage.setItem(GIVEN_KEY, JSON.stringify(list));
+    erpSetItem(GIVEN_KEY, JSON.stringify(list));
   } catch {
     /* ignore */
   }

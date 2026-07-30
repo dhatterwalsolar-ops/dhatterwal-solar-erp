@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.local
+.env.production
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +25,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Shared ERP API data (keep on server, not in git)
+server/data/erp-store.json
+server/data/erp-store.json.tmp
+server/data/pglite/
+server/.env

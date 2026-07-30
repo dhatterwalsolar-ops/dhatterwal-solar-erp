@@ -21,14 +21,15 @@ function LoanCaseSheet() {
       backupSheetKind="loan"
       onRowPaymentSync={syncLoanDisbursementFromLoanRow}
       actions={[
+        { key: "quotation", label: "Generate Quotation", tone: "green" },
         { key: "vendor", label: "Generate Vendor Agreement", tone: "green" },
-        { key: "quotation", label: "Generate Loan Quotation", tone: "gold" },
+        { key: "generateFiles", label: "Generate Files", tone: "gold" },
       ]}
       documentLabels={{
-        vendor: "Vendor Agreement",
         quotation: "Loan Quotation",
+        vendor: "Vendor Agreement",
+        generateFiles: "Generate Files",
       }}
-      rowEditLock
       deleteRequiresOtp
     />
   );

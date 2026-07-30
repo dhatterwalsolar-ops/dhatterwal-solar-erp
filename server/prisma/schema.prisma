@@ -1,0 +1,284 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Legacy sync blob store (frontend key → JSON text)
+model ErpKv {
+  key       String   @id @db.Text
+  value     String   @db.Text
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("erp_kv")
+}
+
+model ErpMeta {
+  id        Int       @id @default(1)
+  updatedAt DateTime? @map("updated_at")
+
+  @@map("erp_meta")
+}
+
+/// Customer All Detail
+model Customer {
+  id                   String   @id @default(cuid())
+  consumerNo           String   @unique @map("consumer_no")
+  customerName         String   @default("") @map("customer_name")
+  fatherName           String   @default("") @map("father_name")
+  address              String   @default("")
+  mobile               String   @default("")
+  amount               String   @default("")
+  amountType           String   @default("") @map("amount_type")
+  receivedAmount       String   @default("") @map("received_amount")
+  receivedDate         String   @default("") @map("received_date")
+  receivedRemark       String   @default("") @map("received_remark")
+  secondReceivedAmount String   @default("") @map("second_received_amount")
+  secondReceivedDate   String   @default("") @map("second_received_date")
+  secondPaymentRemark  String   @default("") @map("second_payment_remark")
+  saleRowId            String?  @map("sale_row_id")
+  isBackupEntry        Boolean  @default(false) @map("is_backup_entry")
+  entryId              String?  @map("entry_id")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
+
+  invoices         Invoice[]
+  saleRows         SaleCase[]
+  paymentReceived  PaymentReceived[]
+
+  @@map("customers")
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  itemName  String   @map("item_name")
+  category  String   @default("")
+  hsn       String   @default("")
+  status    String   @default("Active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  stockBalances StockBalance[]
+
+  @@map("products")
+}
+
+model Invoice {
+  id                      String   @id @default(cuid())
+  srNo                    Int?     @map("sr_no")
+  bookNo                  String?  @map("book_no")
+  invoiceNo               String   @unique @map("invoice_no")
+  invoiceKind             String   @default("sale") @map("invoice_kind")
+  date                    String   @default("")
+  monthKey                String?  @map("month_key")
+  consumerNo              String?  @map("consumer_no")
+  customerName            String?  @map("customer_name")
+  fatherName              String?  @map("father_name")
+  address                 String?  @default("")
+  mobile                  String?  @default("")
+  setupKw                 String?  @map("setup_kw")
+  taxableAmount           Float    @default(0) @map("taxable_amount")
+  gstAmount               Float    @default(0) @map("gst_amount")
+  totalAmount             Float    @default(0) @map("total_amount")
+  withGst                 Boolean  @default(true) @map("with_gst")
+  gstType                 String?  @map("gst_type")
+  pinCode                 String?  @map("pin_code")
+  station                 String?
+  panelName               String?  @map("panel_name")
+  inverterName            String?  @map("inverter_name")
+  inverterSerial          String?  @map("inverter_serial")
+  vehicleNo               String?  @map("vehicle_no")
+  transport               String?
+  placeOfSupply           String?  @map("place_of_supply")
+  reverseCharge           String?  @map("reverse_charge")
+  saleRowId               String?  @map("sale_row_id")
+  itemName                String?  @map("item_name")
+  meterSrNo               String?  @map("meter_sr_no")
+  applicationNo           String?  @map("application_no")
+  meterCompanyName        String?  @map("meter_company_name")
+  hsn                     String?
+  gstPercent              Float?   @map("gst_percent")
+  ewayBillNo              String?  @map("eway_bill_no")
+  ewayDistanceKm          String?  @map("eway_distance_km")
+  ewayValidUpto           String?  @map("eway_valid_upto")
+  linkedNetMeterInvoiceNo String?  @map("linked_net_meter_invoice_no")
+  lines                   Json?
+  taxRows                 Json?    @map("tax_rows")
+  hsnSummary              Json?    @map("hsn_summary")
+  amountInWords           String?  @map("amount_in_words")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @default(now()) @updatedAt @map("updated_at")
+
+  customer Customer? @relation(fields: [consumerNo], references: [consumerNo], onDelete: SetNull)
+
+  @@index([consumerNo])
+  @@map("invoices")
+}
+
+model StockBalance {
+  id         String   @id @default(cuid())
+  stockKey   String   @unique @map("stock_key")
+  productId  String?  @map("product_id")
+  itemName   String   @default("") @map("item_name")
+  category   String   @default("")
+  hsn        String   @default("")
+  unit       String   @default("NOS")
+  warehouse  String   @default("Main Store")
+  qtyIn      Float    @default(0) @map("qty_in")
+  qtyOut     Float    @default(0) @map("qty_out")
+  balance    Float    @default(0)
+  lastRate   Float    @default(0) @map("last_rate")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@map("stock_balances")
+}
+
+model StockLedger {
+  id            String   @id @default(cuid())
+  type          String
+  invoiceNo     String?  @map("invoice_no")
+  invoiceDate   String?  @map("invoice_date")
+  supplier      String?
+  reference     String?
+  siteOrderId   String?  @map("site_order_id")
+  consumerNo    String?  @map("consumer_no")
+  productId     String?  @map("product_id")
+  itemName      String   @default("") @map("item_name")
+  category      String   @default("")
+  hsn           String   @default("")
+  qty           Float    @default(0)
+  unit          String   @default("NOS")
+  rate          Float?   @default(0)
+  serialNumbers Json?    @map("serial_numbers")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([type])
+  @@map("stock_ledger")
+}
+
+model PaymentReceived {
+  id           String   @id @default(cuid())
+  date         String   @default("")
+  consumerNo   String?  @map("consumer_no")
+  customerName String   @default("") @map("customer_name")
+  fatherName   String   @default("") @map("father_name")
+  address      String   @default("")
+  mobile       String   @default("")
+  amount       Float    @default(0)
+  paymentMode  String   @default("") @map("payment_mode")
+  referenceNo  String   @default("") @map("reference_no")
+  remarks      String   @default("")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  customer Customer? @relation(fields: [consumerNo], references: [consumerNo], onDelete: SetNull)
+
+  @@index([consumerNo])
+  @@map("payment_received")
+}
+
+model PaymentGiven {
+  id                 String   @id @default(cuid())
+  date               String   @default("")
+  partyName          String   @default("") @map("party_name")
+  partyType          String   @default("") @map("party_type")
+  amount             Float    @default(0)
+  paymentMode        String   @default("") @map("payment_mode")
+  referenceNo        String   @default("") @map("reference_no")
+  remarks            String   @default("")
+  fundingType        String?  @map("funding_type")
+  creditFacilityId   String?  @map("credit_facility_id")
+  creditFacilityName String?  @map("credit_facility_name")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@map("payment_given")
+}
+
+model SaleCase {
+  id                     String   @id @default(cuid())
+  rowId                  String?  @unique @map("row_id")
+  date                   String   @default("")
+  consumerNo             String?  @map("consumer_no")
+  customerName           String   @default("") @map("customer_name")
+  fatherName             String   @default("") @map("father_name")
+  address                String   @default("")
+  mobile                 String   @default("")
+  setupKw                String   @default("") @map("setup_kw")
+  teamWork               String   @default("") @map("team_work")
+  setupDetail            String   @default("") @map("setup_detail") @db.Text
+  amount                 String   @default("")
+  siteOrderId            String?  @map("site_order_id")
+  siteOrderStatus        String?  @map("site_order_status")
+  invoiceId              String?  @map("invoice_id")
+  invoiceNo              String?  @map("invoice_no")
+  invoiceWithGst         Boolean? @map("invoice_with_gst")
+  invoiceGstType         String?  @map("invoice_gst_type")
+  invoiceDate            String?  @map("invoice_date")
+  vehicleNo              String?  @map("vehicle_no")
+  ewayBillNo             String?  @map("eway_bill_no")
+  netMeterInvoiceId      String?  @map("net_meter_invoice_id")
+  netMeterInvoiceNo      String?  @map("net_meter_invoice_no")
+  isBackupEntry          Boolean  @default(false) @map("is_backup_entry")
+  entryId                String?  @map("entry_id")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @default(now()) @updatedAt @map("updated_at")
+
+  customer Customer? @relation(fields: [consumerNo], references: [consumerNo], onDelete: SetNull)
+
+  @@index([consumerNo])
+  @@map("sale_cases")
+}
+
+model CashCase {
+  id            String   @id @default(cuid())
+  rowId         String?  @unique @map("row_id")
+  date          String   @default("")
+  consumerNo    String   @default("") @map("consumer_no")
+  customerName  String   @default("") @map("customer_name")
+  fatherName    String   @default("") @map("father_name")
+  address       String   @default("")
+  mobile        String   @default("")
+  setupKw       String   @default("") @map("setup_kw")
+  reference     String   @default("")
+  seva          String   @default("")
+  isBackupEntry Boolean  @default(false) @map("is_backup_entry")
+  entryId       String?  @map("entry_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([consumerNo])
+  @@map("cash_cases")
+}
+
+model LoanCase {
+  id               String   @id @default(cuid())
+  rowId            String?  @unique @map("row_id")
+  date             String   @default("")
+  consumerNo       String   @default("") @map("consumer_no")
+  customerName     String   @default("") @map("customer_name")
+  fatherName       String   @default("") @map("father_name")
+  address          String   @default("")
+  mobile           String   @default("")
+  setupKw          String   @default("") @map("setup_kw")
+  reference        String   @default("")
+  seva             String   @default("")
+  loanPayment      String   @default("") @map("loan_payment")
+  marginMoney      String   @default("") @map("margin_money")
+  bankName         String   @default("") @map("bank_name")
+  bankIfsc         String   @default("") @map("bank_ifsc")
+  loanCreditAmount String   @default("") @map("loan_credit_amount")
+  loanCreditDate   String   @default("") @map("loan_credit_date")
+  loanCreditMargin String   @default("") @map("loan_credit_margin")
+  loanCreditRemark String   @default("") @map("loan_credit_remark")
+  isBackupEntry    Boolean  @default(false) @map("is_backup_entry")
+  entryId          String?  @map("entry_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([consumerNo])
+  @@map("loan_cases")
+}

@@ -1,4 +1,5 @@
 import { parseAmountValue } from "../constants/customerDetail";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const STORAGE_KEY = "dhatterwal_customer_detail_rows";
 
@@ -15,7 +16,7 @@ function safeParse(raw, fallback) {
 }
 
 export function loadCustomerDetailRows() {
-  const stored = safeParse(localStorage.getItem(STORAGE_KEY), null);
+  const stored = safeParse(erpGetItem(STORAGE_KEY), null);
   if (Array.isArray(stored)) {
     return stored;
   }
@@ -24,7 +25,7 @@ export function loadCustomerDetailRows() {
 
 export function saveCustomerDetailRows(rows) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+    erpSetItem(STORAGE_KEY, JSON.stringify(rows));
   } catch {
     /* ignore */
   }

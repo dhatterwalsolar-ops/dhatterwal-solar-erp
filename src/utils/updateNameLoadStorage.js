@@ -1,4 +1,5 @@
 import { refreshSavedSaleRowsFromCaseSheets } from "./saleCaseSync";
+import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const STORAGE_KEY = "dhatterwal_update_name_load_rows";
 const OVERRIDE_KEY = "dhatterwal_update_name_load";
@@ -16,19 +17,19 @@ function safeParse(raw, fallback) {
 }
 
 export function loadUpdateNameLoadRows() {
-  return safeParse(localStorage.getItem(STORAGE_KEY), []);
+  return safeParse(erpGetItem(STORAGE_KEY), []);
 }
 
 export function saveUpdateNameLoadRows(rows) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+    erpSetItem(STORAGE_KEY, JSON.stringify(rows));
   } catch {
     /* ignore */
   }
 }
 
 export function loadNameLoadOverrides() {
-  return safeParse(localStorage.getItem(OVERRIDE_KEY), {});
+  return safeParse(erpGetItem(OVERRIDE_KEY), {});
 }
 
 export function saveNameLoadOverride(consumerNo, patch) {
@@ -42,7 +43,7 @@ export function saveNameLoadOverride(consumerNo, patch) {
     updatedAt: new Date().toLocaleString("en-IN"),
   };
   try {
-    localStorage.setItem(OVERRIDE_KEY, JSON.stringify(map));
+    erpSetItem(OVERRIDE_KEY, JSON.stringify(map));
     refreshSavedSaleRowsFromCaseSheets();
   } catch {
     /* ignore */
