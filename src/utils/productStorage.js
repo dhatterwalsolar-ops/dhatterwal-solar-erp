@@ -1,4 +1,3 @@
-import { DEFAULT_PRODUCT_ITEMS } from "../constants/productSheet";
 import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const STORAGE_KEY = "dhatterwal_product_catalog";
@@ -11,24 +10,9 @@ function safeParse(raw, fallback) {
   }
 }
 
-function seedIfEmpty() {
-  const existing = safeParse(erpGetItem(STORAGE_KEY), null);
-  if (Array.isArray(existing) && existing.length > 0) return existing;
-
-  const seeded = DEFAULT_PRODUCT_ITEMS.map((row, index) => ({
-    id: `prod-${index + 1}`,
-    itemName: row.itemName,
-    category: row.category,
-    hsn: row.hsn,
-    status: "Active",
-    createdAt: new Date().toISOString(),
-  }));
-  erpSetItem(STORAGE_KEY, JSON.stringify(seeded));
-  return seeded;
-}
-
 export function loadProducts() {
-  return safeParse(erpGetItem(STORAGE_KEY), null) ?? seedIfEmpty();
+  const stored = safeParse(erpGetItem(STORAGE_KEY), null);
+  return Array.isArray(stored) ? stored : [];
 }
 
 export function saveProducts(list) {

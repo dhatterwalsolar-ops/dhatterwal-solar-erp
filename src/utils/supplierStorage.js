@@ -1,4 +1,3 @@
-import { DEFAULT_SUPPLIERS } from "../constants/supplierRegistry";
 import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const KEY = "dhatterwal_suppliers";
@@ -23,10 +22,7 @@ function writeCustom(list) {
 }
 
 export function getAllSuppliers() {
-  const custom = readCustom();
-  const byId = new Map(DEFAULT_SUPPLIERS.map((s) => [s.id, s]));
-  custom.forEach((s) => byId.set(s.id, s));
-  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return readCustom().sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function searchSuppliers(query) {

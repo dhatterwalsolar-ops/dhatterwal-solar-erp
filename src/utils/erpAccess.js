@@ -67,6 +67,13 @@ export function isAdminSession(session) {
   return session?.role === AUTH_ROLES.ADMIN;
 }
 
+/** Admin ya Jagdeep (ajay_dhatterwal) — query remark se close kar sakte hain. */
+export function canCloseQueryWithRemark(session) {
+  if (isAdminSession(session)) return true;
+  const profile = resolveAccessProfile(session);
+  return profile?.id === "ajay_dhatterwal";
+}
+
 export function canAccessMenuKey(session, menuKey) {
   const profile = resolveAccessProfile(session);
   if (!profile) return false;

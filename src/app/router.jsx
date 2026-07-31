@@ -24,6 +24,7 @@ import MonthlyPurchaseReportPage from "../components/erp/reports/MonthlyPurchase
 import MonthlyStockReportPage from "../components/erp/reports/MonthlyStockReportPage";
 import MonthlyGstReportPage from "../components/erp/reports/MonthlyGstReportPage";
 import HomePage from "../pages/home/HomePage";
+import PublicQueryPage from "../pages/public/PublicQueryPage";
 import SiteOrderFormPage from "../pages/site/SiteOrderFormPage";
 import { ERP_MENU } from "../constants/erpMenu";
 import { ROUTES } from "../constants/routes";
@@ -32,6 +33,7 @@ function AppRouter() {
   return (
     <Routes>
       <Route path={ROUTES.HOME} element={<HomePage />} />
+      <Route path={ROUTES.PUBLIC_QUERY} element={<PublicQueryPage />} />
       <Route path={ROUTES.SITE_ORDER} element={<SiteOrderFormPage />} />
       <Route element={<AuthLayout />}>
         <Route path={ROUTES.LOGIN} element={<LoginPage />} />

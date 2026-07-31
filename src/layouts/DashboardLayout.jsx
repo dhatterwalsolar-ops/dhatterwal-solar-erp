@@ -6,13 +6,19 @@ import { CONTACT } from "../constants/contact";
 import { ROUTES } from "../constants/routes";
 import { clearAuthSession, getAuthSession } from "../utils/authSession";
 import {
+  DASHBOARD_SYNC_EVENTS,
+  getNotificationCount,
+} from "../utils/dashboardStats";
+import {
   getApiToken,
   hydrateFromServer,
   isHydrated,
   logoutCloud,
   startPolling,
 } from "../utils/erpStorage";
-import { getErpMenuForSession, isAdminSession } from "../utils/erpAccess";
+import { canAccessMenuKey, getErpMenuForSession, isAdminSession } from "../utils/erpAccess";
+import { purgeDemoCaseDataOnce } from "../utils/purgeDemoCaseData";
+import { processPendingQueryStaffAlerts } from "../utils/queryWhatsApp";
 import styles from "./DashboardLayout.module.css";
 
 function formatToday() {
@@ -38,6 +44,7 @@ function DashboardLayout() {
     .slice(0, 2)
     .toUpperCase();
   const [syncReady, setSyncReady] = useState(() => isHydrated());
+  const [notifCount, setNotifCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +57,7 @@ function DashboardLayout() {
       if (!isHydrated()) {
         try {
           await hydrateFromServer({ uploadLocalIfEmpty: false });
+          purgeDemoCaseDataOnce();
         } catch {
           if (!cancelled) {
             logoutCloud();
@@ -60,13 +68,52 @@ function DashboardLayout() {
         }
       } else {
         startPolling();
+        purgeDemoCaseDataOnce();
       }
-      if (!cancelled) setSyncReady(true);
+      if (!cancelled) {
+        setSyncReady(true);
+        setNotifCount(getNotificationCount());
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [session, navigate]);
+
+  useEffect(() => {
+    const bump = () => setNotifCount(getNotificationCount());
+    bump();
+    DASHBOARD_SYNC_EVENTS.forEach((name) => window.addEventListener(name, bump));
+    window.addEventListener("focus", bump);
+    return () => {
+      DASHBOARD_SYNC_EVENTS.forEach((name) => window.removeEventListener(name, bump));
+      window.removeEventListener("focus", bump);
+    };
+  }, [syncReady]);
+
+  /** Website queries → ERP se Jagdeep (9467564675) ko WhatsApp Web alert */
+  useEffect(() => {
+    if (!syncReady || !session) return undefined;
+    if (!canAccessMenuKey(session, "query")) return undefined;
+
+    const runAlerts = () => {
+      try {
+        processPendingQueryStaffAlerts();
+      } catch {
+        /* ignore */
+      }
+    };
+
+    runAlerts();
+    const timer = window.setInterval(runAlerts, 8000);
+    window.addEventListener("dhatterwal-erp-cloud-sync", runAlerts);
+    window.addEventListener("dhatterwal-query-sheet-sync", runAlerts);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("dhatterwal-erp-cloud-sync", runAlerts);
+      window.removeEventListener("dhatterwal-query-sheet-sync", runAlerts);
+    };
+  }, [syncReady, session]);
 
   const handleLogout = () => {
     logoutCloud();
@@ -166,7 +213,9 @@ function DashboardLayout() {
             </div>
             <button type="button" className={styles.notifBtn} aria-label="Notifications">
               🔔
-              <span className={styles.notifBadge}>5</span>
+              {notifCount > 0 ? (
+                <span className={styles.notifBadge}>{notifCount > 99 ? "99+" : notifCount}</span>
+              ) : null}
             </button>
             <div className={styles.profile}>
               <span className={styles.avatar}>{initials}</span>

@@ -150,3 +150,39 @@ export function getStoreBackendName() {
   if (usePrismaPostgres()) return "postgresql";
   return "none";
 }
+
+const LOGIN_USERS_KEY = "dhatterwal_erp_login_users";
+
+/**
+ * Clear all business erp_kv keys. Keeps login users.
+ * Used once to prepare live ERP (demo wipe).
+ */
+export async function wipeBusinessData({ keepLoginUsers = true } = {}) {
+  const { keys } = await getAllKeys();
+  const loginRaw = keepLoginUsers ? keys[LOGIN_USERS_KEY] : null;
+  const entries = {};
+  for (const key of Object.keys(keys)) {
+    if (keepLoginUsers && key === LOGIN_USERS_KEY) continue;
+    entries[key] = null;
+  }
+  if (Object.keys(entries).length) {
+    await setMany(entries);
+  }
+  /* Reset local JSON seed file so empty DBs do not re-import demo */
+  try {
+    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+    fs.writeFileSync(
+      DATA_FILE,
+      JSON.stringify({ keys: {}, updatedAt: null }, null, 2),
+      "utf8",
+    );
+  } catch {
+    /* ignore */
+  }
+  const after = await getAllKeys();
+  return {
+    removed: Object.keys(entries).length,
+    keptLoginUsers: Boolean(keepLoginUsers && (loginRaw || after.keys[LOGIN_USERS_KEY])),
+    keyCount: Object.keys(after.keys).length,
+  };
+}

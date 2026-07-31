@@ -31,3 +31,5 @@ server/data/erp-store.json
 server/data/erp-store.json.tmp
 server/data/pglite/
 server/.env
+
+.vercel

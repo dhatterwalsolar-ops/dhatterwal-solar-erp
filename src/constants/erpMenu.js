@@ -41,10 +41,7 @@ export const ERP_SHEET_CONFIG = {
   cash: {
     title: "Cash Case",
     columns: ["Case ID", "Customer", "System kW", "Amount", "Payment Mode", "Date"],
-    rows: [
-      ["CC-881", "Amit Sharma", "5 kW", "₹2,10,000", "Cash", "20 Jul 2025"],
-      ["CC-880", "Neha Gupta", "3 kW", "₹1,35,000", "UPI", "19 Jul 2025"],
-    ],
+    rows: [],
   },
   updateNameLoad: {
     title: "Update Name / Load",
@@ -64,82 +61,52 @@ export const ERP_SHEET_CONFIG = {
   purchase: {
     title: "Purchase Sheet",
     columns: ["PO No", "Vendor", "Material", "Qty", "Amount", "Date"],
-    rows: [
-      ["PO-778", "Waaree Solar", "540W Panels", "40", "₹4,80,000", "20 Jul 2025"],
-      ["PO-777", "Growatt India", "5kW Inverter", "6", "₹1,80,000", "18 Jul 2025"],
-    ],
+    rows: [],
   },
   product: {
     title: "Product Sheet",
     columns: ["SKU", "Product Name", "Category", "MRP", "Stock", "Status"],
-    rows: [
-      ["P-540-M", "Mono 540W Panel", "Panel", "₹12,500", "86", "Active"],
-      ["I-5K-H", "5kW Hybrid Inverter", "Inverter", "₹42,000", "14", "Active"],
-    ],
+    rows: [],
   },
   payment: {
     title: "Payment Sheet",
     columns: ["Payment ID", "Party", "Type", "Mode", "Amount", "Date"],
-    rows: [
-      ["PAY-991", "Ramesh Kumar", "Received", "Bank", "₹50,000", "20 Jul 2025"],
-      ["PAY-990", "Waaree Solar", "Paid", "NEFT", "₹1,20,000", "19 Jul 2025"],
-    ],
+    rows: [],
   },
   stock: {
     title: "Stock Sheet",
     columns: ["Item Code", "Product", "Warehouse", "In", "Out", "Balance"],
-    rows: [
-      ["ST-11", "540W Panel", "Main Store", "40", "8", "156"],
-      ["ST-22", "Structure Kit", "Main Store", "20", "5", "42"],
-    ],
+    rows: [],
   },
   bom: {
     title: "BOM Sheet",
     columns: ["BOM ID", "Project", "Panel", "Inverter", "Structure", "Status"],
-    rows: [
-      ["BOM-301", "5kW Residential", "8 Nos", "1 Nos", "1 Set", "Finalized"],
-      ["BOM-300", "10kW Commercial", "18 Nos", "2 Nos", "2 Set", "Draft"],
-    ],
+    rows: [],
   },
   labour: {
     title: "Labour Sheet",
     columns: ["Worker", "Site", "Days", "Rate/Day", "Payable", "Status"],
-    rows: [
-      ["Rajesh Team", "Rohtak Site A", "4", "₹1,200", "₹4,800", "Pending"],
-      ["Sunil Electric", "Jind Site B", "2", "₹1,500", "₹3,000", "Paid"],
-    ],
+    rows: [],
   },
   customer: {
     title: "Customer All Detail",
     columns: ["Customer ID", "Name", "Phone", "City", "System", "Lead Status"],
-    rows: [
-      ["CU-501", "Ramesh Kumar", "9992891023", "Rohtak", "5 kW On-Grid", "Installed"],
-      ["CU-502", "Sunita Devi", "9467564675", "Jind", "3 kW Hybrid", "Quotation Sent"],
-    ],
+    rows: [],
   },
   query: {
     title: "Query Pending",
     columns: ["Query ID", "Customer", "Subject", "Priority", "Assigned To", "Due"],
-    rows: [
-      ["Q-701", "Amit Sharma", "Net meter delay", "High", "Staff Team", "21 Jul 2025"],
-      ["Q-700", "Neha Gupta", "AMC renewal", "Medium", "Support", "22 Jul 2025"],
-    ],
+    rows: [],
   },
   monthly: {
     title: "Monthly Report",
     columns: ["Month", "Sales", "Purchases", "Collections", "Profit", "Remarks"],
-    rows: [
-      ["Jul 2025", "₹12,40,000", "₹8,10,000", "₹9,85,000", "₹2,45,000", "On track"],
-      ["Jun 2025", "₹10,90,000", "₹7,40,000", "₹8,70,000", "₹2,10,000", "Closed"],
-    ],
+    rows: [],
   },
   gst: {
     title: "GST Report",
     columns: ["Period", "GSTR-1", "GSTR-3B", "Tax Payable", "Due Date", "Status"],
-    rows: [
-      ["Jun 2025", "Filed", "Pending", "₹48,500", "20 Jul 2025", "Due Soon"],
-      ["May 2025", "Filed", "Filed", "₹41,200", "20 Jun 2025", "Completed"],
-    ],
+    rows: [],
   },
 };
 

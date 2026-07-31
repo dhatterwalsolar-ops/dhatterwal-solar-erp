@@ -15,40 +15,12 @@ function safeParse(raw, fallback) {
   }
 }
 
-const DEMO_PURCHASES = [
-  {
-    id: "pur-demo-1",
-    invoiceNo: "PINV-2407-018",
-    invoiceDate: "24/07/2025",
-    supplier: "Waaree Energies Ltd",
-    taxableAmount: 196000,
-    gstAmount: 23520,
-    totalAmount: 219520,
-    roundOff: -280,
-    grandTotal: 219240,
-    paymentMode: "Credit",
-    savedAt: "2025-07-24T10:00:00.000Z",
-  },
-  {
-    id: "pur-demo-2",
-    invoiceNo: "PINV-2407-017",
-    invoiceDate: "22/07/2025",
-    supplier: "Growatt India",
-    taxableAmount: 88000,
-    gstAmount: 10560,
-    totalAmount: 98560,
-    roundOff: -60,
-    grandTotal: 98500,
-    paymentMode: "Credit",
-    savedAt: "2025-07-22T10:00:00.000Z",
-  },
-];
+/** Known demo ids — purged once on login; never auto-injected again. */
+export const DEMO_PURCHASE_IDS = ["pur-demo-1", "pur-demo-2"];
 
 export function loadPurchaseHistory() {
   const stored = safeParse(erpGetItem(HISTORY_KEY), null);
-  if (Array.isArray(stored) && stored.length > 0) return stored;
-  erpSetItem(HISTORY_KEY, JSON.stringify(DEMO_PURCHASES));
-  return DEMO_PURCHASES;
+  return Array.isArray(stored) ? stored : [];
 }
 
 export function normalizePurchaseInvoiceNo(value) {

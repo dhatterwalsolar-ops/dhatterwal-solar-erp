@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { AUTH_ROLES, DEMO_ACCOUNTS } from "../../constants/auth";
-import { BRANCH_MD, CONTACT } from "../../constants/contact";
+import { AUTH_ROLES } from "../../constants/auth";
+import { COMPANY_MD_LABEL, COMPANY_MD_NAME, CONTACT } from "../../constants/contact";
 import { ROUTES } from "../../constants/routes";
 import { setAuthSession } from "../../utils/authSession";
 import { loadLoginUsers } from "../../utils/erpLoginUsers";
 import { getApiBase, hydrateFromServer, loginToApi } from "../../utils/erpStorage";
+import { purgeDemoCaseDataOnce } from "../../utils/purgeDemoCaseData";
 import styles from "./LoginPage.module.css";
 
 function LoginPage() {
@@ -41,8 +42,7 @@ function LoginPage() {
   }, [initialRole]);
 
   useEffect(() => {
-    const demo = DEMO_ACCOUNTS[role];
-    setUserId(demo.userId);
+    setUserId("");
     setPassword("");
     setError("");
   }, [role]);
@@ -60,7 +60,8 @@ function LoginPage() {
         password,
         role,
       });
-      await hydrateFromServer({ uploadLocalIfEmpty: true });
+      await hydrateFromServer({ uploadLocalIfEmpty: false });
+      purgeDemoCaseDataOnce();
       loadLoginUsers();
       setAuthSession({
         role: user.role,
@@ -102,7 +103,7 @@ function LoginPage() {
         </div>
 
         <p className={styles.branchMd}>
-          Branch MD: <strong>{BRANCH_MD}</strong>
+          {COMPANY_MD_LABEL} — <strong>{COMPANY_MD_NAME}</strong>
         </p>
 
         <p className={styles.brandText}>
@@ -211,14 +212,9 @@ function LoginPage() {
           </form>
 
           <p className={styles.demoHint}>
-            Admin: <code>admin / admin123</code> · Staff: <code>staff / staff123</code>
+            Live ERP login — User ID aur password admin se lein.
             <br />
-            Jagdeep/Randeep (Staff): <code>jagdeep / jagdeep123</code> ·{" "}
-            <code>randeep / randeep123</code> — Loan/Cash/Sale/Labour/Query
-            <br />
-            Ajay Nain: <code>ajaynain / ajaynain123</code> (Staff tab)
-            <br />
-            Local me pehle <code>npm run server</code> chalao.
+            Local testing: pehle <code>npm run server</code> chalao.
           </p>
 
           <Link to={ROUTES.HOME} className={styles.backLink}>

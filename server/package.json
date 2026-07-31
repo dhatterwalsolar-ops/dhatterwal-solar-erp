@@ -10,6 +10,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:test": "node scripts/test-db.js",
+    "wipe:business": "node scripts/wipe-business.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {

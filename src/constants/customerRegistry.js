@@ -1,5 +1,3 @@
-import { CASH_CASE_SAMPLE_ROWS } from "./cashCase";
-import { LOAN_CASE_SAMPLE_ROWS } from "./loanCase";
 import { getNameLoadOverride } from "../utils/updateNameLoadStorage";
 import { findBackupByConsumerNo } from "../utils/backupEntryStorage";
 import { loadLoanCaseRows } from "../utils/loanCaseStorage";
@@ -54,15 +52,7 @@ export function findCaseRowByConsumerNo(consumerNo) {
 }
 
 export function buildCustomerRegistry() {
-  const registry = {};
-
-  [...LOAN_CASE_SAMPLE_ROWS, ...CASH_CASE_SAMPLE_ROWS].forEach((row) => {
-    const key = normalizeConsumerNo(row.consumerNo);
-    if (!key) return;
-    registry[key] = caseRowToCustomer(row);
-  });
-
-  return registry;
+  return {};
 }
 
 export const CUSTOMER_REGISTRY = buildCustomerRegistry();

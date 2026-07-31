@@ -139,12 +139,22 @@ function UpdateNameLoadSheet() {
     clearCaseDeleteOtpSession();
   };
 
-  const handleSendDeleteOtp = () => {
-    const { demoOtp } = sendCaseDeleteOtp();
-    setDeleteOtpSent(true);
-    window.alert(
-      `Delete OTP ${getCaseDeleteOtpMobileDisplay()} par bheja gaya:\n\n${demoOtp}\n\n(Backend connect hone par asli SMS aayega.)`,
-    );
+  const handleSendDeleteOtp = async () => {
+    try {
+      const data = await sendCaseDeleteOtp();
+      setDeleteOtpSent(true);
+      if (data.demo && data.demoOtp) {
+        window.alert(
+          `Demo OTP ${data.mobileDisplay || getCaseDeleteOtpMobileDisplay()}:\n\n${data.demoOtp}\n\nLive SMS: server/.env me SMS_PROVIDER set karein.`,
+        );
+      } else {
+        window.alert(
+          `OTP SMS ${data.mobileDisplay || getCaseDeleteOtpMobileDisplay()} par bhej diya.`,
+        );
+      }
+    } catch (err) {
+      window.alert(err?.message || "OTP send fail.");
+    }
   };
 
   const performDeleteRow = (row) => {
@@ -158,13 +168,14 @@ function UpdateNameLoadSheet() {
     });
   };
 
-  const confirmDeleteWithOtp = () => {
+  const confirmDeleteWithOtp = async () => {
     if (!deleteOtpSent) {
       window.alert("Pehle Send OTP dabayein.");
       return;
     }
-    if (!verifyCaseDeleteOtp(deleteOtp)) {
-      window.alert("Galat OTP. Send OTP ke baad alert me diya gaya OTP enter karein.");
+    const ok = await verifyCaseDeleteOtp(deleteOtp);
+    if (!ok) {
+      window.alert("Galat / expire OTP. Dubara Send OTP karein.");
       return;
     }
     if (pendingDeleteRow?.row) {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ErpIcon } from "../../components/erp/ErpIcon";
 import { AUTH_ROLES } from "../../constants/auth";
@@ -8,16 +8,13 @@ import {
   FOLLOW_UP_AFTER_DAYS,
   buildTodayFollowUps,
 } from "../../utils/dashboardFollowUp";
+import {
+  DASHBOARD_SYNC_EVENTS,
+  buildDashboardStatCards,
+  getLowStockRows,
+  getNotificationCount,
+} from "../../utils/dashboardStats";
 import styles from "./DashboardPage.module.css";
-
-const ALL_STAT_CARDS = [
-  { title: "Total Loan Cases", value: "12", note: "Active Loan Cases", tone: "green", icon: "loan", to: ROUTES.LOAN_CASE },
-  { title: "Total Cash Cases", value: "18", note: "This Month", tone: "yellow", icon: "cash", to: ROUTES.CASH_CASE },
-  { title: "Today's Sales", value: "₹2,45,000", note: "5 Invoices", tone: "blue", icon: "sale", to: ROUTES.SALE_SHEET },
-  { title: "Today's Purchases", value: "₹1,20,000", note: "3 Purchases", tone: "purple", icon: "purchase", to: ROUTES.PURCHASE_NEW },
-  { title: "Available Stock", value: "156", note: "Products in Stock", tone: "orange", icon: "stock", to: ROUTES.STOCK_SHEET },
-  { title: "Pending Queries", value: "07", note: "Requires Action", tone: "red", icon: "query", to: ROUTES.QUERY_PENDING },
-];
 
 const ALL_QUICK_ACTIONS = [
   { label: "+ New Customer", to: ROUTES.CUSTOMER_DETAIL, tone: "green" },
@@ -28,29 +25,50 @@ const ALL_QUICK_ACTIONS = [
   { label: "Payment Entry", to: ROUTES.PAYMENT_SHEET, tone: "purple" },
 ];
 
-const LOW_STOCK = [
-  ["540W Mono Panel", "Panel", "8", "Low Stock"],
-  ["5kW Hybrid Inverter", "Inverter", "3", "Low Stock"],
-  ["Battery 5kWh", "Battery", "2", "Low Stock"],
-  ["MC4 Connector Pair", "Accessory", "15", "Low Stock"],
-  ["DC Cable 4mm", "Accessory", "6", "Low Stock"],
-];
-
 function DashboardPage() {
   const session = getAuthSession();
   const isStaff = session?.role === AUTH_ROLES.STAFF;
-  const [followRefresh, setFollowRefresh] = useState(0);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const bump = () => setTick((n) => n + 1);
+    DASHBOARD_SYNC_EVENTS.forEach((name) => window.addEventListener(name, bump));
+    window.addEventListener("focus", bump);
+    return () => {
+      DASHBOARD_SYNC_EVENTS.forEach((name) => window.removeEventListener(name, bump));
+      window.removeEventListener("focus", bump);
+    };
+  }, []);
 
   const followUps = useMemo(() => {
-    void followRefresh;
+    void tick;
     return buildTodayFollowUps();
-  }, [followRefresh]);
+  }, [tick]);
 
-  const statCards = isStaff
-    ? ALL_STAT_CARDS.filter((c) =>
-        [ROUTES.LOAN_CASE, ROUTES.CASH_CASE, ROUTES.SALE_SHEET].includes(c.to),
-      )
-    : ALL_STAT_CARDS;
+  const statCards = useMemo(() => {
+    void tick;
+    const all = buildDashboardStatCards();
+    if (!isStaff) return all;
+    return all.filter((c) =>
+      [ROUTES.LOAN_CASE, ROUTES.CASH_CASE, ROUTES.SALE_SHEET].includes(c.to),
+    );
+  }, [tick, isStaff]);
+
+  const lowStock = useMemo(() => {
+    void tick;
+    return getLowStockRows(5);
+  }, [tick]);
+
+  const pendingQueryNote = useMemo(() => {
+    void tick;
+    const card = buildDashboardStatCards().find((c) => c.to === ROUTES.QUERY_PENDING);
+    return card?.value ?? "00";
+  }, [tick]);
+
+  const notifCount = useMemo(() => {
+    void tick;
+    return getNotificationCount();
+  }, [tick]);
 
   const quickActions = isStaff
     ? ALL_QUICK_ACTIONS.filter((a) =>
@@ -78,7 +96,7 @@ function DashboardPage() {
           <button
             type="button"
             className={styles.followUpRefresh}
-            onClick={() => setFollowRefresh((n) => n + 1)}
+            onClick={() => setTick((n) => n + 1)}
           >
             Refresh list
           </button>
@@ -200,23 +218,19 @@ function DashboardPage() {
         <section className={styles.midGrid}>
           <article className={styles.panel}>
             <div className={styles.panelHead}>
-              <h2>Monthly Sales Overview</h2>
-              <select defaultValue="month">
-                <option value="month">This Month</option>
-              </select>
+              <h2>Alerts</h2>
             </div>
-            <div className={styles.chart}>
-              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"].map((month, index) => (
-                <div key={month} className={styles.barWrap}>
-                  <div className={styles.bar} style={{ height: `${45 + index * 8}%` }} />
-                  <span>{month}</span>
-                </div>
-              ))}
+            <div className={styles.chart} style={{ alignItems: "stretch", justifyContent: "center" }}>
+              <p style={{ margin: "auto", color: "var(--color-text-soft)", textAlign: "center" }}>
+                Follow-ups + pending queries: <strong>{notifCount}</strong>
+                <br />
+                Bell icon upar bhi yahi count dikhata hai.
+              </p>
             </div>
           </article>
 
           <article className={styles.panel}>
-            <h2>Stock Status (Top 5 Low Stock Items)</h2>
+            <h2>Stock Status (Top Low Stock Items)</h2>
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
@@ -228,16 +242,22 @@ function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {LOW_STOCK.map((row) => (
-                    <tr key={row[0]}>
-                      <td>{row[0]}</td>
-                      <td>{row[1]}</td>
-                      <td>{row[2]}</td>
-                      <td>
-                        <span className={styles.lowTag}>{row[3]}</span>
-                      </td>
+                  {lowStock.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>Abhi koi low-stock line nahi (balance 1–15).</td>
                     </tr>
-                  ))}
+                  ) : (
+                    lowStock.map((row) => (
+                      <tr key={row[0]}>
+                        <td>{row[0]}</td>
+                        <td>{row[1]}</td>
+                        <td>{row[2]}</td>
+                        <td>
+                          <span className={styles.lowTag}>{row[3]}</span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -247,18 +267,26 @@ function DashboardPage() {
 
       {!isStaff ? (
         <section className={styles.bottomGrid}>
-          <article className={styles.miniCard}>Pending Labour Payments — ₹45,000</article>
-          <article className={styles.miniCard}>Low Stock Alert — 12 items</article>
-          <article className={styles.miniCard}>Query Pending Overview — 07 items</article>
+          <article className={styles.miniCard}>
+            Today follow-ups — {followUps.length}
+          </article>
+          <article className={styles.miniCard}>
+            Low Stock Alert — {lowStock.length} items
+          </article>
+          <article className={styles.miniCard}>
+            Query Pending Overview — {pendingQueryNote} items
+          </article>
           <article className={`${styles.miniCard} ${styles.gstCard}`}>
             <p>GST Due Reminder</p>
-            <strong>GSTR-3B for Jun-2025 due on 20 Jul 2025</strong>
-            <Link to={ROUTES.GST_REPORT}>File Now</Link>
+            <strong>Check GST Report for current month filing</strong>
+            <Link to={ROUTES.GST_REPORT}>Open GST Report</Link>
           </article>
         </section>
       ) : (
         <section className={styles.bottomGrid}>
-          <article className={styles.miniCard}>Pending Labour Payments — ₹45,000</article>
+          <article className={styles.miniCard}>
+            Today follow-ups — {followUps.length}
+          </article>
         </section>
       )}
     </div>

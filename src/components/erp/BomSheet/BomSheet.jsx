@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ensureBomSeedFromRegistry,
   fileTotalAmount,
   lineAmount,
   loadBomSheetFiles,
@@ -19,7 +18,6 @@ function BomSheet() {
   const [query, setQuery] = useState("");
 
   const refresh = useCallback(() => {
-    ensureBomSeedFromRegistry();
     const saleRows = loadSaleCaseRows();
     syncBomFilesFromSaleRows(saleRows);
     setFiles(loadBomSheetFiles());

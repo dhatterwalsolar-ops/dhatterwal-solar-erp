@@ -1,4 +1,3 @@
-import { DEFAULT_LABOUR_EMPLOYEES } from "../constants/labourEmployees";
 import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
 
 const KEY = "dhatterwal_labour_employees";
@@ -6,12 +5,12 @@ const KEY = "dhatterwal_labour_employees";
 export function getLabourEmployees() {
   try {
     const raw = erpGetItem(KEY);
-    if (!raw) return DEFAULT_LABOUR_EMPLOYEES.map((e) => normalizeEmployee(e));
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    const list = Array.isArray(parsed) ? parsed : DEFAULT_LABOUR_EMPLOYEES;
+    const list = Array.isArray(parsed) ? parsed : [];
     return list.map((e) => normalizeEmployee(e));
   } catch {
-    return DEFAULT_LABOUR_EMPLOYEES.map((e) => normalizeEmployee(e));
+    return [];
   }
 }
 

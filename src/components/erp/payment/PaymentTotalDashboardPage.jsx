@@ -325,17 +325,19 @@ function PaymentTotalDashboardPage() {
             <thead>
               <tr>
                 <th>ACCOUNT / MODE</th>
-                <th>SETTINGS BALANCE (₹)</th>
+                <th>TYPE</th>
+                <th>OPENING / LIMIT (₹)</th>
+                <th>USED (₹)</th>
                 <th>RECEIVED (₹)</th>
                 <th>GIVEN (₹)</th>
-                <th>TOTAL BALANCE (₹)</th>
+                <th>AVAILABLE / BALANCE (₹)</th>
                 <th>STATUS</th>
               </tr>
             </thead>
             <tbody>
               {accounts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: "1rem" }}>
+                  <td colSpan={8} style={{ textAlign: "center", padding: "1rem" }}>
                     Abhi koi movement nahi.
                   </td>
                 </tr>
@@ -343,7 +345,17 @@ function PaymentTotalDashboardPage() {
                 accounts.map((row) => (
                   <tr key={row.mode}>
                     <td>{row.mode}</td>
-                    <td className={styles.num}>₹ {formatPaymentMoney(row.openingBalance)}</td>
+                    <td>{row.accountType || "—"}</td>
+                    <td className={styles.num}>
+                      {row.isLimitAccount
+                        ? `Limit ₹ ${formatPaymentMoney(row.totalLimit)}`
+                        : `₹ ${formatPaymentMoney(row.openingBalance)}`}
+                    </td>
+                    <td className={`${styles.num} ${styles.amountOut}`}>
+                      {row.isLimitAccount
+                        ? `₹ ${formatPaymentMoney(row.usedDisplay)}`
+                        : "—"}
+                    </td>
                     <td className={`${styles.num} ${styles.amountIn}`}>
                       ₹ {formatPaymentMoney(row.received)}
                     </td>
@@ -351,7 +363,13 @@ function PaymentTotalDashboardPage() {
                       ₹ {formatPaymentMoney(row.given)}
                     </td>
                     <td className={styles.num}>₹ {formatPaymentMoney(row.balance)}</td>
-                    <td className={row.status === "Positive" ? styles.statusOk : styles.statusNeg}>
+                    <td
+                      className={
+                        row.status === "Positive" || row.status === "Within Limit"
+                          ? styles.statusOk
+                          : styles.statusNeg
+                      }
+                    >
                       {row.status}
                     </td>
                   </tr>

@@ -3,6 +3,9 @@ import express from "express";
 import { authMiddleware, ensureSeededLoginUsers, findUser, signToken } from "./auth.js";
 import { testDatabaseConnection } from "./dbTest.js";
 import { loadEnvFile } from "./loadEnv.js";
+import { messagingStatus } from "./messaging/config.js";
+import { issueOtp, verifyOtp } from "./messaging/otpStore.js";
+import { sendQueryAlertWhatsApp, sendWhatsAppMessage } from "./messaging/whatsapp.js";
 import {
   getAllKeys,
   getKey,
@@ -12,6 +15,7 @@ import {
   removeKey,
   setKey,
   setMany,
+  wipeBusinessData,
 } from "./store.js";
 
 loadEnvFile();
@@ -91,6 +95,47 @@ app.get("/api/db/test", async (_req, res) => {
       backend: getStoreBackendName(),
       error: err?.message || "Database test failed",
     });
+  }
+});
+
+app.get("/api/messaging/status", (_req, res) => {
+  res.json(messagingStatus());
+});
+
+app.post("/api/otp/send", authMiddleware, async (req, res) => {
+  try {
+    const purpose = String(req.body?.purpose || "settings").trim();
+    const mobile = req.body?.mobile;
+    const result = await issueOtp({ purpose, mobile });
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err?.message || "OTP send fail" });
+  }
+});
+
+app.post("/api/otp/verify", authMiddleware, async (req, res) => {
+  try {
+    const purpose = String(req.body?.purpose || "settings").trim();
+    const code = String(req.body?.code || "").trim();
+    const result = verifyOtp({ purpose, code });
+    res.status(result.ok ? 200 : 400).json(result);
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err?.message || "OTP verify fail" });
+  }
+});
+
+app.post("/api/messaging/whatsapp", authMiddleware, async (req, res) => {
+  try {
+    const to = String(req.body?.to || "").trim();
+    const text = String(req.body?.text || "").trim();
+    if (!to || !text) {
+      res.status(400).json({ ok: false, error: "to + text required" });
+      return;
+    }
+    const result = await sendWhatsAppMessage(to, text);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err?.message || "WhatsApp send fail" });
   }
 });
 
@@ -174,6 +219,149 @@ app.post("/api/sync/bulk", authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * Admin only — wipe all demo/business data for live go-live.
+ * Body: { confirm: "WIPE_LIVE_DATA" }
+ * Login users rahega. Render pe ek baar call karein, phir env/script hata dein.
+ */
+app.post("/api/admin/wipe-business", authMiddleware, async (req, res) => {
+  try {
+    if (String(req.user?.role || "").toLowerCase() !== "admin") {
+      res.status(403).json({ ok: false, error: "Admin only." });
+      return;
+    }
+    if (String(req.body?.confirm || "") !== "WIPE_LIVE_DATA") {
+      res.status(400).json({
+        ok: false,
+        error: 'confirm: "WIPE_LIVE_DATA" required.',
+      });
+      return;
+    }
+    const result = await wipeBusinessData({ keepLoginUsers: true });
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err?.message || "wipe failed" });
+  }
+});
+
+/** Public website — customer query (no login). Appends to erp_kv query sheet. */
+app.post("/api/public/query", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const customerName = String(body.customerName || "").trim();
+    const mobile = String(body.mobile || "").replace(/\D/g, "").slice(-10);
+    const address = String(body.address || "").trim();
+    const queryAbout = String(body.queryAbout || "").trim();
+    const detail = String(body.detail || "").trim();
+    const consumerNo = String(body.consumerNo || "").trim();
+    let customerPhotoData = String(body.customerPhotoData || "").trim();
+    const customerPhotoName = String(body.customerPhotoName || "").trim();
+    if (customerPhotoData && !customerPhotoData.startsWith("data:image/")) {
+      customerPhotoData = "";
+    }
+    if (customerPhotoData.length > 6_500_000) {
+      res.status(400).json({
+        ok: false,
+        error: "Photo bahut badi hai — chhoti image (under ~5MB) try karein.",
+      });
+      return;
+    }
+
+    if (!customerName || mobile.length !== 10 || !address || !queryAbout || !detail) {
+      res.status(400).json({
+        ok: false,
+        error: "Name, 10-digit mobile, address, query about aur detail zaroori hain.",
+      });
+      return;
+    }
+
+    const KEY = "dhatterwal_query_sheet";
+    let list = [];
+    try {
+      const raw = await getKey(KEY);
+      list = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(list)) list = [];
+    } catch {
+      list = [];
+    }
+
+    const pad = (n) => String(n).padStart(2, "0");
+    const now = new Date();
+    const entry = {
+      id: `qry-web-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      date: `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`,
+      consumerNo,
+      customerName,
+      mobile,
+      address,
+      queryAbout,
+      detail,
+      status: "Pending",
+      source: "public",
+      createdBy: "Website",
+      createdAt: now.toISOString(),
+      assignedTeamWork: "",
+      assignedLeaderName: "",
+      assignedLeaderMobile: "",
+      assignedAt: "",
+      customerPhotoData,
+      customerPhotoName: customerPhotoData ? customerPhotoName || "customer-site.jpg" : "",
+      photoData: "",
+      photoName: "",
+      photoUploadedAt: "",
+      photoUploadedBy: "",
+      closeRemark: "",
+      closedBy: "",
+      closedAt: "",
+      closedVia: "",
+      staffAlertSent: false,
+      staffAlertSentAt: "",
+    };
+
+    list.unshift(entry);
+    if (list.length > 500) list = list.slice(0, 500);
+
+    /** Live WhatsApp API configured ho to Jagdeep ko server se auto alert */
+    let whatsappAlert = { attempted: false };
+    try {
+      const alertText = [
+        "*Dhatterwal Solar — New Website Query*",
+        "",
+        `*Customer:* ${customerName}`,
+        `*Mobile:* ${mobile}`,
+        `*Address:* ${address}`,
+        consumerNo ? `*Consumer No.:* ${consumerNo}` : null,
+        "",
+        `*Query about:* ${queryAbout}`,
+        `*Detail:*`,
+        detail,
+        customerPhotoData ? "📷 Customer ne site/inverter photo upload ki — ERP Query Sheet me dekhein." : null,
+        "",
+        "ERP → Query Sheet → Team Leader transfer karein.",
+      ]
+        .filter((x) => x !== null)
+        .join("\n");
+
+      whatsappAlert = { attempted: true, ...(await sendQueryAlertWhatsApp(alertText)) };
+      if (whatsappAlert.live) {
+        entry.staffAlertSent = true;
+        entry.staffAlertSentAt = now.toISOString();
+      }
+    } catch (waErr) {
+      whatsappAlert = {
+        attempted: true,
+        live: false,
+        error: waErr?.message || "WhatsApp alert fail",
+      };
+    }
+
+    const updatedAt = await setKey(KEY, JSON.stringify(list));
+    res.json({ ok: true, id: entry.id, updatedAt, whatsappAlert });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err?.message || "Query save fail" });
+  }
+});
+
 async function start() {
   const backend = await initStore();
   const mig = await migrateJsonFileIfEmpty();
@@ -184,6 +372,14 @@ async function start() {
   }
 
   await ensureSeededLoginUsers();
+
+  if (String(process.env.WIPE_BUSINESS_DATA_ONCE || "").toLowerCase() === "true") {
+    const wipe = await wipeBusinessData({ keepLoginUsers: true });
+    console.log(
+      `[live-prep] Business data wiped (removed ${wipe.removed} keys). Remove WIPE_BUSINESS_DATA_ONCE from env.`,
+    );
+    await ensureSeededLoginUsers();
+  }
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Dhatterwal ERP API listening on http://0.0.0.0:${PORT}`);

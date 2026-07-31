@@ -77,9 +77,43 @@
   font-size: 0.8125rem;
 }
 
+.wideCol {
+  grid-column: span 1;
+}
+
+.contactList li {
+  display: grid;
+  gap: 0.1rem;
+  line-height: 1.35;
+}
+
+.contactLabel {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-gold);
+  letter-spacing: 0.02em;
+}
+
+.contactName {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.contactList em {
+  font-style: normal;
+  font-size: 0.6875rem;
+  opacity: 0.85;
+}
+
 .list a:hover,
 .contactList a:hover {
   color: var(--color-gold);
+}
+
+@media (min-width: 1101px) {
+  .wideCol {
+    min-width: 11rem;
+  }
 }
 
 .badges {

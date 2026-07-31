@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: "Projects", to: ROUTES.HOME, hash: "#projects" },
   { label: "Why Solar?", to: ROUTES.HOME, hash: "#why-solar" },
   { label: "Contact Us", to: ROUTES.HOME, hash: "#consultation" },
+  { label: "Service Query", to: ROUTES.PUBLIC_QUERY, hash: "" },
 ];
 
 function Navbar() {

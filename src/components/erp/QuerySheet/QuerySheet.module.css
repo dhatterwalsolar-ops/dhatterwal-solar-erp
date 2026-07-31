@@ -179,3 +179,110 @@
   justify-content: flex-end;
   margin-top: 0.5rem;
 }
+
+.hiddenFile {
+  display: none;
+}
+
+.rowPending {
+  background: #fffbf0;
+}
+
+.tagWeb,
+.tagErp {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.tagWeb {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.tagErp {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.by,
+.muted,
+.assigned {
+  font-size: 0.7rem;
+  color: var(--color-text-soft);
+  margin-top: 0.2rem;
+}
+
+.assigned {
+  font-weight: 600;
+  color: var(--color-green-dark);
+}
+
+.statusPending {
+  color: #c62828;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.statusOk {
+  color: #2e7d32;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.photoActions {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.photoActions a {
+  font-size: 0.7rem;
+  color: #1565c0;
+}
+
+.btnSmall {
+  border: 1px solid var(--color-border);
+  background: #fff;
+  border-radius: 6px;
+  padding: 0.3rem 0.45rem;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnAdminClose {
+  border: 1px solid #c62828;
+  background: #fff5f5;
+  color: #b71c1c;
+  border-radius: 6px;
+  padding: 0.3rem 0.45rem;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cellSelect {
+  max-width: 14rem;
+}
+
+.thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  display: block;
+}
+
+.remark {
+  font-size: 0.7rem;
+  color: #555;
+  margin-top: 0.25rem;
+  max-width: 12rem;
+  white-space: pre-wrap;
+}

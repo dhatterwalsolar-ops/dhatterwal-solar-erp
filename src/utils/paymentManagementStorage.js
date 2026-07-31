@@ -1,6 +1,7 @@
 import { PAYMENT_MODES } from "../constants/paymentManagement";
 import {
   getOpeningBalanceForMode,
+  isLimitAccountType,
   loadPaymentAccounts,
 } from "./paymentAccountStorage";
 import {
@@ -103,77 +104,14 @@ function syncReceivedToLedger(record) {
   });
 }
 
-function seedIfEmpty() {
-  if (readReceived().length > 0 || readGiven().length > 0) return;
-  const today = formatPaymentDate();
-  writeReceived([
-    {
-      id: "pr-seed-1",
-      date: today,
-      consumerNo: "CN-240701",
-      customerName: "Ramesh Kumar",
-      fatherName: "Suresh Kumar",
-      address: "VPO Dhatterwal, Rohtak, Haryana",
-      mobile: "9992891023",
-      amount: 85000,
-      paymentMode: "Cash",
-      referenceNo: "RCPT-101",
-      remarks: "Installment",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "pr-seed-2",
-      date: today,
-      consumerNo: "CN-C240701",
-      customerName: "Amit Sharma",
-      fatherName: "Rajesh Sharma",
-      address: "Sector 14, Rohtak, Haryana",
-      mobile: "9992891723",
-      amount: 60000,
-      paymentMode: "Online Sonu",
-      referenceNo: "",
-      remarks: "",
-      createdAt: new Date().toISOString(),
-    },
-  ]);
-  writeGiven([
-    {
-      id: "pg-seed-1",
-      date: today,
-      partyName: "Waaree Energies Ltd",
-      partyType: "Supplier",
-      amount: 120000,
-      paymentMode: "Canara 7411",
-      referenceNo: "NEFT-778",
-      remarks: "Panel purchase",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "pg-seed-2",
-      date: today,
-      partyName: "Rajesh Team",
-      partyType: "Labour",
-      amount: 4800,
-      paymentMode: "Cash",
-      referenceNo: "",
-      remarks: "Daily wages",
-      createdAt: new Date().toISOString(),
-    },
-  ]);
-  readReceived().forEach(syncReceivedToLedger);
-}
-
-export function ensurePaymentMgmtSeeded() {
-  seedIfEmpty();
-}
+export const DEMO_PAYMENT_RECEIVED_IDS = ["pr-seed-1", "pr-seed-2"];
+export const DEMO_PAYMENT_GIVEN_IDS = ["pg-seed-1", "pg-seed-2"];
 
 export function listPaymentReceived() {
-  ensurePaymentMgmtSeeded();
   return readReceived();
 }
 
 export function listPaymentGiven() {
-  ensurePaymentMgmtSeeded();
   return readGiven();
 }
 
@@ -285,32 +223,44 @@ export function deletePaymentGiven(id) {
   notifyMgmtSync();
 }
 
+function emptyBalanceRow(mode, openingBalance = 0, meta = {}) {
+  return {
+    mode,
+    accountType: meta.accountType || "Saving",
+    isLimitAccount: Boolean(meta.isLimitAccount),
+    totalLimit: Number(meta.totalLimit) || 0,
+    manualUsed: Number(meta.manualUsed) || 0,
+    openingBalance: Number(openingBalance) || 0,
+    received: 0,
+    given: 0,
+  };
+}
+
 export function computeAccountModeBalances() {
   const accounts = new Map();
   loadPaymentAccounts().forEach((acc) => {
-    accounts.set(acc.name, {
-      mode: acc.name,
-      openingBalance: Number(acc.currentBalance) || 0,
-      received: 0,
-      given: 0,
-    });
+    const limit = isLimitAccountType(acc.accountType);
+    accounts.set(
+      acc.name,
+      emptyBalanceRow(acc.name, limit ? 0 : Number(acc.currentBalance) || 0, {
+        accountType: acc.accountType,
+        isLimitAccount: limit,
+        totalLimit: Number(acc.totalLimit) || 0,
+        manualUsed: Number(acc.usedPayment) || 0,
+      }),
+    );
   });
 
   if (accounts.size === 0) {
     PAYMENT_MODES.forEach((m) => {
-      accounts.set(m, { mode: m, openingBalance: 0, received: 0, given: 0 });
+      accounts.set(m, emptyBalanceRow(m, 0));
     });
   }
 
   listPaymentReceived().forEach((r) => {
     const mode = r.paymentMode || "Other";
     if (!accounts.has(mode)) {
-      accounts.set(mode, {
-        mode,
-        openingBalance: getOpeningBalanceForMode(mode),
-        received: 0,
-        given: 0,
-      });
+      accounts.set(mode, emptyBalanceRow(mode, getOpeningBalanceForMode(mode)));
     }
     accounts.get(mode).received += Number(r.amount) || 0;
   });
@@ -320,12 +270,7 @@ export function computeAccountModeBalances() {
     .forEach((p) => {
       const mode = p.label || "Other";
       if (!accounts.has(mode)) {
-        accounts.set(mode, {
-          mode,
-          openingBalance: getOpeningBalanceForMode(mode),
-          received: 0,
-          given: 0,
-        });
+        accounts.set(mode, emptyBalanceRow(mode, getOpeningBalanceForMode(mode)));
       }
       accounts.get(mode).received += Number(p.amount) || 0;
     });
@@ -334,21 +279,45 @@ export function computeAccountModeBalances() {
     if (g.fundingType === "credit") return;
     const mode = g.paymentMode || "Other";
     if (!accounts.has(mode)) {
-      accounts.set(mode, {
-        mode,
-        openingBalance: getOpeningBalanceForMode(mode),
-        received: 0,
-        given: 0,
-      });
+      accounts.set(mode, emptyBalanceRow(mode, getOpeningBalanceForMode(mode)));
     }
     accounts.get(mode).given += Number(g.amount) || 0;
   });
 
   return [...accounts.values()]
     .map((row) => {
+      if (row.isLimitAccount) {
+        // Manual used (settings) + Payment Given = live used (shown negative)
+        const liveUsed = (Number(row.manualUsed) || 0) + (Number(row.given) || 0);
+        // Paying into / receiving on card reduces used
+        const netUsed = Math.max(0, liveUsed - (Number(row.received) || 0));
+        const available = (Number(row.totalLimit) || 0) - netUsed;
+        const overBy = netUsed > (Number(row.totalLimit) || 0)
+          ? netUsed - (Number(row.totalLimit) || 0)
+          : 0;
+        return {
+          ...row,
+          usedLive: netUsed,
+          usedDisplay: -netUsed,
+          available,
+          overBy,
+          balance: available,
+          status:
+            overBy > 0
+              ? `Over by ₹${Math.round(overBy).toLocaleString("en-IN")}`
+              : available === 0
+                ? "Limit Full"
+                : "Within Limit",
+        };
+      }
+
       const balance = row.openingBalance + row.received - row.given;
       return {
         ...row,
+        usedLive: 0,
+        usedDisplay: 0,
+        available: balance,
+        overBy: 0,
         balance,
         status: balance >= 0 ? "Positive" : "Negative",
       };

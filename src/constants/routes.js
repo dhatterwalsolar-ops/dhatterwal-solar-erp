@@ -1,5 +1,6 @@
 export const ROUTES = {
   HOME: "/",
+  PUBLIC_QUERY: "/service-query",
   LOGIN: "/login",
   DASHBOARD: "/dashboard",
   LOAN_CASE: "/loan-case",

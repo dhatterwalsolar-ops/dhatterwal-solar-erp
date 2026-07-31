@@ -1,0 +1,7 @@
+server
+server/**
+.git
+node_modules
+server/node_modules
+server/data
+*.md

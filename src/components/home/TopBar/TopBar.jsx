@@ -1,4 +1,9 @@
-import { BRANCH_MD, CONTACT } from "../../../constants/contact";
+import {
+  COMPANY_MD_LABEL,
+  COMPANY_MD_NAME,
+  CONTACT,
+  OFFICE_CONTACTS,
+} from "../../../constants/contact";
 import styles from "./TopBar.module.css";
 
 const SOCIAL = [
@@ -14,11 +19,16 @@ function TopBar() {
       <div className={`container ${styles.inner}`}>
         <div className={styles.left}>
           <p className={styles.branchMd}>
-            Branch MD: <strong>{BRANCH_MD}</strong>
+            {COMPANY_MD_LABEL} — <strong>{COMPANY_MD_NAME}</strong>
           </p>
           <div className={styles.contact}>
-            {CONTACT.phones.map((phone) => (
-              <a key={phone.tel} href={`tel:${phone.tel}`} className={styles.contactItem}>
+            {OFFICE_CONTACTS.map((phone) => (
+              <a
+                key={phone.tel}
+                href={`tel:${phone.tel}`}
+                className={styles.contactItem}
+                title={`${phone.label} — ${phone.name}`}
+              >
                 <PhoneIcon />
                 {phone.display}
               </a>

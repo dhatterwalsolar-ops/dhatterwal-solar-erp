@@ -1,6 +1,5 @@
-import { CASH_CASE_SAMPLE_ROWS } from "../constants/cashCase";
 import { refreshSavedSaleRowsFromCaseSheets } from "./saleCaseSync";
-import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
+import { erpGetItem, erpSetItem } from "./erpStorage";
 
 const STORAGE_KEY = "dhatterwal_cash_case_rows";
 export const CASH_CASE_SYNC_EVENT = "dhatterwal-cash-case-sync";
@@ -15,10 +14,8 @@ function safeParse(raw, fallback) {
 
 export function loadCashCaseRows() {
   const stored = safeParse(erpGetItem(STORAGE_KEY), null);
-  if (Array.isArray(stored) && stored.length > 0) {
-    return stored.filter((r) => !r.isBackupEntry);
-  }
-  return CASH_CASE_SAMPLE_ROWS.map((row) => ({ ...row }));
+  if (!Array.isArray(stored)) return [];
+  return stored.filter((r) => !r.isBackupEntry);
 }
 
 export function saveCashCaseRows(rows) {

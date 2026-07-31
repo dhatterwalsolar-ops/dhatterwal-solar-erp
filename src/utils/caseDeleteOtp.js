@@ -2,11 +2,10 @@ import {
   SETTINGS_OTP_MOBILE,
   SETTINGS_OTP_MOBILE_DISPLAY,
 } from "../constants/settingsDefaults";
-
-/** Demo OTP — backend/SMS connect hone par replace hoga. */
-export const CASE_DELETE_DEMO_OTP = "482916";
+import { apiSendOtp, apiVerifyOtp } from "./messagingApi";
 
 const OTP_SENT_KEY = "dhatterwal_case_delete_otp_sent";
+const OTP_DEMO_KEY = "dhatterwal_case_delete_otp_demo";
 
 export function getCaseDeleteOtpMobileDisplay() {
   return SETTINGS_OTP_MOBILE_DISPLAY;
@@ -16,12 +15,20 @@ export function getCaseDeleteOtpMobile() {
   return SETTINGS_OTP_MOBILE;
 }
 
-export function sendCaseDeleteOtp() {
-  sessionStorage.setItem(OTP_SENT_KEY, String(Date.now()));
-  return {
-    mobileDisplay: SETTINGS_OTP_MOBILE_DISPLAY,
+export async function sendCaseDeleteOtp() {
+  const data = await apiSendOtp({
+    purpose: "case_delete",
     mobile: SETTINGS_OTP_MOBILE,
-    demoOtp: CASE_DELETE_DEMO_OTP,
+  });
+  sessionStorage.setItem(OTP_SENT_KEY, String(Date.now()));
+  if (data.demoOtp) sessionStorage.setItem(OTP_DEMO_KEY, String(data.demoOtp));
+  else sessionStorage.removeItem(OTP_DEMO_KEY);
+  return {
+    mobileDisplay: data.mobileDisplay || SETTINGS_OTP_MOBILE_DISPLAY,
+    mobile: SETTINGS_OTP_MOBILE,
+    demoOtp: data.demoOtp || "",
+    demo: Boolean(data.demo),
+    message: data.message || "OTP bhej diya.",
   };
 }
 
@@ -29,13 +36,22 @@ export function isCaseDeleteOtpSent() {
   return Boolean(sessionStorage.getItem(OTP_SENT_KEY));
 }
 
-export function verifyCaseDeleteOtp(code) {
+export async function verifyCaseDeleteOtp(code) {
   if (!isCaseDeleteOtpSent()) return false;
-  const ok = String(code || "").trim() === CASE_DELETE_DEMO_OTP;
-  if (ok) sessionStorage.removeItem(OTP_SENT_KEY);
-  return ok;
+  try {
+    const data = await apiVerifyOtp({ purpose: "case_delete", code });
+    if (data.ok) {
+      sessionStorage.removeItem(OTP_SENT_KEY);
+      sessionStorage.removeItem(OTP_DEMO_KEY);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 export function clearCaseDeleteOtpSession() {
   sessionStorage.removeItem(OTP_SENT_KEY);
+  sessionStorage.removeItem(OTP_DEMO_KEY);
 }

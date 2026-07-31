@@ -325,14 +325,25 @@
   color: var(--color-text-soft);
 }
 
+.tableScroll {
+  overflow-x: auto;
+  margin-bottom: 0.85rem;
+}
+
 .inlineInput {
   width: 100%;
-  min-width: 8rem;
+  min-width: 7rem;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 0.45rem 0.55rem;
   font: inherit;
   font-size: 0.8125rem;
+}
+
+.inlineInput:disabled {
+  background: #f3f4f3;
+  color: #888;
+  cursor: not-allowed;
 }
 
 .btnDangerSmall {

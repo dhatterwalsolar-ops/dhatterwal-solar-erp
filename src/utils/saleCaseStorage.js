@@ -1,7 +1,6 @@
-import { SALE_CASE_SAMPLE_ROWS } from "../constants/saleCase";
 import { syncCustomerDetailFromSaleSheet } from "./customerDetailSaleSync";
 import { syncBomFilesFromSaleRows } from "./bomSheetStorage";
-import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
+import { erpGetItem, erpSetItem } from "./erpStorage";
 
 const STORAGE_KEY = "dhatterwal_sale_case_rows";
 export const SALE_BOM_SYNC_EVENT = "dhatterwal-sale-bom-sync";
@@ -16,10 +15,7 @@ function safeParse(raw, fallback) {
 
 export function loadSaleCaseRows() {
   const stored = safeParse(erpGetItem(STORAGE_KEY), null);
-  if (Array.isArray(stored) && stored.length > 0) {
-    return stored;
-  }
-  return SALE_CASE_SAMPLE_ROWS.map((row) => ({ ...row }));
+  return Array.isArray(stored) ? stored : [];
 }
 
 export function saveSaleCaseRows(rows, options = {}) {

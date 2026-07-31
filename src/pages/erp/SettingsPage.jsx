@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import {
-  SETTINGS_ACTIVITY_LOG,
   SETTINGS_OTP_MOBILE,
   SETTINGS_OTP_MOBILE_DISPLAY,
   buildSeriesPreview,
@@ -18,16 +17,20 @@ import {
 } from "../../utils/erpLoginUsers";
 import {
   appendActivityLog,
+  getActivityLog,
   getSettingsState,
   saveInvoiceSeries,
   saveQuotationSeries,
   saveUsers,
 } from "../../utils/settingsStorage";
 import {
+  ACCOUNT_TYPES,
   createEmptyPaymentAccount,
+  isLimitAccountType,
   loadPaymentAccounts,
   savePaymentAccounts,
 } from "../../utils/paymentAccountStorage";
+import { apiSendOtp, apiVerifyOtp } from "../../utils/messagingApi";
 import InvoiceFormatSettings from "./InvoiceFormatSettings";
 import LoanQuotationFormatSettings from "./LoanQuotationFormatSettings";
 import styles from "./SettingsPage.module.css";
@@ -63,9 +66,9 @@ function SettingsPage() {
   const [paymentAccounts, setPaymentAccounts] = useState(() => loadPaymentAccounts());
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [otpBusy, setOtpBusy] = useState(false);
   const [userForm, setUserForm] = useState(EMPTY_USER_FORM);
   const [showAddUser, setShowAddUser] = useState(false);
-  const demoOtp = "482916";
 
   const invoicePreview = useMemo(
     () => buildSeriesPreview(state.invoiceSeries),
@@ -87,27 +90,50 @@ function SettingsPage() {
     return users;
   };
 
-  const requireOtp = () => {
+  const requireOtp = async () => {
     if (!otpSent) {
       window.alert("Pehle Send OTP dabayein.");
       return false;
     }
-    if (otp.trim() !== demoOtp) {
-      window.alert("Galat OTP. Demo OTP check karein (Send OTP ke baad alert me dikhega).");
+    try {
+      const data = await apiVerifyOtp({ purpose: "settings", code: otp.trim() });
+      if (!data.ok) {
+        window.alert(data.error || "Galat OTP.");
+        return false;
+      }
+      return true;
+    } catch (err) {
+      window.alert(err?.message || "OTP verify fail.");
       return false;
     }
-    return true;
   };
 
-  const sendOtp = () => {
-    setOtpSent(true);
-    window.alert(
-      `Demo OTP ${SETTINGS_OTP_MOBILE_DISPLAY} par bheja gaya:\n\n${demoOtp}\n\n(Backend connect hone par asli SMS aayega.)`,
-    );
+  const sendOtp = async () => {
+    setOtpBusy(true);
+    try {
+      const data = await apiSendOtp({
+        purpose: "settings",
+        mobile: SETTINGS_OTP_MOBILE,
+      });
+      setOtpSent(true);
+      if (data.demo && data.demoOtp) {
+        window.alert(
+          `Demo OTP ${data.mobileDisplay || SETTINGS_OTP_MOBILE_DISPLAY} (SMS live nahi):\n\n${data.demoOtp}\n\nLive SMS ke liye server/.env me SMS_PROVIDER=msg91|twilio set karein.`,
+        );
+      } else {
+        window.alert(
+          `OTP SMS ${data.mobileDisplay || SETTINGS_OTP_MOBILE_DISPLAY} par bhej diya gaya.`,
+        );
+      }
+    } catch (err) {
+      window.alert(err?.message || "OTP send fail. API server chalu hai?");
+    } finally {
+      setOtpBusy(false);
+    }
   };
 
-  const updateInvoice = () => {
-    if (!requireOtp()) return;
+  const updateInvoice = async () => {
+    if (!(await requireOtp())) return;
     saveInvoiceSeries(state.invoiceSeries);
     appendActivityLog({
       user: session?.displayName ?? "Admin",
@@ -116,8 +142,8 @@ function SettingsPage() {
     window.alert("Invoice series updated.");
   };
 
-  const updateQuotation = () => {
-    if (!requireOtp()) return;
+  const updateQuotation = async () => {
+    if (!(await requireOtp())) return;
     saveQuotationSeries(state.quotationSeries);
     appendActivityLog({
       user: session?.displayName ?? "Admin",
@@ -126,8 +152,8 @@ function SettingsPage() {
     window.alert("Quotation series updated.");
   };
 
-  const managePasswords = () => {
-    if (!requireOtp()) return;
+  const managePasswords = async () => {
+    if (!(await requireOtp())) return;
     const logins = loadLoginUsers();
     const adminPass = window.prompt("New Admin password:", "");
     if (adminPass === null) return;
@@ -150,8 +176,8 @@ function SettingsPage() {
     window.alert("Passwords update ho gaye — naya login inhi se chalega (shared ERP).");
   };
 
-  const editUserRow = (userId) => {
-    if (!requireOtp()) return;
+  const editUserRow = async (userId) => {
+    if (!(await requireOtp())) return;
     const logins = loadLoginUsers();
     const user = logins.find((u) => u.userId === userId);
     if (!user) return;
@@ -186,8 +212,8 @@ function SettingsPage() {
     }
   };
 
-  const deleteUserRow = (userId) => {
-    if (!requireOtp()) return;
+  const deleteUserRow = async (userId) => {
+    if (!(await requireOtp())) return;
     if (!window.confirm(`User "${userId}" delete karein?`)) return;
     try {
       const next = removeLoginUser(userId);
@@ -201,8 +227,8 @@ function SettingsPage() {
     }
   };
 
-  const addNewUser = () => {
-    if (!requireOtp()) return;
+  const addNewUser = async () => {
+    if (!(await requireOtp())) return;
     const loginId = String(userForm.loginId || "").trim();
     const userName = String(userForm.userName || "").trim();
     const password = String(userForm.password || "").trim();
@@ -276,6 +302,14 @@ function SettingsPage() {
       window.alert("Duplicate account naam allowed nahi.");
       return;
     }
+    const limitBad = paymentAccounts.some((a) => {
+      if (!isLimitAccountType(a.accountType)) return false;
+      return !(Number(a.totalLimit) > 0);
+    });
+    if (limitBad) {
+      window.alert("Limit / Credit Limit accounts me Total Limit (₹) > 0 set karein.");
+      return;
+    }
     savePaymentAccounts(paymentAccounts);
     appendActivityLog({
       user: session?.displayName ?? "Admin",
@@ -342,13 +376,23 @@ function SettingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {SETTINGS_ACTIVITY_LOG.map((row) => (
-                    <tr key={row.join("-")}>
-                      <td>{row[0]}</td>
-                      <td>{row[1]}</td>
-                      <td>{row[2]}</td>
+                  {getActivityLog().length === 0 ? (
+                    <tr>
+                      <td colSpan={3}>No activity yet.</td>
                     </tr>
-                  ))}
+                  ) : (
+                    getActivityLog().map((row, index) => (
+                      <tr key={`${row.at || ""}-${row.user || ""}-${index}`}>
+                        <td>
+                          {row.at
+                            ? new Date(row.at).toLocaleString("en-IN")
+                            : "—"}
+                        </td>
+                        <td>{row.user || "—"}</td>
+                        <td>{row.action || "—"}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </section>
@@ -367,8 +411,8 @@ function SettingsPage() {
                   <button
                     type="button"
                     className={styles.btnPurple}
-                    onClick={() => {
-                      if (!requireOtp()) return;
+                    onClick={async () => {
+                      if (!(await requireOtp())) return;
                       setShowAddUser((v) => !v);
                     }}
                   >
@@ -648,61 +692,133 @@ function SettingsPage() {
                 <div>
                   <h2>Payment Types &amp; Account Balance</h2>
                   <p className={styles.cardHint}>
-                    Har account me abhi jo balance hai wo yahan set karein. Payment Received / Given
-                    ke baad Total Payment dashboard me: Settings balance + Received − Given dikhega.
+                    Account Name + Account Type set karein. Saving/Current: opening balance.
+                    Limit / Credit Limit (OD / Credit Card): Total Limit + Used Payment. Used
+                    negative me dikhega; Payment Given se used badhega. Limit cross hone par Over
+                    dikhega — daily hisaab Total Payment dashboard me.
                   </p>
                 </div>
                 <button type="button" className={styles.btnManage} onClick={addPaymentAccount}>
                   + Add Account
                 </button>
               </div>
-              <table className={styles.dataTable}>
-                <thead>
-                  <tr>
-                    <th>Payment Type / Account Name</th>
-                    <th>Current Balance (₹)</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paymentAccounts.map((acc) => (
-                    <tr key={acc.id}>
-                      <td>
-                        <input
-                          className={styles.inlineInput}
-                          value={acc.name}
-                          onChange={(e) => updatePaymentAccount(acc.id, { name: e.target.value })}
-                          placeholder="e.g. Cash, Online Sonu, Canara 7411"
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className={styles.inlineInput}
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={acc.currentBalance}
-                          onChange={(e) =>
-                            updatePaymentAccount(acc.id, {
-                              currentBalance: e.target.value,
-                            })
-                          }
-                          placeholder="0"
-                        />
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.btnDangerSmall}
-                          onClick={() => removePaymentAccount(acc.id)}
-                        >
-                          Remove
-                        </button>
-                      </td>
+              <div className={styles.tableScroll}>
+                <table className={styles.dataTable}>
+                  <thead>
+                    <tr>
+                      <th>Account Name</th>
+                      <th>Account Type</th>
+                      <th>Opening Balance (₹)</th>
+                      <th>Total Limit (₹)</th>
+                      <th>Used Payment (₹)</th>
+                      <th>Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {paymentAccounts.map((acc) => {
+                      const limitType = isLimitAccountType(acc.accountType);
+                      return (
+                        <tr key={acc.id}>
+                          <td>
+                            <input
+                              className={styles.inlineInput}
+                              value={acc.name}
+                              onChange={(e) =>
+                                updatePaymentAccount(acc.id, { name: e.target.value })
+                              }
+                              placeholder="e.g. Credit Card, Sonu Online, Canara 7411"
+                            />
+                          </td>
+                          <td>
+                            <select
+                              className={styles.inlineInput}
+                              value={acc.accountType || "Saving"}
+                              onChange={(e) => {
+                                const accountType = e.target.value;
+                                updatePaymentAccount(acc.id, {
+                                  accountType,
+                                  ...(isLimitAccountType(accountType)
+                                    ? {}
+                                    : { totalLimit: 0, usedPayment: 0 }),
+                                });
+                              }}
+                            >
+                              {ACCOUNT_TYPES.map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td>
+                            <input
+                              className={styles.inlineInput}
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              disabled={limitType}
+                              value={limitType ? "" : acc.currentBalance}
+                              onChange={(e) =>
+                                updatePaymentAccount(acc.id, {
+                                  currentBalance: e.target.value,
+                                })
+                              }
+                              placeholder={limitType ? "N/A" : "0"}
+                              title={
+                                limitType
+                                  ? "Limit accounts me opening balance nahi — Total Limit / Used use karein"
+                                  : "Opening balance"
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className={styles.inlineInput}
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              disabled={!limitType}
+                              value={limitType ? acc.totalLimit : ""}
+                              onChange={(e) =>
+                                updatePaymentAccount(acc.id, {
+                                  totalLimit: e.target.value,
+                                })
+                              }
+                              placeholder={limitType ? "e.g. 200000" : "—"}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className={styles.inlineInput}
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              disabled={!limitType}
+                              value={limitType ? acc.usedPayment : ""}
+                              onChange={(e) =>
+                                updatePaymentAccount(acc.id, {
+                                  usedPayment: e.target.value,
+                                })
+                              }
+                              placeholder={limitType ? "Already used" : "—"}
+                              title="Manual used — live used = ye + Payment Given (negative me dikhega)"
+                            />
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className={styles.btnDangerSmall}
+                              onClick={() => removePaymentAccount(acc.id)}
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
               <button type="button" className={styles.btnPurple} onClick={savePaymentTypes}>
                 Save Payment Accounts
               </button>
@@ -721,8 +837,13 @@ function SettingsPage() {
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
               />
-              <button type="button" className={styles.btnSendOtp} onClick={sendOtp}>
-                Send OTP
+              <button
+                type="button"
+                className={styles.btnSendOtp}
+                onClick={sendOtp}
+                disabled={otpBusy}
+              >
+                {otpBusy ? "Sending…" : "Send OTP"}
               </button>
             </div>
             <p className={styles.otpNote}>OTP will be sent to {SETTINGS_OTP_MOBILE}</p>
