@@ -38,6 +38,7 @@ export function createEmptyCustomerDetailRow() {
     fatherName: "",
     address: "",
     mobile: "",
+    reference: "",
     amount: "",
     amountType: "",
     receivedAmount: "",

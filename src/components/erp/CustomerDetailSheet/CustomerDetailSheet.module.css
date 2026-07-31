@@ -31,6 +31,7 @@
 
 .toolbarActions {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
@@ -40,7 +41,17 @@
   border-radius: 8px;
   padding: 0.5rem 0.65rem;
   font: inherit;
-  min-width: 200px;
+  min-width: 220px;
+}
+
+.refCount {
+  font-size: 0.8125rem;
+  color: var(--color-green-dark);
+  background: #e8f5e9;
+  border: 1px solid #c8e6c9;
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+  white-space: nowrap;
 }
 
 .btnPrimary {

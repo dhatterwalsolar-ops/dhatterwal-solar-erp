@@ -20,6 +20,15 @@ import {
   CUSTOMER_DETAIL_SALE_SYNC_EVENT,
   syncCustomerDetailFromSaleSheet,
 } from "../../../utils/customerDetailSaleSync";
+import { CASH_CASE_SYNC_EVENT } from "../../../utils/cashCaseStorage";
+import { getAuthSession } from "../../../utils/authSession";
+import {
+  consumerMatchesReference,
+  countCustomersForReference,
+  getConsumerReference,
+} from "../../../utils/consumerReference";
+import { getCustomerReferenceFilter } from "../../../utils/erpAccess";
+import { LOAN_CASE_SYNC_EVENT } from "../../../utils/loanCaseStorage";
 import { SALE_CASE_SYNC_EVENT } from "../../../utils/saleCaseSync";
 import styles from "./CustomerDetailSheet.module.css";
 
@@ -27,7 +36,13 @@ function formatMoney(num) {
   return `₹${num.toLocaleString("en-IN")}`;
 }
 
+function rowReference(row) {
+  return String(row.reference || getConsumerReference(row.consumerNo) || "").trim();
+}
+
 function CustomerDetailSheet() {
+  const session = getAuthSession();
+  const referenceFilter = getCustomerReferenceFilter(session);
   const [rows, setRows] = useState(() => {
     syncCustomerDetailFromSaleSheet({ dispatchEvent: false });
     return loadCustomerDetailRows();
@@ -46,10 +61,14 @@ function CustomerDetailSheet() {
     };
     window.addEventListener(BACKUP_ENTRY_SYNC_EVENT, refreshFromSale);
     window.addEventListener(SALE_CASE_SYNC_EVENT, refreshFromSale);
+    window.addEventListener(LOAN_CASE_SYNC_EVENT, refreshFromSale);
+    window.addEventListener(CASH_CASE_SYNC_EVENT, refreshFromSale);
     window.addEventListener(CUSTOMER_DETAIL_SALE_SYNC_EVENT, refreshFromSale);
     return () => {
       window.removeEventListener(BACKUP_ENTRY_SYNC_EVENT, refreshFromSale);
       window.removeEventListener(SALE_CASE_SYNC_EVENT, refreshFromSale);
+      window.removeEventListener(LOAN_CASE_SYNC_EVENT, refreshFromSale);
+      window.removeEventListener(CASH_CASE_SYNC_EVENT, refreshFromSale);
       window.removeEventListener(CUSTOMER_DETAIL_SALE_SYNC_EVENT, refreshFromSale);
     };
   }, []);
@@ -60,13 +79,32 @@ function CustomerDetailSheet() {
     return () => window.removeEventListener(CUSTOMER_PAYMENT_SYNC_EVENT, onPaymentSync);
   }, []);
 
-  const filteredRows = useMemo(() => {
-    if (!query.trim()) return rows;
-    const q = query.toLowerCase();
+  const scopedRows = useMemo(() => {
+    if (!referenceFilter) return rows;
     return rows.filter((row) =>
-      Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(q)),
+      consumerMatchesReference(row.consumerNo, referenceFilter, row.reference),
     );
-  }, [query, rows]);
+  }, [rows, referenceFilter]);
+
+  const filteredRows = useMemo(() => {
+    if (!query.trim()) return scopedRows;
+    const q = query.toLowerCase();
+    return scopedRows.filter((row) => {
+      const ref = rowReference(row).toLowerCase();
+      if (ref.includes(q)) return true;
+      return Object.values(row).some((value) =>
+        String(value ?? "")
+          .toLowerCase()
+          .includes(q),
+      );
+    });
+  }, [query, scopedRows]);
+
+  const referenceMatchCount = useMemo(() => {
+    if (referenceFilter) return scopedRows.length;
+    if (!query.trim()) return 0;
+    return countCustomersForReference(rows, query);
+  }, [query, rows, referenceFilter, scopedRows]);
 
   const updateCell = (rowRef, key, value) => {
     setRows((prev) =>
@@ -89,9 +127,9 @@ function CustomerDetailSheet() {
         <div>
           <h1>Customer All Detail</h1>
           <p>
-            Yeh sheet Sale Sheet ki mirror hai — same rows, same order. Nayi/extra row yahan add nahi
-            hoti; Sale me jo entry (ya Backup Entry) hai wahi yahan dikhegi. Payments yahan edit kar
-            sakte ho; <strong>Grand Total (All Payments)</strong> sab jagah se.
+            {referenceFilter
+              ? `Sirf Reference "${referenceFilter}" wale customers (Loan/Cash entry ke hisaab se).`
+              : "Yeh sheet Sale Sheet ki mirror hai. Reference Loan/Cash se aata hai — search me reference likho to uske customers dikhenge."}
           </p>
         </div>
         <div className={styles.toolbarActions}>
@@ -99,9 +137,20 @@ function CustomerDetailSheet() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search consumer, name..."
+            placeholder={
+              referenceFilter
+                ? `Search in ${referenceFilter} customers...`
+                : "Search consumer, name, reference..."
+            }
             className={styles.search}
           />
+          {referenceFilter || (query.trim() && referenceMatchCount > 0) ? (
+            <span className={styles.refCount} title="Reference filter count">
+              {referenceFilter ? `Your reference: ` : "Reference match: "}
+              <strong>{referenceMatchCount}</strong> customer
+              {referenceMatchCount === 1 ? "" : "s"}
+            </span>
+          ) : null}
         </div>
       </header>
 
@@ -115,6 +164,7 @@ function CustomerDetailSheet() {
               <th>Customer Father/Husband Name</th>
               <th>Address</th>
               <th>Mobile Number</th>
+              <th>Reference</th>
               <th>Amount (₹)</th>
               <th>Amount Type</th>
               <th>Received Amount</th>
@@ -131,8 +181,8 @@ function CustomerDetailSheet() {
             </tr>
           </thead>
           <tbody>
-            {filteredRows.map((row) => {
-              const rowIndex = rows.indexOf(row);
+            {filteredRows.map((row, filteredIndex) => {
+              const rowIndex = filteredIndex;
               void ledgerTick;
               const { totalReceived, pending } = computePaymentTotals(row);
               const { nameLoad, sale, grandTotal } = computeGrandCustomerPayments(row);
@@ -191,6 +241,14 @@ function CustomerDetailSheet() {
                       value={row.mobile || ""}
                       readOnly={!row.isBackupEntry}
                       onChange={(e) => updateCell(row, "mobile", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className={styles.readOnly}
+                      value={rowReference(row)}
+                      readOnly
+                      title="Loan / Cash sheet se common reference"
                     />
                   </td>
                   <td>

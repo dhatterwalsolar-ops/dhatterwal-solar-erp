@@ -5,6 +5,7 @@ import {
   listBackupEntries,
   mergeSaleRowsWithBackup,
 } from "./backupEntryStorage";
+import { getConsumerReference } from "./consumerReference";
 import {
   loadCustomerDetailRows,
   saveCustomerDetailRows,
@@ -37,6 +38,9 @@ function buildDetailFromSale(sale, existing) {
   const remark = profile?.defaultPaymentRemark || "";
   const base = existing ? { ...existing } : createEmptyCustomerDetailRow();
 
+  const reference =
+    getConsumerReference(sale.consumerNo) || base.reference || "";
+
   return {
     ...base,
     saleRowId: saleRowKeyForCustomerSync(sale),
@@ -45,6 +49,7 @@ function buildDetailFromSale(sale, existing) {
     fatherName: sale.fatherName || base.fatherName,
     address: sale.address || base.address,
     mobile: sale.mobile || base.mobile,
+    reference,
     amount:
       sale.amount !== undefined && String(sale.amount).trim() !== ""
         ? String(sale.amount)
@@ -60,17 +65,25 @@ function buildDetailFromBackupSale(sale, existing) {
   const fromBackup = backupEntry ? backupToCustomerRow(backupEntry) : {};
   const base = existing ? { ...existing } : createEmptyCustomerDetailRow();
 
+  const consumerNo = sale.consumerNo ?? fromBackup.consumerNo ?? "";
+  const reference =
+    fromBackup.reference ||
+    getConsumerReference(consumerNo) ||
+    base.reference ||
+    "";
+
   return {
     ...base,
     ...fromBackup,
     isBackupEntry: true,
     entryId: sale.entryId,
     saleRowId: saleRowKeyForCustomerSync(sale),
-    consumerNo: sale.consumerNo ?? fromBackup.consumerNo ?? "",
+    consumerNo,
     customerName: sale.customerName || fromBackup.customerName || "",
     fatherName: sale.fatherName || fromBackup.fatherName || "",
     address: sale.address || fromBackup.address || "",
     mobile: sale.mobile || fromBackup.mobile || "",
+    reference,
     amount:
       sale.amount !== undefined && String(sale.amount).trim() !== ""
         ? String(sale.amount)

@@ -1,4 +1,7 @@
+import { applySiteOrderFormToBom } from "./bomSheetStorage";
 import { findProductByName } from "./productStorage";
+import { applyBomToSaleSetupDetail, SALE_BOM_SYNC_EVENT } from "./saleCaseStorage";
+import { SALE_CASE_SYNC_EVENT } from "./saleCaseSync";
 import { applyStockOut, notifyStockSync } from "./stockStorage";
 import { serialExistsInStock } from "./stockSerialInventory";
 import { markSiteOrderSubmitted } from "./siteOrderStorage";
@@ -136,5 +139,21 @@ export function submitSiteInstallationForm(order, form) {
   });
   notifyStockSync();
 
-  return { ok: true, issuedLines: stockResult.updatedLines };
+  /* ERP site form → BOM Sheet + Sale Setup Detail */
+  const bomResult = applySiteOrderFormToBom(order, form);
+  if (bomResult.ok) {
+    applyBomToSaleSetupDetail(order.consumerNo);
+    try {
+      window.dispatchEvent(new Event(SALE_BOM_SYNC_EVENT));
+      window.dispatchEvent(new Event(SALE_CASE_SYNC_EVENT));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return {
+    ok: true,
+    issuedLines: stockResult.updatedLines,
+    bomUpdated: Boolean(bomResult.ok),
+  };
 }

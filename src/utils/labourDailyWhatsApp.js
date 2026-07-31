@@ -1,13 +1,12 @@
 import {
-  ERP_WHATSAPP_SENDER_DISPLAY,
-  buildWhatsAppWebSendUrl,
-  remindWhatsAppWebSenderLogin,
+  getOfficeWhatsAppDisplay,
   normalizeIndianWhatsAppMobile,
 } from "../constants/erpWhatsApp";
 import { getSaleTeamLeaderConfig } from "../constants/saleTeamMapping";
+import { officeWhatsAppFooterLine, sendOfficeWhatsApp } from "./officeWhatsAppSend";
 import { getPublicAppBaseUrl, isLocalhostBaseUrl } from "./siteOrderUrl";
 import { getLabourEmployees } from "./labourEmployeeStorage";
-import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
+import { erpGetItem, erpSetItem } from "./erpStorage";
 
 const LABOUR_GOOGLE_FORM_KEY = "dhatterwal_labour_daily_google_form_url";
 const LABOUR_FORM_PREFILL_KEY = "dhatterwal_labour_google_form_entry_ids";
@@ -105,34 +104,27 @@ export function buildLabourDailyWhatsAppMessage(form) {
 
   lines.push(
     "Google Form se labour/work update karein taaki record sahi rahe.",
-    `— Office: ${ERP_WHATSAPP_SENDER_DISPLAY}`,
+    officeWhatsAppFooterLine(),
   );
 
   return lines.join("\n");
 }
 
-export function openLabourDailyWhatsAppToLeader(form) {
+export async function openLabourDailyWhatsAppToLeader(form) {
   const teamCfg = form.teamWork ? getSaleTeamLeaderConfig(form.teamWork) : null;
   let mobile = teamCfg?.mobile || leaderMobileByName(form.teamLeader);
   if (!mobile && form.teamLeader) {
     mobile = leaderMobileByName(form.teamLeader);
   }
+  mobile = normalizeIndianWhatsAppMobile(mobile);
   if (!mobile || mobile.length !== 10) {
     window.alert("Team leader ka mobile Labour Details me set karein.");
     return false;
   }
 
-  if (
-    !window.confirm(
-      `${form.teamLeader || "Team leader"} ko WhatsApp par setup + labour Google Form bhejein?\n\nConsumer: ${form.consumerNo}`,
-    )
-  ) {
-    return false;
-  }
-
-  remindWhatsAppWebSenderLogin();
-  const url = buildWhatsAppWebSendUrl(mobile, buildLabourDailyWhatsAppMessage(form));
-  if (!url) return false;
-  window.open(url, "_blank", "noopener,noreferrer");
-  return true;
+  return sendOfficeWhatsApp(mobile, buildLabourDailyWhatsAppMessage(form), {
+    confirmText:
+      `Office WhatsApp (${getOfficeWhatsAppDisplay()}) se *${form.teamLeader || "Team leader"}* ko labour form bhejein?\n\n` +
+      `Consumer: ${form.consumerNo}`,
+  });
 }

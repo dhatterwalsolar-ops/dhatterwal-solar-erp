@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import {
-  SETTINGS_OTP_MOBILE,
-  SETTINGS_OTP_MOBILE_DISPLAY,
-  buildSeriesPreview,
-} from "../../constants/settingsDefaults";
+  getOfficeWhatsAppDisplay,
+  getOfficeWhatsAppMobile,
+  setOfficeWhatsAppMobile,
+} from "../../constants/erpWhatsApp";
+import { buildSeriesPreview } from "../../constants/settingsDefaults";
 import { ROUTES } from "../../constants/routes";
 import { getAuthSession } from "../../utils/authSession";
 import { ACCESS_PROFILES, isAdminSession } from "../../utils/erpAccess";
@@ -30,7 +31,11 @@ import {
   loadPaymentAccounts,
   savePaymentAccounts,
 } from "../../utils/paymentAccountStorage";
-import { apiSendOtp, apiVerifyOtp } from "../../utils/messagingApi";
+import { getApiBase } from "../../utils/erpStorage";
+import {
+  getSiteOrderGoogleFormUrl,
+  setSiteOrderGoogleFormUrl,
+} from "../../utils/siteOrderWhatsApp";
 import InvoiceFormatSettings from "./InvoiceFormatSettings";
 import LoanQuotationFormatSettings from "./LoanQuotationFormatSettings";
 import styles from "./SettingsPage.module.css";
@@ -43,7 +48,9 @@ const TABS = [
   { id: "quotation", label: "Quotation Series", icon: "📄" },
   { id: "loanQuotationFormat", label: "Loan Quotation Format", icon: "📝" },
   { id: "paymentTypes", label: "Payment Types", icon: "💳" },
-  { id: "security", label: "Security & OTP", icon: "🔒" },
+  { id: "security", label: "Security", icon: "🔒" },
+  { id: "whatsapp", label: "Office WhatsApp", icon: "💬" },
+  { id: "googleForm", label: "Google Form → BOM", icon: "🔗" },
   { id: "activity", label: "Activity Log", icon: "📋" },
 ];
 
@@ -64,11 +71,11 @@ function SettingsPage() {
     return { ...base, users: settingsUsersFromLogins(logins) };
   });
   const [paymentAccounts, setPaymentAccounts] = useState(() => loadPaymentAccounts());
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpBusy, setOtpBusy] = useState(false);
   const [userForm, setUserForm] = useState(EMPTY_USER_FORM);
   const [showAddUser, setShowAddUser] = useState(false);
+  const [officeWaMobile, setOfficeWaMobile] = useState(() => getOfficeWhatsAppMobile());
+  const [googleFormUrl, setGoogleFormUrl] = useState(() => getSiteOrderGoogleFormUrl());
+  const webhookApiUrl = `${(getApiBase() || "https://dhatterwal-solar-erp.onrender.com").replace(/\/$/, "")}/api/public/google-form-bom`;
 
   const invoicePreview = useMemo(
     () => buildSeriesPreview(state.invoiceSeries),
@@ -90,50 +97,7 @@ function SettingsPage() {
     return users;
   };
 
-  const requireOtp = async () => {
-    if (!otpSent) {
-      window.alert("Pehle Send OTP dabayein.");
-      return false;
-    }
-    try {
-      const data = await apiVerifyOtp({ purpose: "settings", code: otp.trim() });
-      if (!data.ok) {
-        window.alert(data.error || "Galat OTP.");
-        return false;
-      }
-      return true;
-    } catch (err) {
-      window.alert(err?.message || "OTP verify fail.");
-      return false;
-    }
-  };
-
-  const sendOtp = async () => {
-    setOtpBusy(true);
-    try {
-      const data = await apiSendOtp({
-        purpose: "settings",
-        mobile: SETTINGS_OTP_MOBILE,
-      });
-      setOtpSent(true);
-      if (data.demo && data.demoOtp) {
-        window.alert(
-          `Demo OTP ${data.mobileDisplay || SETTINGS_OTP_MOBILE_DISPLAY} (SMS live nahi):\n\n${data.demoOtp}\n\nLive SMS ke liye server/.env me SMS_PROVIDER=msg91|twilio set karein.`,
-        );
-      } else {
-        window.alert(
-          `OTP SMS ${data.mobileDisplay || SETTINGS_OTP_MOBILE_DISPLAY} par bhej diya gaya.`,
-        );
-      }
-    } catch (err) {
-      window.alert(err?.message || "OTP send fail. API server chalu hai?");
-    } finally {
-      setOtpBusy(false);
-    }
-  };
-
-  const updateInvoice = async () => {
-    if (!(await requireOtp())) return;
+  const updateInvoice = () => {
     saveInvoiceSeries(state.invoiceSeries);
     appendActivityLog({
       user: session?.displayName ?? "Admin",
@@ -142,8 +106,7 @@ function SettingsPage() {
     window.alert("Invoice series updated.");
   };
 
-  const updateQuotation = async () => {
-    if (!(await requireOtp())) return;
+  const updateQuotation = () => {
     saveQuotationSeries(state.quotationSeries);
     appendActivityLog({
       user: session?.displayName ?? "Admin",
@@ -152,8 +115,7 @@ function SettingsPage() {
     window.alert("Quotation series updated.");
   };
 
-  const managePasswords = async () => {
-    if (!(await requireOtp())) return;
+  const managePasswords = () => {
     const logins = loadLoginUsers();
     const adminPass = window.prompt("New Admin password:", "");
     if (adminPass === null) return;
@@ -176,8 +138,7 @@ function SettingsPage() {
     window.alert("Passwords update ho gaye — naya login inhi se chalega (shared ERP).");
   };
 
-  const editUserRow = async (userId) => {
-    if (!(await requireOtp())) return;
+  const editUserRow = (userId) => {
     const logins = loadLoginUsers();
     const user = logins.find((u) => u.userId === userId);
     if (!user) return;
@@ -212,8 +173,7 @@ function SettingsPage() {
     }
   };
 
-  const deleteUserRow = async (userId) => {
-    if (!(await requireOtp())) return;
+  const deleteUserRow = (userId) => {
     if (!window.confirm(`User "${userId}" delete karein?`)) return;
     try {
       const next = removeLoginUser(userId);
@@ -227,8 +187,7 @@ function SettingsPage() {
     }
   };
 
-  const addNewUser = async () => {
-    if (!(await requireOtp())) return;
+  const addNewUser = () => {
     const loginId = String(userForm.loginId || "").trim();
     const userName = String(userForm.userName || "").trim();
     const password = String(userForm.password || "").trim();
@@ -331,8 +290,8 @@ function SettingsPage() {
           🛡
         </span>
         <p>
-          For security reasons, all critical settings require OTP verification on your registered
-          mobile number <strong>{SETTINGS_OTP_MOBILE_DISPLAY}</strong>
+          Settings, user change/delete aur sheet row delete sirf <strong>Admin</strong> login se
+          allowed hain. Mobile OTP system band hai.
         </p>
       </div>
 
@@ -354,12 +313,120 @@ function SettingsPage() {
         <div className={styles.content}>
           {activeTab === "security" && (
             <section className={styles.card}>
-              <h2>Security &amp; OTP</h2>
+              <h2>Security</h2>
               <p className={styles.cardHint}>
-                Registered mobile for OTP: <strong>{SETTINGS_OTP_MOBILE}</strong>
+                Mobile OTP band hai. Settings page aur row delete sirf Admin role ke paas hain.
+                Staff add/edit daily entries kar sakte hain, delete nahi.
+              </p>
+            </section>
+          )}
+
+          {activeTab === "whatsapp" && (
+            <section className={styles.card}>
+              <h2>Office WhatsApp</h2>
+              <p className={styles.cardHint}>
+                Sale / Query / Labour ke saare messages <strong>is Office number</strong> se
+                jayenge. WhatsApp Web me isi number se QR login rakho. Live API (Meta/Twilio)
+                configure ho to bina browser ke bhi isi Business number se send hoga.
               </p>
               <p className={styles.cardHint}>
-                Critical changes (password, invoice/quotation series) need OTP from this number.
+                Current: <strong>{getOfficeWhatsAppDisplay()}</strong>
+              </p>
+              <div className={styles.seriesGrid}>
+                <label>
+                  Office WhatsApp mobile (10 digit)
+                  <input
+                    value={officeWaMobile}
+                    onChange={(e) =>
+                      setOfficeWaMobile(e.target.value.replace(/\D/g, "").slice(0, 10))
+                    }
+                    placeholder="7876686572"
+                    inputMode="numeric"
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                className={styles.btnPurple}
+                onClick={() => {
+                  try {
+                    const saved = setOfficeWhatsAppMobile(officeWaMobile);
+                    setOfficeWaMobile(saved);
+                    appendActivityLog({
+                      user: session?.displayName ?? "Admin",
+                      action: `Office WhatsApp set: ${saved}`,
+                    });
+                    window.alert(
+                      `Office WhatsApp save: ${getOfficeWhatsAppDisplay()}\n\nAb web.whatsapp.com pe isi number se login karke messages bhejo.`,
+                    );
+                  } catch (err) {
+                    window.alert(err?.message || "Save fail.");
+                  }
+                }}
+              >
+                Save Office WhatsApp
+              </button>
+            </section>
+          )}
+
+          {activeTab === "googleForm" && (
+            <section className={styles.card}>
+              <h2>Google Form → BOM (Apps Script)</h2>
+              <p className={styles.cardHint}>
+                Ab Team Leader WhatsApp me <strong>sirf ERP site form</strong> jata hai (BOM auto).
+                Google Form optional / baad ke liye — URL save kar sakte ho, lekin WhatsApp me nahi jayega.
+              </p>
+              <div className={styles.seriesGrid}>
+                <label>
+                  Google Form URL (optional — WhatsApp me nahi)
+                  <input
+                    value={googleFormUrl}
+                    onChange={(e) => setGoogleFormUrl(e.target.value)}
+                    placeholder="https://docs.google.com/forms/d/e/.../viewform"
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                className={styles.btnPurple}
+                onClick={() => {
+                  setSiteOrderGoogleFormUrl(googleFormUrl);
+                  appendActivityLog({
+                    user: session?.displayName ?? "Admin",
+                    action: "Site Google Form URL saved",
+                  });
+                  window.alert(
+                    "Google Form URL save ho gayi (optional). Team Leader WhatsApp me abhi sirf ERP site form link jata hai.",
+                  );
+                }}
+              >
+                Save Google Form URL
+              </button>
+
+              <h3 className={styles.subHead} style={{ marginTop: "1.25rem" }}>
+                Apps Script setup
+              </h3>
+              <ol className={styles.cardHint} style={{ paddingLeft: "1.2rem", lineHeight: 1.55 }}>
+                <li>Google Form banao (Consumer No., Panel, Inverter Serial, Wires, Stand…)</li>
+                <li>Responses → Spreadsheet link karo</li>
+                <li>
+                  Spreadsheet → Extensions → Apps Script → file{" "}
+                  <code>docs/google-apps-script-site-bom.gs</code> paste karo
+                </li>
+                <li>
+                  Script me <code>API_URL</code> ={" "}
+                  <code style={{ wordBreak: "break-all" }}>{webhookApiUrl}</code>
+                </li>
+                <li>
+                  Script + Render <code>GOOGLE_FORM_WEBHOOK_SECRET</code> same secret rakho
+                </li>
+                <li>
+                  Trigger: <strong>onFormSubmit</strong> → From spreadsheet → On form submit
+                </li>
+                <li>Test: Apps Script me <code>testPingErp</code> Run</li>
+              </ol>
+              <p className={styles.cardHint}>
+                Render env: <code>GOOGLE_FORM_WEBHOOK_SECRET=your-secret</code> — phir redeploy.
               </p>
             </section>
           )}
@@ -411,10 +478,7 @@ function SettingsPage() {
                   <button
                     type="button"
                     className={styles.btnPurple}
-                    onClick={async () => {
-                      if (!(await requireOtp())) return;
-                      setShowAddUser((v) => !v);
-                    }}
+                    onClick={() => setShowAddUser((v) => !v)}
                   >
                     {showAddUser ? "Close Form" : "+ Add User"}
                   </button>
@@ -424,8 +488,8 @@ function SettingsPage() {
                 </div>
               </div>
               <p className={styles.cardHint}>
-                Naye users yahan add karo — Login ID + password se shared ERP pe login hoga. Critical
-                actions ke liye pehle OTP bhejo.
+                Naye users yahan add karo — Login ID + password se shared ERP pe login hoga. User
+                change/delete sirf Admin.
               </p>
 
               {showAddUser ? (
@@ -825,29 +889,6 @@ function SettingsPage() {
             </section>
           )}
 
-          <section className={styles.otpFooter}>
-            <h3>Secure Settings with OTP Verification</h3>
-            <p>Save/update se pehle registered mobile par OTP verify karein.</p>
-            <div className={styles.otpRow}>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="Enter 6 digit OTP"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              />
-              <button
-                type="button"
-                className={styles.btnSendOtp}
-                onClick={sendOtp}
-                disabled={otpBusy}
-              >
-                {otpBusy ? "Sending…" : "Send OTP"}
-              </button>
-            </div>
-            <p className={styles.otpNote}>OTP will be sent to {SETTINGS_OTP_MOBILE}</p>
-          </section>
         </div>
       </div>
     </div>

@@ -9,7 +9,7 @@ function CashCaseSheet() {
   return (
     <CaseSheetTable
       title="Cash Case"
-      description="Enter Consumer No. manually (same main ID as Loan Case). Upload customer documents for the Sale Sheet folder. Backup Entry sab sheets (Loan, Sale, Customer Detail) me sync rehti hai."
+      description="Reference Loan/Cash me common hai. Consumer No. Loan jaisa manual. Backup Entry Loan/Sale/Customer Detail me sync rehti hai."
       documentUploadSource="cash"
       columns={CASH_CASE_COLUMNS}
       initialRows={[]}
@@ -26,7 +26,6 @@ function CashCaseSheet() {
         vendor: "Vendor Agreement",
         generateFiles: "Generate Files",
       }}
-      deleteRequiresOtp
     />
   );
 }

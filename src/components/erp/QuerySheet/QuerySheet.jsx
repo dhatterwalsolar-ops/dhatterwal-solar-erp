@@ -122,7 +122,7 @@ function QuerySheet() {
     return listQueryTeamLeaders(preferred);
   };
 
-  const assignLeader = (row, teamWork) => {
+  const assignLeader = async (row, teamWork) => {
     if (!teamWork || isQueryResolved(row)) return;
     const leaders = leadersForRow(row);
     const pick = leaders.find((l) => l.teamWork === teamWork);
@@ -136,10 +136,10 @@ function QuerySheet() {
       );
       return;
     }
-    if (!String(row.mobile || "").replace(/\D/g, "").match(/\d{10}$/)) {
-      window.alert("Pehle customer mobile (10 digit) sheet me complete karein.");
-      return;
-    }
+
+    const customerMobileOk = /\d{10}$/.test(
+      String(row.mobile || "").replace(/\D/g, "").slice(-10),
+    );
 
     const updated = updateQuery(row.id, {
       assignedTeamWork: pick.teamWork,
@@ -150,17 +150,23 @@ function QuerySheet() {
     });
     setRows(loadQueries());
 
-    window.alert(
-      `Transfer: ${pick.leaderName} (${pick.teamWork}).\n\nWhatsApp:\n1) Team leader ko detail\n2) Customer ko TL naam + mobile`,
-    );
-    openWhatsAppQueryAssignFlow(
+    const payload =
       updated || {
         ...row,
         assignedTeamWork: pick.teamWork,
         assignedLeaderName: pick.leaderName,
         assignedLeaderMobile: pick.mobile,
-      },
-    );
+      };
+
+    /* Pehle TL ko customer-name wali query WhatsApp — Office WhatsApp se */
+    await openWhatsAppQueryAssignFlow(payload);
+
+    if (!customerMobileOk) {
+      window.alert(
+        `Team Leader ${pick.leaderName} ko WhatsApp bhej diya / khol diya.\n\n` +
+          `Customer mobile incomplete — customer ko TL detail baad me tab jayegi jab 10-digit mobile sheet me ho.`,
+      );
+    }
   };
 
   const pickPhoto = (row) => {
@@ -238,7 +244,8 @@ function QuerySheet() {
         <div>
           <h1>Query Sheet</h1>
           <p>
-            Website photo (error) yahan dikhegi. Transfer → TL WhatsApp. Query close: Team Leader
+            Transfer → Team Leader select: Office WhatsApp se TL ko customer-name wali query jayegi.
+            Website photo yahan dikhegi. Query close: Team Leader
             fix photo submit (customer ko &quot;Your query solved&quot;) — ya Admin/Jagdeep remark
             se close (remark customer WhatsApp).
           </p>

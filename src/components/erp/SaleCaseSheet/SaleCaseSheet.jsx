@@ -16,7 +16,12 @@ import {
   SALE_TEAM_WORK_OPTIONS,
   createEmptySaleRow,
 } from "../../../constants/saleCase";
-import { loadSaleCaseRows, saveSaleCaseRows } from "../../../utils/saleCaseStorage";
+import {
+  loadSaleCaseRows,
+  SALE_BOM_SYNC_EVENT,
+  SALE_SETUP_DETAIL_SYNC_EVENT,
+  saveSaleCaseRows,
+} from "../../../utils/saleCaseStorage";
 import {
   loadSaleCaseRowsSyncedWithCaseSheets,
   mergeSaleRowWithCaseSheets,
@@ -50,6 +55,7 @@ import { TEMP_ALLOW_INVOICE_DELETE } from "../../../constants/tempInvoiceDelete"
 import { getAuthSession } from "../../../utils/authSession";
 import { consumerMatchesReference } from "../../../utils/consumerReference";
 import {
+  canChangeOrDelete,
   getSaleReferenceFilter,
   isSaleInvoiceDownloadOnly,
 } from "../../../utils/erpAccess";
@@ -95,9 +101,16 @@ function hydrateSaleRow(row) {
     return { ...row };
   }
   const bom = getBomMaterialsForConsumer(row.consumerNo);
+  const fromBom = formatSetupDetail(bom);
+  const hasRealBom =
+    bom &&
+    String(bom.panelDetail || "").trim() &&
+    String(bom.panelDetail || "").trim() !== "—" &&
+    String(bom.inverterSerial || "").trim() &&
+    String(bom.inverterSerial || "").trim() !== "—";
   return {
     ...row,
-    setupDetail: row.setupDetail || formatSetupDetail(bom),
+    setupDetail: hasRealBom ? fromBom : row.setupDetail || fromBom,
   };
 }
 
@@ -173,6 +186,8 @@ function SaleCaseSheet() {
   const session = getAuthSession();
   const saleRefFilter = getSaleReferenceFilter(session);
   const invoiceDownloadOnly = isSaleInvoiceDownloadOnly(session);
+  /** Sale delete sirf Admin — sab staff pe hide. OTP nahi. */
+  const canDelete = canChangeOrDelete(session);
   const [query, setQuery] = useState("");
   const [invoiceRow, setInvoiceRow] = useState(null);
   const [invoiceForm, setInvoiceForm] = useState({
@@ -224,6 +239,8 @@ function SaleCaseSheet() {
       setRows(reloadSaleRowsFromStorage());
     };
     window.addEventListener(SALE_CASE_SYNC_EVENT, reloadFromCaseSheets);
+    window.addEventListener(SALE_BOM_SYNC_EVENT, reloadFromCaseSheets);
+    window.addEventListener(SALE_SETUP_DETAIL_SYNC_EVENT, reloadFromCaseSheets);
     window.addEventListener(BACKUP_ENTRY_SYNC_EVENT, refreshBackups);
     window.addEventListener(LOAN_CASE_SYNC_EVENT, reloadFromCaseSheets);
     window.addEventListener(CASH_CASE_SYNC_EVENT, reloadFromCaseSheets);
@@ -240,6 +257,8 @@ function SaleCaseSheet() {
     window.addEventListener(SITE_ORDER_SYNC_EVENT, onSiteOrder);
     return () => {
       window.removeEventListener(SALE_CASE_SYNC_EVENT, reloadFromCaseSheets);
+      window.removeEventListener(SALE_BOM_SYNC_EVENT, reloadFromCaseSheets);
+      window.removeEventListener(SALE_SETUP_DETAIL_SYNC_EVENT, reloadFromCaseSheets);
       window.removeEventListener(BACKUP_ENTRY_SYNC_EVENT, refreshBackups);
       window.removeEventListener(LOAN_CASE_SYNC_EVENT, reloadFromCaseSheets);
       window.removeEventListener(CASH_CASE_SYNC_EVENT, reloadFromCaseSheets);
@@ -250,7 +269,9 @@ function SaleCaseSheet() {
   const filteredRows = useMemo(() => {
     let list = rows;
     if (saleRefFilter) {
-      list = list.filter((row) => consumerMatchesReference(row.consumerNo, saleRefFilter));
+      list = list.filter((row) =>
+        consumerMatchesReference(row.consumerNo, saleRefFilter, row.reference),
+      );
     }
     if (!query.trim()) return list;
     const q = query.toLowerCase();
@@ -311,6 +332,10 @@ function SaleCaseSheet() {
   };
 
   const deleteRow = (row) => {
+    if (!canDelete) {
+      window.alert("Delete sirf Admin kar sakta hai.");
+      return;
+    }
     const label = row.consumerNo?.trim() || row.customerName?.trim() || "ye row";
     if (!window.confirm(`"${label}" ko Sale Sheet se delete karein?`)) return;
     if (row.isBackupEntry && row.entryId) {
@@ -348,10 +373,10 @@ function SaleCaseSheet() {
     if (
       createdOrder &&
       window.confirm(
-        `Team "${teamWork}" set.\n\nSirf *${createdOrder.teamLeaderName}* (${teamWork}) ko WhatsApp par site + Google form link bhejein?\n\nConsumer: ${row.customerName || "—"} (${row.consumerNo})`,
+        `Team "${teamWork}" set.\n\nOffice WhatsApp se *${createdOrder.teamLeaderName}* (${teamWork}) ko site form bhejein?\n\nConsumer: ${row.customerName || "—"} (${row.consumerNo})`,
       )
     ) {
-      openWhatsAppSiteOrder(createdOrder, { skipConfirm: true });
+      void openWhatsAppSiteOrder(createdOrder, { skipConfirm: true });
     }
   };
 
@@ -377,7 +402,7 @@ function SaleCaseSheet() {
       window.alert("Team leader mobile nahi mila — Labour Details check karein.");
       return;
     }
-    openWhatsAppSiteOrder(order);
+    void openWhatsAppSiteOrder(order);
   };
 
   const requireConsumerRow = (row) => {
@@ -1021,9 +1046,9 @@ function SaleCaseSheet() {
         <div>
           <h1>Sale Sheet</h1>
           <p>
-            {invoiceDownloadOnly && saleRefFilter
-              ? `Sirf Reference "${saleRefFilter}" wale customers — invoice download.`
-              : "Team Work select par *sirf us team leader* ko WhatsApp (7876686572 Web login). Message me consumer naam/detail + Google Form link. ERP form se stock less."}
+            {saleRefFilter
+              ? `Sirf Reference "${saleRefFilter}" wale customers dikhenge (Loan/Cash Reference).`
+              : "Team Work select → Office WhatsApp se team leader ko site form jayega. Form submit ke baad stock / BOM / Setup Detail update."}
           </p>
         </div>
         <div className={styles.toolbarActions}>
@@ -1427,7 +1452,7 @@ function SaleCaseSheet() {
                   </button>
                 </td>
                 <td>
-                  {!invoiceDownloadOnly ? (
+                  {canDelete ? (
                     <button type="button" className={styles.deleteBtn} onClick={() => deleteRow(row)}>
                       Delete
                     </button>

@@ -12,12 +12,8 @@ import {
   PAYMENT_CATEGORIES,
   removePaymentBySourceRef,
 } from "../../../utils/customerPaymentLedger";
-import {
-  clearCaseDeleteOtpSession,
-  getCaseDeleteOtpMobileDisplay,
-  sendCaseDeleteOtp,
-  verifyCaseDeleteOtp,
-} from "../../../utils/caseDeleteOtp";
+import { getAuthSession } from "../../../utils/authSession";
+import { canChangeOrDelete } from "../../../utils/erpAccess";
 import {
   loadUpdateNameLoadRows,
   saveNameLoadOverride,
@@ -27,15 +23,13 @@ import {
 import styles from "./UpdateNameLoadSheet.module.css";
 
 function UpdateNameLoadSheet() {
+  const canDelete = canChangeOrDelete(getAuthSession());
   const [rows, setRows] = useState(() => {
     const stored = loadUpdateNameLoadRows();
     if (stored.length) return stored;
     return [createEmptyUpdateNameLoadRow()];
   });
   const [query, setQuery] = useState("");
-  const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
-  const [deleteOtp, setDeleteOtp] = useState("");
-  const [deleteOtpSent, setDeleteOtpSent] = useState(false);
 
   useEffect(() => {
     saveUpdateNameLoadRows(rows);
@@ -124,40 +118,13 @@ function UpdateNameLoadSheet() {
     );
   };
 
-  const closeDeleteOtpModal = () => {
-    setPendingDeleteRow(null);
-    setDeleteOtp("");
-    setDeleteOtpSent(false);
-    clearCaseDeleteOtpSession();
-  };
-
   const requestDeleteRow = (row) => {
-    const label = row.consumerNo?.trim() || row.customerName?.trim() || "ye row";
-    setPendingDeleteRow({ row, label });
-    setDeleteOtp("");
-    setDeleteOtpSent(false);
-    clearCaseDeleteOtpSession();
-  };
-
-  const handleSendDeleteOtp = async () => {
-    try {
-      const data = await sendCaseDeleteOtp();
-      setDeleteOtpSent(true);
-      if (data.demo && data.demoOtp) {
-        window.alert(
-          `Demo OTP ${data.mobileDisplay || getCaseDeleteOtpMobileDisplay()}:\n\n${data.demoOtp}\n\nLive SMS: server/.env me SMS_PROVIDER set karein.`,
-        );
-      } else {
-        window.alert(
-          `OTP SMS ${data.mobileDisplay || getCaseDeleteOtpMobileDisplay()} par bhej diya.`,
-        );
-      }
-    } catch (err) {
-      window.alert(err?.message || "OTP send fail.");
+    if (!canDelete) {
+      window.alert("Delete sirf Admin kar sakta hai.");
+      return;
     }
-  };
-
-  const performDeleteRow = (row) => {
+    const label = row.consumerNo?.trim() || row.customerName?.trim() || "ye row";
+    if (!window.confirm(`"${label}" ko sheet se delete karein?`)) return;
     if (row?.id) {
       removePaymentBySourceRef(`unl-${row.id}`);
       notifyPaymentSync();
@@ -168,76 +135,15 @@ function UpdateNameLoadSheet() {
     });
   };
 
-  const confirmDeleteWithOtp = async () => {
-    if (!deleteOtpSent) {
-      window.alert("Pehle Send OTP dabayein.");
-      return;
-    }
-    const ok = await verifyCaseDeleteOtp(deleteOtp);
-    if (!ok) {
-      window.alert("Galat / expire OTP. Dubara Send OTP karein.");
-      return;
-    }
-    if (pendingDeleteRow?.row) {
-      performDeleteRow(pendingDeleteRow.row);
-    }
-    closeDeleteOtpModal();
-  };
-
   return (
     <section className={styles.sheet}>
-      {pendingDeleteRow ? (
-        <div
-          className={styles.deleteModalBackdrop}
-          role="presentation"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeDeleteOtpModal();
-          }}
-        >
-          <div className={styles.deleteModal} role="dialog" aria-labelledby="unl-delete-otp-title">
-            <h2 id="unl-delete-otp-title" className={styles.deleteModalTitle}>
-              Row delete — OTP verify
-            </h2>
-            <p className={styles.deleteModalText}>
-              &quot;{pendingDeleteRow.label}&quot; delete karne se pehle registered mobile par OTP
-              verify karein.
-            </p>
-            <p className={styles.deleteModalMobile}>
-              OTP bheja jayega: {getCaseDeleteOtpMobileDisplay()}
-            </p>
-            <div className={styles.deleteOtpRow}>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="6 digit OTP"
-                value={deleteOtp}
-                onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                className={styles.deleteOtpInput}
-              />
-              <button type="button" className={styles.deleteSendOtpBtn} onClick={handleSendDeleteOtp}>
-                Send OTP
-              </button>
-            </div>
-            <div className={styles.deleteModalActions}>
-              <button type="button" className={styles.btnOutline} onClick={closeDeleteOtpModal}>
-                Cancel
-              </button>
-              <button type="button" className={styles.deleteConfirmBtn} onClick={confirmDeleteWithOtp}>
-                Verify &amp; Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       <header className={styles.toolbar}>
         <div>
           <h1>Update Name / Load</h1>
           <p>
             Consumer No. par detail auto aati hai. Save par fees Payment Sheet me jati hai aur
             Customer All Detail me Name/Load + Sale payments ke saath total dikhega. Delete sirf
-            OTP verify ke baad.
+            Admin.
           </p>
         </div>
         <div className={styles.toolbarActions}>
@@ -392,14 +298,16 @@ function UpdateNameLoadSheet() {
                     <button type="button" className={styles.btnSave} onClick={() => saveRow(row)}>
                       Save
                     </button>
-                    <button
-                      type="button"
-                      className={styles.btnDelete}
-                      onClick={() => requestDeleteRow(row)}
-                      title="OTP verify ke baad delete"
-                    >
-                      Delete
-                    </button>
+                    {canDelete ? (
+                      <button
+                        type="button"
+                        className={styles.btnDelete}
+                        onClick={() => requestDeleteRow(row)}
+                        title="Admin only — delete"
+                      >
+                        Delete
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               );

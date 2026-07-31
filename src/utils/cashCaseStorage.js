@@ -1,3 +1,4 @@
+import { syncReferencesFromCaseRows } from "./consumerReference";
 import { refreshSavedSaleRowsFromCaseSheets } from "./saleCaseSync";
 import { erpGetItem, erpSetItem } from "./erpStorage";
 
@@ -25,6 +26,7 @@ export function saveCashCaseRows(rows) {
   } catch {
     /* ignore */
   }
+  syncReferencesFromCaseRows(main, "cash");
   window.dispatchEvent(new Event(CASH_CASE_SYNC_EVENT));
   refreshSavedSaleRowsFromCaseSheets();
 }

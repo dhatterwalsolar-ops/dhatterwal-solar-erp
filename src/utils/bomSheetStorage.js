@@ -116,6 +116,104 @@ export function getBomMaterialsForConsumer(consumerNo) {
   return lookupStaticBom(consumerNo);
 }
 
+function isPlaceholderMaterials(materials) {
+  if (!materials) return true;
+  const panel = String(materials.panelDetail || "").trim();
+  const invSerial = String(materials.inverterSerial || "").trim();
+  return !panel || panel === "—" || !invSerial || invSerial === "—";
+}
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+function todayLabourDate() {
+  const d = new Date();
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+function standLabelForKw(setupKw) {
+  const kw = String(setupKw || "").replace(/\s/g, "").toUpperCase();
+  if (kw.includes("05")) return "05 kW Structure Stand × 1 Set";
+  if (kw.includes("03")) return "03 kW Structure Stand × 1 Set";
+  return "02 kW Structure Stand × 1 Set";
+}
+
+/** Team Leader site form → BOM materials */
+export function materialsFromSiteOrderForm(order, form) {
+  const panelSerials = (form?.panelSerials || []).map((s) => String(s || "").trim()).filter(Boolean);
+  const panelCount = panelSerials.length || Number(order?.panelCount) || 1;
+  const panelName = String(form?.panelProductName || "Solar Panel").trim() || "Solar Panel";
+  const panelDetail = `${panelName} × ${panelCount} Nos${
+    panelSerials.length ? ` (S/N: ${panelSerials.join(", ")})` : ""
+  }`;
+
+  const inverterDetail = String(form?.inverterName || "Inverter").trim() || "Inverter";
+  const inverterSerial = String(form?.inverterSerial || "").trim() || "—";
+
+  const wires = (form?.wireLines || []).filter((w) => Number(w.qtyMtr) > 0);
+  const copper =
+    wires.find((w) => /copper|dc|4\s*sq/i.test(String(w.itemName || ""))) || wires[0];
+  const main =
+    wires.find((w) => /main|ac|6\s*sq|10\s*sq/i.test(String(w.itemName || ""))) ||
+    wires.find((w) => w !== copper) ||
+    wires[1];
+
+  const copperWire = copper
+    ? `${copper.itemName} — ${copper.qtyMtr} m`
+    : "—";
+  const mainWire = main ? `${main.itemName} — ${main.qtyMtr} m` : "—";
+
+  const standLine = (form?.countLines || []).find(
+    (c) => Number(c.qty) > 0 && /stand|structure/i.test(String(c.itemName || "")),
+  );
+  const stand = standLine
+    ? `${standLine.itemName} × ${standLine.qty} ${standLine.unit || "NOS"}`
+    : standLabelForKw(order?.setupKw);
+
+  return {
+    labourDate: todayLabourDate(),
+    panelDetail,
+    inverterDetail,
+    inverterSerial,
+    copperWire,
+    mainWire,
+    stand,
+  };
+}
+
+/**
+ * TL site form submit ke baad BOM Sheet file update.
+ * source = site-order → sale sync is materials ko overwrite nahi karega.
+ */
+export function applySiteOrderFormToBom(order, form) {
+  const consumerNo = String(order?.consumerNo || "").trim();
+  if (!consumerNo) return { ok: false, message: "Consumer No. missing." };
+
+  const key = consumerNo.toUpperCase();
+  const map = loadAllFilesMap();
+  const existing = map[key];
+  const materials = materialsFromSiteOrderForm(order, form);
+  const items = buildItemsFromMaterials(materials, existing?.items);
+
+  map[key] = {
+    consumerNo: key,
+    saleDate: order.siteDate || existing?.saleDate || "",
+    customerName: order.customerName || existing?.customerName || "",
+    address: order.address || existing?.address || "",
+    setupKw: order.setupKw || existing?.setupKw || "",
+    teamWork: order.teamWork || existing?.teamWork || "",
+    materials,
+    items,
+    totalAmount: fileTotalAmount(items),
+    source: "site-order",
+    siteOrderId: order.id || "",
+    updatedAt: new Date().toISOString(),
+  };
+  saveAllFilesMap(map);
+  return { ok: true, materials, consumerNo: key };
+}
+
 export function syncBomFilesFromSaleRows(saleRows) {
   const map = loadAllFilesMap();
   const activeKeys = new Set();
@@ -126,30 +224,37 @@ export function syncBomFilesFromSaleRows(saleRows) {
     const key = consumerNo.toUpperCase();
     activeKeys.add(key);
 
-    const staticBom = lookupStaticBom(consumerNo);
-    const materials = materialsFromBom(staticBom) || {
-      labourDate: sale.date || "",
-      panelDetail: "—",
-      inverterDetail: "—",
-      inverterSerial: "—",
-      copperWire: "—",
-      mainWire: "—",
-      stand: "—",
-    };
-
     const existing = map[key];
+    const keepSiteMaterials =
+      existing?.source === "site-order" || !isPlaceholderMaterials(existing?.materials);
+
+    const staticBom = lookupStaticBom(consumerNo);
+    const materials = keepSiteMaterials
+      ? existing.materials
+      : materialsFromBom(staticBom) || {
+          labourDate: sale.date || "",
+          panelDetail: "—",
+          inverterDetail: "—",
+          inverterSerial: "—",
+          copperWire: "—",
+          mainWire: "—",
+          stand: "—",
+        };
+
     const items = buildItemsFromMaterials(materials, existing?.items);
 
     map[key] = {
       consumerNo: key,
-      saleDate: sale.date || "",
-      customerName: sale.customerName || "",
-      address: sale.address || "",
-      setupKw: sale.setupKw || "",
-      teamWork: sale.teamWork || "",
+      saleDate: sale.date || existing?.saleDate || "",
+      customerName: sale.customerName || existing?.customerName || "",
+      address: sale.address || existing?.address || "",
+      setupKw: sale.setupKw || existing?.setupKw || "",
+      teamWork: sale.teamWork || existing?.teamWork || "",
       materials,
       items,
       totalAmount: fileTotalAmount(items),
+      source: keepSiteMaterials ? existing?.source || "site-order" : existing?.source || "",
+      siteOrderId: existing?.siteOrderId || "",
       updatedAt: new Date().toISOString(),
     };
   });

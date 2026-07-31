@@ -1,72 +1,37 @@
 import { QUERY_ALERT_STAFF } from "../constants/contact";
-import {
-  buildWhatsAppWebSendUrl,
-  ERP_WHATSAPP_SENDER_DISPLAY,
-  normalizeIndianWhatsAppMobile,
-  remindWhatsAppWebSenderLogin,
-} from "../constants/erpWhatsApp";
-import { apiSendWhatsApp } from "./messagingApi";
+import { officeWhatsAppFooterLine, sendOfficeWhatsApp } from "./officeWhatsAppSend";
 import { listQueriesNeedingStaffAlert, updateQuery } from "./querySheetStorage";
 
 async function sendWhatsAppPreferApi(mobile, text, options = {}) {
-  const digits = normalizeIndianWhatsAppMobile(mobile);
-  if (!digits || digits.length !== 10) {
-    window.alert("Mobile 10 digit nahi hai — WhatsApp nahi bhej sakte.");
-    return false;
-  }
-  try {
-    const data = await apiSendWhatsApp({ to: digits, text });
-    if (data.live) return true;
-    if (data.useWebFallback || data.provider === "web") {
-      if (!options.skipConfirm && options.confirmText && !window.confirm(options.confirmText)) {
-        return false;
-      }
-      remindWhatsAppWebSenderLogin();
-      const url = buildWhatsAppWebSendUrl(digits, text);
-      if (!url) return false;
-      window.open(url, "_blank", "noopener,noreferrer");
-      return true;
-    }
-    window.alert(data.error || "WhatsApp API send fail.");
-    return false;
-  } catch (err) {
-    if (!options.skipWebFallbackOnError) {
-      if (!options.skipConfirm && options.confirmText && !window.confirm(options.confirmText)) {
-        return false;
-      }
-      remindWhatsAppWebSenderLogin();
-      const url = buildWhatsAppWebSendUrl(digits, text);
-      if (url) {
-        window.open(url, "_blank", "noopener,noreferrer");
-        return true;
-      }
-    }
-    window.alert(err?.message || "WhatsApp send fail.");
-    return false;
-  }
+  return sendOfficeWhatsApp(mobile, text, options);
 }
 
 export function buildQueryWhatsAppToLeader(query) {
+  const customerName = query.customerName || "Customer";
   const lines = [
-    `*Dhatterwal Solar — Service Query*`,
+    `*Dhatterwal Solar — New Query Assigned*`,
     ``,
-    `*Customer detail (call karein):*`,
-    `Name: ${query.customerName || "—"}`,
-    `Mobile: ${query.mobile || "—"}`,
-    `Address: ${query.address || "—"}`,
-    query.consumerNo ? `Consumer No.: ${query.consumerNo}` : null,
+    `Namaste ${query.assignedLeaderName || "Ji"},`,
+    ``,
+    `Aapke naam pe *nayi service query* assign hui hai.`,
+    ``,
+    `*Customer:* ${customerName}`,
+    `*Customer Mobile:* ${query.mobile || "—"}`,
+    `*Address:* ${query.address || "—"}`,
+    query.consumerNo ? `*Consumer No.:* ${query.consumerNo}` : null,
     ``,
     `*Query about:* ${query.queryAbout || "—"}`,
     `*Detail:*`,
     query.detail || "—",
-    query.customerPhotoData ? `Customer ne site/inverter photo bhi upload ki hai — ERP Query Sheet me dekhein.` : null,
+    query.customerPhotoData
+      ? `📷 Customer ne site/inverter photo bhi upload ki — ERP Query Sheet me dekhein.`
+      : null,
     ``,
-    `Team: ${query.assignedTeamWork || "—"}`,
-    `Aap (Team Leader): ${query.assignedLeaderName || "—"}`,
+    `*Team:* ${query.assignedTeamWork || "—"}`,
     ``,
-    `Site thik karke ERP Query Sheet me *fix photo upload / Submit* karein — tab customer ko "Query Solved" WhatsApp jayega.`,
+    `Site visit karke problem resolve karein. Phir ERP → Query Sheet me *fix photo upload / Submit* karein — tab customer ko "Query Solved" WhatsApp jayega.`,
     ``,
-    `— Office: ${ERP_WHATSAPP_SENDER_DISPLAY}`,
+    officeWhatsAppFooterLine(),
   ];
   return lines.filter((x) => x !== null).join("\n");
 }
@@ -133,12 +98,15 @@ export function buildQueryAdminCloseWhatsAppToCustomer(query) {
 }
 
 export async function openWhatsAppQueryToLeader(query, options = {}) {
+  const name = query.customerName || "Customer";
   return sendWhatsAppPreferApi(
     query.assignedLeaderMobile,
     buildQueryWhatsAppToLeader(query),
     {
       skipConfirm: options.skipConfirm,
-      confirmText: `WhatsApp se *${query.assignedLeaderName}* (${query.assignedTeamWork || "Team"}) ko customer detail bhejein?`,
+      confirmText:
+        `Office WhatsApp se Team Leader *${query.assignedLeaderName}* ko bhejein?\n\n` +
+        `Query customer: ${name}\nTeam: ${query.assignedTeamWork || "—"}`,
     },
   );
 }
@@ -164,13 +132,28 @@ export async function openWhatsAppQueryAdminCloseToCustomer(query, options = {})
   });
 }
 
-/** Assign ke baad: pehle TL, thodi der baad customer. */
+/**
+ * Assign ke baad: pehle Team Leader (query + customer naam),
+ * phir agar customer mobile valid ho to customer ko TL detail.
+ */
 export async function openWhatsAppQueryAssignFlow(query) {
   const okTl = await openWhatsAppQueryToLeader(query, { skipConfirm: true });
-  window.setTimeout(() => {
-    openWhatsAppQueryToCustomer(query, { skipConfirm: true });
-  }, 700);
-  return okTl;
+  if (!okTl) {
+    window.alert(
+      `Team Leader (${query.assignedLeaderName || "—"}) ko WhatsApp nahi khul paya.\n` +
+        `Mobile: ${query.assignedLeaderMobile || "missing"}\n` +
+        `Labour Details me TL mobile check karein + Office WhatsApp Web login.`,
+    );
+    return false;
+  }
+
+  const customerMobile = String(query.mobile || "").replace(/\D/g, "").slice(-10);
+  if (customerMobile.length === 10) {
+    window.setTimeout(() => {
+      void openWhatsAppQueryToCustomer(query, { skipConfirm: true });
+    }, 900);
+  }
+  return true;
 }
 
 export function buildStaffQueryAlertMessage(query) {
@@ -193,7 +176,7 @@ export function buildStaffQueryAlertMessage(query) {
     ``,
     `ERP → Query Sheet → Team Leader transfer karein.`,
     ``,
-    `— ERP alert (${ERP_WHATSAPP_SENDER_DISPLAY})`,
+    officeWhatsAppFooterLine(),
   ];
   return lines.filter((x) => x !== null).join("\n");
 }

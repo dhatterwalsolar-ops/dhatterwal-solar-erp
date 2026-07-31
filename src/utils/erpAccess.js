@@ -38,10 +38,10 @@ export const ACCESS_PROFILES = {
   },
   ajay_nain: {
     id: "ajay_nain",
-    label: "Ajay Nain (Loan/Cash/Sale-ref/Query)",
+    label: "Ajay Nain (Loan/Cash/Sale+Customer by ref/Query)",
     role: AUTH_ROLES.STAFF,
-    menuKeys: ["loan", "cash", "sale", "query"],
-    /** Sale Sheet me sirf is reference wale customers */
+    menuKeys: ["loan", "cash", "sale", "customer", "query"],
+    /** Sale + Customer All Detail me sirf is Reference wale customers */
     saleReferenceFilter: "Ajay Nain",
     saleInvoiceDownloadOnly: true,
   },
@@ -67,6 +67,11 @@ export function isAdminSession(session) {
   return session?.role === AUTH_ROLES.ADMIN;
 }
 
+/** Row/user delete aur critical settings change — sirf Admin. */
+export function canChangeOrDelete(session) {
+  return isAdminSession(session);
+}
+
 /** Admin ya Jagdeep (ajay_dhatterwal) — query remark se close kar sakte hain. */
 export function canCloseQueryWithRemark(session) {
   if (isAdminSession(session)) return true;
@@ -90,6 +95,11 @@ export function getErpMenuForSession(session) {
 
 export function getSaleReferenceFilter(session) {
   return resolveAccessProfile(session)?.saleReferenceFilter || "";
+}
+
+/** Sale Sheet + Customer All Detail — same reference lock (e.g. Ajay Nain). */
+export function getCustomerReferenceFilter(session) {
+  return getSaleReferenceFilter(session);
 }
 
 export function isSaleInvoiceDownloadOnly(session) {

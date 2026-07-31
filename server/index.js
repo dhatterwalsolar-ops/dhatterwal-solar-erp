@@ -7,6 +7,10 @@ import { messagingStatus } from "./messaging/config.js";
 import { issueOtp, verifyOtp } from "./messaging/otpStore.js";
 import { sendQueryAlertWhatsApp, sendWhatsAppMessage } from "./messaging/whatsapp.js";
 import {
+  applyGoogleFormToBomAndSale,
+  getGoogleFormWebhookSecret,
+} from "./googleFormBom.js";
+import {
   getAllKeys,
   getKey,
   getStoreBackendName,
@@ -40,6 +44,7 @@ app.get("/", (_req, res) => {
     apiHealth: "/api/health",
     dbTest: "/api/db/test",
     login: "POST /api/auth/login",
+    googleFormBom: "POST /api/public/google-form-bom",
   });
 });
 
@@ -241,6 +246,41 @@ app.post("/api/admin/wipe-business", authMiddleware, async (req, res) => {
     res.json({ ok: true, ...result });
   } catch (err) {
     res.status(500).json({ ok: false, error: err?.message || "wipe failed" });
+  }
+});
+
+/**
+ * Google Apps Script (Form submit) → BOM Sheet + Sale Setup Detail.
+ * Header: X-Webhook-Secret: <GOOGLE_FORM_WEBHOOK_SECRET>
+ * Or body.secret / ?secret=
+ */
+app.post("/api/public/google-form-bom", async (req, res) => {
+  try {
+    const expected = getGoogleFormWebhookSecret();
+    if (!expected) {
+      res.status(503).json({
+        ok: false,
+        error: "GOOGLE_FORM_WEBHOOK_SECRET server/.env me set nahi hai.",
+      });
+      return;
+    }
+    const provided = String(
+      req.get("x-webhook-secret") ||
+        req.body?.secret ||
+        req.query?.secret ||
+        "",
+    ).trim();
+    if (!provided || provided !== expected) {
+      res.status(401).json({ ok: false, error: "Invalid webhook secret." });
+      return;
+    }
+
+    const payload = { ...(req.body || {}) };
+    delete payload.secret;
+    const result = await applyGoogleFormToBomAndSale(payload);
+    res.status(result.ok ? 200 : 400).json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err?.message || "Google Form BOM sync fail" });
   }
 });
 

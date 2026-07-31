@@ -1,3 +1,4 @@
+import { syncReferencesFromCaseRows } from "./consumerReference";
 import { syncAllLoanDisbursements } from "./loanDisbursementSync";
 import { refreshSavedSaleRowsFromCaseSheets } from "./saleCaseSync";
 import { erpGetItem, erpSetItem } from "./erpStorage";
@@ -25,6 +26,7 @@ export function saveLoanCaseRows(rows) {
   } catch {
     /* ignore */
   }
+  syncReferencesFromCaseRows(main, "loan");
   syncAllLoanDisbursements(main);
   window.dispatchEvent(new Event(LOAN_CASE_SYNC_EVENT));
   refreshSavedSaleRowsFromCaseSheets();

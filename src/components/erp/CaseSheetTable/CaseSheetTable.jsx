@@ -16,12 +16,8 @@ import {
   listDocumentsBySource,
   readFileAsDataUrl,
 } from "../../../utils/customerDocuments";
-import {
-  clearCaseDeleteOtpSession,
-  getCaseDeleteOtpMobileDisplay,
-  sendCaseDeleteOtp,
-  verifyCaseDeleteOtp,
-} from "../../../utils/caseDeleteOtp";
+import { getAuthSession } from "../../../utils/authSession";
+import { canChangeOrDelete } from "../../../utils/erpAccess";
 import {
   downloadVendorAgreementPdf,
   generateVendorAgreementPdf,
@@ -63,9 +59,10 @@ function CaseSheetTable({
   backupSheetKind = "loan",
   onRowPaymentSync,
   enableRowDelete = true,
-  deleteRequiresOtp = false,
   rowEditLock = false,
 }) {
+  /** Delete sirf Admin — staff pe button hide. OTP nahi. */
+  const canDelete = Boolean(enableRowDelete) && canChangeOrDelete(getAuthSession());
   const assignRowId = (row) => {
     if (row._rowId) return row;
     return {
@@ -87,9 +84,6 @@ function CaseSheetTable({
   const [docRefresh, setDocRefresh] = useState(0);
   const fileInputRef = useRef(null);
   const uploadRowRef = useRef(null);
-  const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
-  const [deleteOtp, setDeleteOtp] = useState("");
-  const [deleteOtpSent, setDeleteOtpSent] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(() => new Set());
   const [vendorBusyKey, setVendorBusyKey] = useState("");
   const [vendorForm, setVendorForm] = useState(null);
@@ -197,58 +191,14 @@ function CaseSheetTable({
     setRows((prev) => prev.filter((r) => r !== row));
   };
 
-  const closeDeleteOtpModal = () => {
-    setPendingDeleteRow(null);
-    setDeleteOtp("");
-    setDeleteOtpSent(false);
-    clearCaseDeleteOtpSession();
-  };
-
   const requestDeleteRow = (row) => {
-    const label = row.consumerNo?.trim() || row.customerName?.trim() || "ye row";
-    if (deleteRequiresOtp) {
-      setPendingDeleteRow({ row, label });
-      setDeleteOtp("");
-      setDeleteOtpSent(false);
-      clearCaseDeleteOtpSession();
+    if (!canDelete) {
+      window.alert("Delete sirf Admin kar sakta hai.");
       return;
     }
+    const label = row.consumerNo?.trim() || row.customerName?.trim() || "ye row";
     if (!window.confirm(`"${label}" ko sheet se delete karein?`)) return;
     performDeleteRow(row);
-  };
-
-  const handleSendDeleteOtp = async () => {
-    try {
-      const data = await sendCaseDeleteOtp();
-      setDeleteOtpSent(true);
-      if (data.demo && data.demoOtp) {
-        window.alert(
-          `Demo OTP ${data.mobileDisplay || getCaseDeleteOtpMobileDisplay()}:\n\n${data.demoOtp}\n\nLive SMS: server/.env me SMS_PROVIDER set karein.`,
-        );
-      } else {
-        window.alert(
-          `OTP SMS ${data.mobileDisplay || getCaseDeleteOtpMobileDisplay()} par bhej diya.`,
-        );
-      }
-    } catch (err) {
-      window.alert(err?.message || "OTP send fail.");
-    }
-  };
-
-  const confirmDeleteWithOtp = async () => {
-    if (!deleteOtpSent) {
-      window.alert("Pehle Send OTP dabayein.");
-      return;
-    }
-    const ok = await verifyCaseDeleteOtp(deleteOtp);
-    if (!ok) {
-      window.alert("Galat / expire OTP. Dubara Send OTP karein.");
-      return;
-    }
-    if (pendingDeleteRow?.row) {
-      performDeleteRow(pendingDeleteRow.row);
-    }
-    closeDeleteOtpModal();
   };
 
   const deleteRow = requestDeleteRow;
@@ -640,51 +590,6 @@ function CaseSheetTable({
 
   return (
     <section className={styles.sheet}>
-      {pendingDeleteRow ? (
-        <div
-          className={styles.deleteModalBackdrop}
-          role="presentation"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeDeleteOtpModal();
-          }}
-        >
-          <div className={styles.deleteModal} role="dialog" aria-labelledby="delete-otp-title">
-            <h2 id="delete-otp-title" className={styles.deleteModalTitle}>
-              Row delete — OTP verify
-            </h2>
-            <p className={styles.deleteModalText}>
-              &quot;{pendingDeleteRow.label}&quot; delete karne se pehle registered mobile par OTP
-              verify karein.
-            </p>
-            <p className={styles.deleteModalMobile}>
-              OTP bheja jayega: {getCaseDeleteOtpMobileDisplay()}
-            </p>
-            <div className={styles.deleteOtpRow}>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="6 digit OTP"
-                value={deleteOtp}
-                onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                className={styles.deleteOtpInput}
-              />
-              <button type="button" className={styles.deleteSendOtpBtn} onClick={handleSendDeleteOtp}>
-                Send OTP
-              </button>
-            </div>
-            <div className={styles.deleteModalActions}>
-              <button type="button" className={styles.btnOutline} onClick={closeDeleteOtpModal}>
-                Cancel
-              </button>
-              <button type="button" className={styles.deleteConfirmBtn} onClick={confirmDeleteWithOtp}>
-                Verify &amp; Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       {quotationForm ? (
         <div className={styles.deleteBackdrop} role="presentation" onClick={closeQuotationForm}>
           <div
@@ -1072,7 +977,7 @@ function CaseSheetTable({
               {actions.map((action) => (
                 <th key={action.key}>{action.label}</th>
               ))}
-              {rowEditLock || enableRowDelete ? <th>Action</th> : null}
+              {rowEditLock || canDelete ? <th>Action</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -1172,7 +1077,7 @@ function CaseSheetTable({
                       </td>
                     );
                   })}
-                  {rowEditLock || enableRowDelete ? (
+                  {rowEditLock || canDelete ? (
                     <td className={styles.actionCell}>
                       {rowEditLock ? (
                         editing ? (
@@ -1195,12 +1100,12 @@ function CaseSheetTable({
                           </button>
                         )
                       ) : null}
-                      {enableRowDelete ? (
+                      {canDelete ? (
                         <button
                           type="button"
                           className={styles.deleteBtn}
                           onClick={() => deleteRow(row)}
-                          title="Row delete karein"
+                          title="Admin only — delete"
                         >
                           Delete
                         </button>

@@ -10,7 +10,7 @@ function LoanCaseSheet() {
   return (
     <CaseSheetTable
       title="Loan Case"
-      description="Bank IFSC ke baad Amount, Credit Date, Margin Received aur Remark bharne par payment Customer All Detail aur payment history me sync hoti hai (connection 2–4 din baad bhi)."
+      description="Reference Loan/Cash dono me common hai — ek sheet me change karo to dusri me bhi sync. Bank IFSC ke baad Amount/Credit Date/Margin sync Customer All Detail me jata hai."
       documentUploadSource="loan"
       columns={LOAN_CASE_COLUMNS}
       initialRows={[]}
@@ -30,7 +30,6 @@ function LoanCaseSheet() {
         vendor: "Vendor Agreement",
         generateFiles: "Generate Files",
       }}
-      deleteRequiresOtp
     />
   );
 }
