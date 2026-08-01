@@ -226,21 +226,15 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
 <style>
   @page { size: A4 portrait; margin: 6mm; }
   * { box-sizing: border-box; }
-  html, body { width: 210mm; height: 297mm; }
+  html, body { width: 210mm; }
   body {
     margin: 0; padding: 0; background:#fff; color:#000;
     font-family: "Times New Roman", Times, serif; font-size: 12px;
   }
   .sheet {
-    width: 198mm; max-width: 198mm; height: 285mm; min-height: 285mm;
-    margin: 0 auto; border: 2px solid #000;
-    display: flex; flex-direction: column; overflow: hidden;
+    width: 198mm; max-width: 198mm; margin: 0 auto; border: 2px solid #000;
   }
-  .sheet-top, .sheet-bottom { flex: 0 0 auto; }
-  .sheet-mid {
-    flex: 1 1 auto; min-height: 0;
-    display: flex; flex-direction: column;
-  }
+  .sheet-top, .sheet-mid, .sheet-bottom { display: block; }
   table { border-collapse: collapse; width: 100%; }
   .c { text-align: center; } .r { text-align: right; } .b { font-weight: 700; }
   .header-table { width: 100%; table-layout: fixed; }
@@ -270,52 +264,49 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
   .party-head { font-weight: 700; margin-bottom: 5px; }
   .party-name { font-weight: 700; text-transform: uppercase; line-height: 1.35; }
   .party-addr { text-transform: uppercase; margin-top: 3px; line-height: 1.4; }
-  .gstin-line { margin-top: 12px; }
-  .items { height: 100%; }
-  .items th, .items td { border: 1px solid #000; padding: 5px 6px; font-family: Arial, sans-serif; font-size: 12px; vertical-align: top; }
+  .gstin-line { margin-top: 6px; }
+  .items th, .items td { border: 1px solid #000; padding: 4px 5px; font-family: Arial, sans-serif; font-size: 12px; vertical-align: top; }
   .items th { font-weight: 700; background: #f3f3f3; }
   .sn { width: 30px; }
   .desc { width: 48%; }
-  .hsn-cell { width: 54px; max-width: 58px; font-size: 10.5px; padding: 5px 2px !important; word-break: break-all; }
-  .items th:nth-child(3) { width: 54px; max-width: 58px; font-size: 10.5px; padding: 5px 2px; }
-  .item-title { font-weight: 700; text-transform: uppercase; line-height: 1.35; }
-  .item-sub { font-size: 11.5px; margin-top: 3px; text-transform: uppercase; line-height: 1.35; }
-  .spacer-row td { height: 100%; border: 1px solid #000; padding: 0 !important; vertical-align: top; }
+  .hsn-cell { width: 54px; max-width: 58px; font-size: 10.5px; padding: 4px 2px !important; word-break: break-all; }
+  .items th:nth-child(3) { width: 54px; max-width: 58px; font-size: 10.5px; padding: 4px 2px; }
+  .item-title { font-weight: 700; text-transform: uppercase; line-height: 1.3; }
+  .item-sub { font-size: 11.5px; margin-top: 2px; text-transform: uppercase; line-height: 1.3; }
   .noborder-left { border-left: 1px solid #000; border-right: none; }
   .gst-add-row td { font-size: 11.5px; }
   .tax-label { white-space: nowrap; font-weight: 700; }
   .grand td { font-weight: 900; }
-  .hsn-tax { width: 100%; border-collapse: collapse; margin-top: 0; }
+  .hsn-tax { width: 100%; border-collapse: collapse; margin: 0; }
   .hsn-tax th, .hsn-tax td {
-    border: 1px solid #000; padding: 5px 6px; font-family: Arial, sans-serif; font-size: 11.5px;
+    border: 1px solid #000; padding: 4px 5px; font-family: Arial, sans-serif; font-size: 11.5px;
   }
   .hsn-tax th { font-weight: 700; background: #f3f3f3; }
   .hsn-total td { font-weight: 700; }
-  .words { padding: 8px 10px; border: 1px solid #000; border-top: none; font-weight: 700; font-family: Arial, sans-serif; line-height: 1.4; }
-  .pay-head { border: 1px solid #000; border-top: none; padding: 7px 10px; font-weight: 700; font-family: Arial, sans-serif; }
-  .banks td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 8px 10px; width: 50%; font-family: Arial, sans-serif; font-size: 11.5px; line-height: 1.4; }
-  .bank-name { font-weight: 700; margin-bottom: 3px; }
-  .foot { height: 100%; }
-  .foot td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 8px 10px; font-family: Arial, sans-serif; font-size: 11.5px; line-height: 1.4; }
-  .terms-title { font-weight: 700; margin-bottom: 6px; }
-  .sign-wrap { min-height: 155px; position: relative; }
-  .recv-row td { min-height: 52px; padding: 12px 10px 22px; }
+  .words { padding: 6px 9px; border: 1px solid #000; border-top: none; font-weight: 700; font-family: Arial, sans-serif; line-height: 1.35; }
+  .pay-head { border: 1px solid #000; border-top: none; padding: 6px 9px; font-weight: 700; font-family: Arial, sans-serif; }
+  .banks td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 6px 9px; width: 50%; font-family: Arial, sans-serif; font-size: 11.5px; line-height: 1.35; }
+  .bank-name { font-weight: 700; margin-bottom: 2px; }
+  .foot td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 6px 9px; font-family: Arial, sans-serif; font-size: 11.5px; line-height: 1.35; }
+  .terms-title { font-weight: 700; margin-bottom: 4px; }
+  .sign-wrap { position: relative; }
+  .recv-row td { padding: 8px 9px 14px; }
   .recv { font-weight: 700; }
-  .auth { text-align: right; margin-top: 4px; }
+  .auth { text-align: right; margin-top: 2px; }
   .auth-for {
     font-weight: 900; font-size: 11.5px; font-family: Arial, sans-serif;
     white-space: nowrap; line-height: 1.25; letter-spacing: 0.2px;
   }
   .auth-space {
-    min-height: 82px; height: 82px; margin: 8px 0 3px;
+    min-height: 70px; margin: 4px 0 2px;
     display: flex; align-items: flex-end; justify-content: flex-end;
   }
-  .auth-sign { max-height: 78px; max-width: 230px; width: auto; height: auto; object-fit: contain; }
+  .auth-sign { max-height: 68px; max-width: 210px; width: auto; height: auto; object-fit: contain; }
   .auth-label { font-weight: 900; font-size: 12.5px; margin-top: 2px; font-family: Arial, sans-serif; white-space: nowrap; }
   @media print {
-    html, body { width: 210mm; height: 297mm; }
+    html, body { width: 210mm; }
     body { padding: 0; margin: 0; }
-    .sheet { width: 198mm; height: 285mm; box-shadow: none; page-break-inside: avoid; }
+    .sheet { width: 198mm; box-shadow: none; }
   }
 </style>
 </head>
@@ -396,7 +387,6 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
         </thead>
         <tbody>
           ${itemRows}
-          <tr class="spacer-row"><td colspan="7"></td></tr>
           <tr>
             <td colspan="6" class="r b">Taxable Amount</td>
             <td class="r b">${esc(fmtMoney(calc.taxableAmount))}</td>
