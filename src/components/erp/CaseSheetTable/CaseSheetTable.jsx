@@ -264,7 +264,9 @@ function CaseSheetTable({
     try {
       const pdf = await generateVendorAgreementPdf(filledRow);
       vendorPdfCache.current.set(cacheKey, pdf);
-      await saveVendorAgreementToFolder(pdf);
+      /* Pehle download — folder save fail ho to bhi PDF mil jaye */
+      downloadVendorAgreementPdf(pdf);
+      const saved = await saveVendorAgreementToFolder(pdf);
 
       setRows((prev) =>
         prev.map((r) => {
@@ -291,11 +293,13 @@ function CaseSheetTable({
       );
       setDocRefresh((n) => n + 1);
       setVendorForm(null);
-      downloadVendorAgreementPdf(pdf);
       window.alert(
-        `Vendor Agreement ready (same scanned form).\n${customerName} ${nameRelation} ${fatherName}\nPDF download ho gayi.`,
+        saved
+          ? `Vendor Agreement ready.\n${customerName} ${nameRelation} ${fatherName}\nPDF download + customer folder me save.`
+          : `Vendor Agreement PDF download ho gayi.\n${customerName} ${nameRelation} ${fatherName}\n(Folder save skip — file bari / storage full; download use karein.)`,
       );
     } catch (err) {
+      console.error("[Vendor Agreement]", err);
       window.alert(err?.message || "Vendor Agreement generate fail hua.");
     } finally {
       setVendorBusyKey("");

@@ -1,1 +1,4 @@
+# Static files (vendor-agreement PNGs, etc.) first — SPA fallback last
+/vendor-agreement/*  /vendor-agreement/:splat  200
+/generate-templates/*  /generate-templates/:splat  200
 /*    /index.html   200

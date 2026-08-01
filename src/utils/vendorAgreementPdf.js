@@ -12,20 +12,66 @@ import {
 } from "./customerDocuments";
 
 const PRINT_FONT = `"Times New Roman", Times, serif`;
+const MAX_PAGE_WIDTH = 1600;
 
-function loadImage(src) {
+function pageUrl(src) {
+  const path = String(src || "").replace(/^\//, "");
+  const base = String(import.meta.env.BASE_URL || "/");
+  const normalizedBase = base.endsWith("/") ? base : `${base}/`;
+  return `${normalizedBase}${path}`;
+}
+
+async function loadImage(src) {
+  const url = pageUrl(src);
+
+  /* Prefer fetch — Hostinger pe crossOrigin="anonymous" kabhi image fail kar deta hai */
+  try {
+    const res = await fetch(url, { cache: "force-cache" });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    if (!blob.type.startsWith("image/") && blob.size < 100) {
+      throw new Error("Template image nahi mili (HTML fallback?)");
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      return await decodeImage(objectUrl);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  } catch (fetchErr) {
+    try {
+      return await decodeImage(url);
+    } catch {
+      throw new Error(
+        `Vendor agreement page load fail: ${url}\n(${fetchErr?.message || "network"})\n` +
+          `Hostinger pe /vendor-agreement/page-1.png … page-4.png upload check karein.`,
+      );
+    }
+  }
+}
+
+function decodeImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Vendor agreement page load fail: ${src}`));
+    img.onerror = () => reject(new Error(`Image decode fail: ${src}`));
     img.src = src;
+  });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("PDF read fail"));
+    reader.readAsDataURL(blob);
   });
 }
 
 function parseAgreementDate(dateStr) {
   const raw = String(dateStr || "").trim();
-  // Avoid regex character-class hyphen bugs — normalize then split
   const parts = raw.replace(/[./]/g, "-").split("-").filter(Boolean);
   if (parts.length === 3) {
     const d = parseInt(parts[0], 10);
@@ -79,7 +125,8 @@ export function formatVendorPartyName(customerName, fatherName, relation = "S/O"
     .trim()
     .toUpperCase()
     .replace(/\s+/g, "");
-  const connector = rel === "W/O" || rel === "WO" ? "W/O" : rel === "D/O" || rel === "DO" ? "D/O" : "S/O";
+  const connector =
+    rel === "W/O" || rel === "WO" ? "W/O" : rel === "D/O" || rel === "DO" ? "D/O" : "S/O";
   return `${name} ${connector} ${father}`;
 }
 
@@ -137,7 +184,6 @@ function drawOnDottedLine(ctx, text, spec, imgW, imgH) {
     const ly = y + i * lineH;
     const tw = Math.min(ctx.measureText(line).width, maxW);
 
-    // Cover only dots under glyphs
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(x - 0.5, ly - fontPx * 0.78, tw + 1, fontPx * 0.92);
 
@@ -158,31 +204,38 @@ function drawOnDottedLine(ctx, text, spec, imgW, imgH) {
 
 async function composePageDataUrl(pageIndex, party) {
   const img = await loadImage(VENDOR_AGREEMENT_PAGES[pageIndex]);
-  const imgW = img.naturalWidth || img.width;
-  const imgH = img.naturalHeight || img.height;
+  let imgW = img.naturalWidth || img.width;
+  let imgH = img.naturalHeight || img.height;
+  let drawW = imgW;
+  let drawH = imgH;
+  if (imgW > MAX_PAGE_WIDTH) {
+    const scale = MAX_PAGE_WIDTH / imgW;
+    drawW = Math.round(imgW * scale);
+    drawH = Math.round(imgH * scale);
+  }
   const canvas = document.createElement("canvas");
-  canvas.width = imgW;
-  canvas.height = imgH;
+  canvas.width = drawW;
+  canvas.height = drawH;
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0);
+  ctx.drawImage(img, 0, 0, drawW, drawH);
 
   if (pageIndex === 0) {
     const o = VENDOR_AGREEMENT_OVERLAYS.page1;
-    drawOnDottedLine(ctx, party.day, o.day, imgW, imgH);
-    drawOnDottedLine(ctx, party.month, o.month, imgW, imgH);
-    drawOnDottedLine(ctx, party.year, o.year, imgW, imgH);
-    drawOnDottedLine(ctx, party.fullName, o.name, imgW, imgH);
-    drawOnDottedLine(ctx, party.address, o.address, imgW, imgH);
+    drawOnDottedLine(ctx, party.day, o.day, drawW, drawH);
+    drawOnDottedLine(ctx, party.month, o.month, drawW, drawH);
+    drawOnDottedLine(ctx, party.year, o.year, drawW, drawH);
+    drawOnDottedLine(ctx, party.fullName, o.name, drawW, drawH);
+    drawOnDottedLine(ctx, party.address, o.address, drawW, drawH);
   }
 
   if (pageIndex === 3) {
     const o = VENDOR_AGREEMENT_OVERLAYS.page4;
-    drawOnDottedLine(ctx, party.fullName, o.name, imgW, imgH);
-    drawOnDottedLine(ctx, party.address, o.address, imgW, imgH);
-    drawOnDottedLine(ctx, party.dateDisplay, o.date, imgW, imgH);
+    drawOnDottedLine(ctx, party.fullName, o.name, drawW, drawH);
+    drawOnDottedLine(ctx, party.address, o.address, drawW, drawH);
+    drawOnDottedLine(ctx, party.dateDisplay, o.date, drawW, drawH);
   }
 
-  return canvas.toDataURL("image/jpeg", 0.93);
+  return canvas.toDataURL("image/jpeg", 0.88);
 }
 
 /**
@@ -235,7 +288,14 @@ export async function generateVendorAgreementPdf(row) {
       .slice(0, 24) || "customer";
   const fileName = `Vendor-Agreement-${consumerNo || safeName}-${when.display}.pdf`;
   const blob = doc.output("blob");
-  const dataUrl = doc.output("datauristring");
+
+  /* datauristring bade PDF pe crash kar sakta hai — FileReader safer */
+  let dataUrl = "";
+  try {
+    dataUrl = await blobToDataUrl(blob);
+  } catch {
+    dataUrl = "";
+  }
 
   return {
     blob,
@@ -248,11 +308,17 @@ export async function generateVendorAgreementPdf(row) {
 }
 
 export function downloadVendorAgreementPdf({ blob, fileName }) {
+  if (!blob) {
+    window.alert("PDF blob missing — dubara Generate karein.");
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = fileName || "Vendor-Agreement.pdf";
+  document.body.appendChild(link);
   link.click();
+  link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
@@ -276,7 +342,8 @@ export async function saveVendorAgreementToFolder(result) {
       dataUrl: result.dataUrl,
       subfolder: "VendorAgreement",
     });
-  } catch {
+  } catch (err) {
+    console.warn("[vendorAgreement] folder save skip:", err?.message || err);
     return null;
   }
 }
