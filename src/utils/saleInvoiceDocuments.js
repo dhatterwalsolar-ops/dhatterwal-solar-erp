@@ -142,12 +142,11 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
     })
     .join("");
 
-  /* Upar GST — items table me (saved format jaisa Add: CGST / SGST) */
+  /* Upar GST — Taxable Amount jaisi tight row (beech me khali cell nahi) */
   const taxRowsHtml = (calc.taxRows || [])
     .map(
       (row) => `<tr class="gst-add-row">
-        <td colspan="5" class="noborder-left"></td>
-        <td class="r tax-label">${esc(row.label)}&nbsp;&nbsp;@&nbsp;${esc(fmtRate(row.rate))}%</td>
+        <td colspan="6" class="r tax-label">${esc(row.label)}&nbsp;&nbsp;@&nbsp;${esc(fmtRate(row.rate))}%</td>
         <td class="r">${esc(fmtMoney(row.amount))}</td>
       </tr>`,
     )
@@ -260,21 +259,20 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
   .meta-inner td { border: none; padding: 4px 9px; font-family: Arial, sans-serif; font-size: 12px; line-height: 1.4; }
   .meta-inner .k { font-weight: 700; width: 120px; }
   .eway-no { font-weight: 700; }
-  .party td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 8px 9px; width: 50%; font-family: Arial, sans-serif; }
-  .party-head { font-weight: 700; margin-bottom: 5px; }
-  .party-name { font-weight: 700; text-transform: uppercase; line-height: 1.35; }
-  .party-addr { text-transform: uppercase; margin-top: 3px; line-height: 1.4; }
-  .gstin-line { margin-top: 6px; }
-  .items th, .items td { border: 1px solid #000; padding: 4px 5px; font-family: Arial, sans-serif; font-size: 12px; vertical-align: top; }
+  .party td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 6px 8px; width: 50%; font-family: Arial, sans-serif; }
+  .party-head { font-weight: 700; margin-bottom: 3px; }
+  .party-name { font-weight: 700; text-transform: uppercase; line-height: 1.3; }
+  .party-addr { text-transform: uppercase; margin-top: 2px; line-height: 1.3; }
+  .gstin-line { margin-top: 4px; }
+  .items th, .items td { border: 1px solid #000; padding: 3px 5px; font-family: Arial, sans-serif; font-size: 12px; vertical-align: top; }
   .items th { font-weight: 700; background: #f3f3f3; }
   .sn { width: 30px; }
   .desc { width: 48%; }
-  .hsn-cell { width: 54px; max-width: 58px; font-size: 10.5px; padding: 4px 2px !important; word-break: break-all; }
-  .items th:nth-child(3) { width: 54px; max-width: 58px; font-size: 10.5px; padding: 4px 2px; }
-  .item-title { font-weight: 700; text-transform: uppercase; line-height: 1.3; }
-  .item-sub { font-size: 11.5px; margin-top: 2px; text-transform: uppercase; line-height: 1.3; }
-  .noborder-left { border-left: 1px solid #000; border-right: none; }
-  .gst-add-row td { font-size: 11.5px; }
+  .hsn-cell { width: 54px; max-width: 58px; font-size: 10.5px; padding: 3px 2px !important; word-break: break-all; }
+  .items th:nth-child(3) { width: 54px; max-width: 58px; font-size: 10.5px; padding: 3px 2px; }
+  .item-title { font-weight: 700; text-transform: uppercase; line-height: 1.25; }
+  .item-sub { font-size: 11.5px; margin-top: 1px; text-transform: uppercase; line-height: 1.25; }
+  .gst-add-row td { font-size: 11.5px; padding-top: 2px; padding-bottom: 2px; }
   .tax-label { white-space: nowrap; font-weight: 700; }
   .grand td { font-weight: 900; }
   .hsn-tax { width: 100%; border-collapse: collapse; margin: 0; }
