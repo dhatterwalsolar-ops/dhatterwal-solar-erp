@@ -208,6 +208,10 @@ function SaleCaseSheet() {
     nmSearch: "",
     selectedNmNo: "",
     selectedNmDate: "",
+    reuseInvoiceNo: "",
+    reuseDate: "",
+    replaceInvoiceId: "",
+    isRegenerate: false,
   });
   const [invoiceBusy, setInvoiceBusy] = useState(false);
   const [netMeterRow, setNetMeterRow] = useState(null);
@@ -220,6 +224,10 @@ function SaleCaseSheet() {
     amount: "",
     gstPercent: "18",
     previewInvoiceNo: "",
+    reuseInvoiceNo: "",
+    reuseDate: "",
+    replaceInvoiceId: "",
+    isRegenerate: false,
   });
   const [netMeterBusy, setNetMeterBusy] = useState(false);
   const [ewayContext, setEwayContext] = useState(null);
@@ -502,31 +510,41 @@ function SaleCaseSheet() {
 
   const openInvoiceModal = (row) => {
     if (!requireConsumerRow(row)) return;
-    if (row.invoiceNo) {
-      window.alert(
-        `Is sale par pehle se invoice hai: ${row.invoiceNo}. Download Invoice / E-Way Bill use karein.`,
-      );
-      return;
-    }
+    const existing = findInvoiceForSaleRow(row) || getInvoiceById(row.invoiceId);
+    const keepNo = String(
+      row.invoiceNo || row.reservedInvoiceNo || existing?.invoiceNo || "",
+    ).trim();
+    const keepDate = String(
+      row.invoiceDate || row.reservedInvoiceDate || existing?.date || "",
+    ).trim();
+    const replaceId = String(existing?.id || row.invoiceId || "").trim();
     const items = resolveInvoiceItemDetails(row);
     const availableNm = listAvailableNetMeterInvoicesForWithoutGst({
       consumerNo: row.consumerNo,
+      excludeInvoiceId: replaceId,
     });
     const preferred =
-      availableNm.find((n) => n.invoiceNo === row.netMeterInvoiceNo) || availableNm[0] || null;
+      availableNm.find((n) => n.invoiceNo === row.netMeterInvoiceNo) ||
+      availableNm.find((n) => n.invoiceNo === keepNo) ||
+      availableNm[0] ||
+      null;
     setInvoiceRow(row);
     setInvoiceForm({
-      amount: row.amount || "",
-      pinCode: row.invoicePinCode || "",
-      station: row.invoiceStation || "",
-      panelName: items.panelName,
-      inverterName: items.inverterName,
-      inverterSerial: items.inverterSerial,
-      vehicleNo: row.vehicleNo || "",
-      previewInvoiceNo: peekNextInvoiceSerial(),
+      amount: row.amount || existing?.totalAmount || "",
+      pinCode: row.invoicePinCode || existing?.pinCode || "",
+      station: row.invoiceStation || existing?.station || "",
+      panelName: items.panelName || existing?.panelName || "",
+      inverterName: items.inverterName || existing?.inverterName || "",
+      inverterSerial: items.inverterSerial || existing?.inverterSerial || "",
+      vehicleNo: row.vehicleNo || existing?.vehicleNo || "",
+      previewInvoiceNo: keepNo || peekNextInvoiceSerial(),
       nmSearch: "",
       selectedNmNo: preferred?.invoiceNo || "",
       selectedNmDate: preferred?.date || "",
+      reuseInvoiceNo: keepNo,
+      reuseDate: keepDate,
+      replaceInvoiceId: replaceId,
+      isRegenerate: Boolean(keepNo),
     });
   };
 
@@ -609,26 +627,36 @@ function SaleCaseSheet() {
 
   const openNetMeterModal = (row) => {
     if (!requireConsumerRow(row)) return;
-    if (row.netMeterInvoiceNo) {
-      window.alert(`Net Meter Invoice pehle se hai: ${row.netMeterInvoiceNo}`);
-      return;
-    }
+    const existing =
+      findNetMeterInvoiceForSaleRow(row) || getInvoiceById(row.netMeterInvoiceId);
+    const keepNo = String(
+      row.netMeterInvoiceNo || row.reservedNetMeterInvoiceNo || existing?.invoiceNo || "",
+    ).trim();
+    const keepDate = String(existing?.date || "").trim();
+    const replaceId = String(existing?.id || row.netMeterInvoiceId || "").trim();
+    const itemName = existing?.itemName || "Net Meter Single Phase";
     ensureProductItem({
-      itemName: "Net Meter Single Phase",
+      itemName,
       category: "GENERAL",
-      hsn: "90283010",
+      hsn: existing?.hsn || "90283010",
     });
-    const itemName = "Net Meter Single Phase";
     setNetMeterRow(row);
     setNetMeterForm({
       itemName,
-      meterSrNo: "",
-      applicationNo: "",
-      meterCompanyName: "",
-      hsn: resolveProductHsn(itemName, "90283010"),
-      amount: "",
-      gstPercent: "18",
-      previewInvoiceNo: peekNextInvoiceSerial(),
+      meterSrNo: existing?.meterSrNo || "",
+      applicationNo: existing?.applicationNo || "",
+      meterCompanyName: existing?.meterCompanyName || "",
+      hsn: existing?.hsn || resolveProductHsn(itemName, "90283010"),
+      amount: existing?.totalAmount || existing?.taxableAmount || "",
+      gstPercent:
+        existing?.gstPercent != null && existing?.gstPercent !== ""
+          ? String(existing.gstPercent)
+          : "18",
+      previewInvoiceNo: keepNo || peekNextInvoiceSerial(),
+      reuseInvoiceNo: keepNo,
+      reuseDate: keepDate,
+      replaceInvoiceId: replaceId,
+      isRegenerate: Boolean(keepNo),
     });
   };
 
@@ -727,7 +755,9 @@ function SaleCaseSheet() {
       setEwayContext(null);
       setEwayResult(null);
     }
-    window.alert(`Invoice ${invoice.invoiceNo} delete ho gayi. Ab naya generate kar sakte ho.`);
+    window.alert(
+      `Invoice ${invoice.invoiceNo} delete ho gayi. Dubara Generate pe yahi number wapas lagega.`,
+    );
   };
 
   const generateInvoice = async (withGst) => {
@@ -780,6 +810,9 @@ function SaleCaseSheet() {
         vehicleNo,
         saleRowId: saleRowKey(invoiceRow),
         linkedNetMeterInvoiceNo: withGst ? "" : invoiceForm.selectedNmNo,
+        reuseInvoiceNo: withGst ? invoiceForm.reuseInvoiceNo : "",
+        reuseDate: withGst ? invoiceForm.reuseDate : "",
+        replaceInvoiceId: invoiceForm.replaceInvoiceId,
       });
 
       /* With GST → GST E-Invoice IRN API */
@@ -849,6 +882,11 @@ function SaleCaseSheet() {
                 invoiceInverterSerial: invoice.inverterSerial,
                 vehicleNo: invoice.vehicleNo,
                 irn: invoice.irn || "",
+                ewayBillNo: "",
+                ewayDistanceKm: "",
+                ewayValidUpto: "",
+                reservedInvoiceNo: "",
+                reservedInvoiceDate: "",
               }
             : row,
         ),
@@ -872,19 +910,26 @@ function SaleCaseSheet() {
       if (withGst) {
         setEwayContext({ saleRow: saleSnapshot, invoice, kind: "sale" });
         const irnLine = invoice.irn ? `\nIRN: ${invoice.irn}` : "\n(IRN demo/API pending — Settings → GST API)";
+        const regenNote = invoiceForm.isRegenerate ? " (number same)" : "";
         if (!invoiceNeedsEwayBill(invoice)) {
           window.alert(
-            `Invoice ${invoice.invoiceNo} (With GST) ban gayi.${irnLine}\n` +
+            `Invoice ${invoice.invoiceNo} (With GST) ban gayi${regenNote}.${irnLine}\n` +
               `Ab E-Way Bill bana sakte ho (distance km bharo).\n` +
               `Note: ₹${EWAY_ITEM_AMOUNT_LIMIT.toLocaleString("en-IN")} se upar amount pe E-Way zaroori hota hai.`,
           );
         } else if (invoice.irn) {
-          window.alert(`Invoice ${invoice.invoiceNo} + IRN ready.\nAb E-Way Bill (distance) complete karein.`);
+          window.alert(
+            `Invoice ${invoice.invoiceNo} + IRN ready${regenNote}.\nAb E-Way Bill (distance) complete karein.`,
+          );
+        } else if (invoiceForm.isRegenerate) {
+          window.alert(`Invoice ${invoice.invoiceNo} re-generate ho gayi (number same).`);
         }
       } else {
         setEwayContext(null);
         window.alert(
-          `Invoice ${invoice.invoiceNo} (Without GST) ban gayi.\nE-Way Bill ke liye With GST invoice generate karein.`,
+          invoiceForm.isRegenerate
+            ? `Invoice ${invoice.invoiceNo} (Without GST) re-generate — number same.\nE-Way Bill ke liye With GST invoice generate karein.`
+            : `Invoice ${invoice.invoiceNo} (Without GST) ban gayi.\nE-Way Bill ke liye With GST invoice generate karein.`,
         );
       }
     } catch (err) {
@@ -951,6 +996,9 @@ function SaleCaseSheet() {
         hsn,
         amount,
         gstPercent,
+        reuseInvoiceNo: netMeterForm.reuseInvoiceNo,
+        reuseDate: netMeterForm.reuseDate,
+        replaceInvoiceId: netMeterForm.replaceInvoiceId,
       });
 
       await saveInvoiceDocumentToFolder(invoice);
@@ -980,6 +1028,10 @@ function SaleCaseSheet() {
                 ...row,
                 netMeterInvoiceId: invoice.id,
                 netMeterInvoiceNo: invoice.invoiceNo,
+                netMeterEwayBillNo: "",
+                netMeterEwayDistanceKm: "",
+                netMeterEwayValidUpto: "",
+                reservedNetMeterInvoiceNo: "",
               }
             : row,
         ),
@@ -1028,7 +1080,9 @@ function SaleCaseSheet() {
       setEwayContext(null);
       setEwayResult(null);
     }
-    window.alert(`Net Meter Invoice ${invoice.invoiceNo} delete ho gayi.`);
+    window.alert(
+      `Net Meter Invoice ${invoice.invoiceNo} delete ho gayi. Dubara generate pe yahi number lagega.`,
+    );
   };
 
   const generateEwayBill = async () => {
@@ -1449,6 +1503,14 @@ function SaleCaseSheet() {
                         >
                           Download Invoice
                         </button>
+                        <button
+                          type="button"
+                          className={styles.actionBtn}
+                          onClick={() => openInvoiceModal(row)}
+                          title="Same Invoice No. rahega"
+                        >
+                          Re-generate Invoice
+                        </button>
                         {(() => {
                           const gstInvoice = Boolean(
                             saleInv?.withGst ?? row.invoiceWithGst,
@@ -1499,6 +1561,14 @@ function SaleCaseSheet() {
                               onClick={() => downloadNetMeterInvoice(row)}
                             >
                               Download Net Meter Inv.
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => openNetMeterModal(row)}
+                              title="Same Net Meter Invoice No. rahega"
+                            >
+                              Re-generate NM
                             </button>
                             {(() => {
                               const nmInv =
@@ -1560,16 +1630,28 @@ function SaleCaseSheet() {
                           type="button"
                           className={styles.actionBtn}
                           onClick={() => openInvoiceModal(row)}
+                          title={
+                            row.reservedInvoiceNo
+                              ? `Same number: ${row.reservedInvoiceNo}`
+                              : undefined
+                          }
                         >
-                          Generate Invoice
+                          {row.reservedInvoiceNo ? "Re-generate Invoice" : "Generate Invoice"}
                         </button>
                         {!row.netMeterInvoiceNo ? (
                           <button
                             type="button"
                             className={`${styles.actionBtn} ${styles.actionBtnGold}`}
                             onClick={() => openNetMeterModal(row)}
+                            title={
+                              row.reservedNetMeterInvoiceNo
+                                ? `Same number: ${row.reservedNetMeterInvoiceNo}`
+                                : undefined
+                            }
                           >
-                            Net Meter Invoice
+                            {row.reservedNetMeterInvoiceNo
+                              ? "Re-generate NM"
+                              : "Net Meter Invoice"}
                           </button>
                         ) : (
                           <>
@@ -1583,6 +1665,23 @@ function SaleCaseSheet() {
                             >
                               Download Net Meter Inv.
                             </button>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => openNetMeterModal(row)}
+                              title="Same Net Meter Invoice No. rahega"
+                            >
+                              Re-generate NM
+                            </button>
+                            {canDelete ? (
+                              <button
+                                type="button"
+                                className={styles.deleteInvoiceBtn}
+                                onClick={() => deleteNetMeterInvoice(row)}
+                              >
+                                Delete NM Inv.
+                              </button>
+                            ) : null}
                           </>
                         )}
                       </>
@@ -1639,9 +1738,10 @@ function SaleCaseSheet() {
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2>Generate Invoice</h2>
+            <h2>{invoiceForm.isRegenerate ? "Re-generate Invoice" : "Generate Invoice"}</h2>
             <p className={styles.invoicePreviewNo}>
-              Next Invoice No. (series): <strong>{invoiceForm.previewInvoiceNo}</strong>
+              {invoiceForm.isRegenerate ? "Invoice No. (same):" : "Next Invoice No. (series):"}{" "}
+              <strong>{invoiceForm.previewInvoiceNo}</strong>
             </p>
 
             <div className={styles.partyBox}>
@@ -1742,6 +1842,8 @@ function SaleCaseSheet() {
               <ul className={styles.nmPickList}>
                 {listAvailableNetMeterInvoicesForWithoutGst({
                   query: invoiceForm.nmSearch,
+                  consumerNo: invoiceRow.consumerNo,
+                  excludeInvoiceId: invoiceForm.replaceInvoiceId,
                 })
                   .slice(0, 12)
                   .map((nm) => (
@@ -1768,7 +1870,8 @@ function SaleCaseSheet() {
               </ul>
             </div>
             <p className={styles.modalHintSmall}>
-              With GST next series: <strong>{invoiceForm.previewInvoiceNo}</strong>
+              With GST {invoiceForm.isRegenerate ? "number (same)" : "next series"}:{" "}
+              <strong>{invoiceForm.previewInvoiceNo}</strong>
               {" · "}
               E-Way ₹{EWAY_ITEM_AMOUNT_LIMIT.toLocaleString("en-IN")}+ pe zaroori; GST invoice pe
               hamesha bana sakte ho.
@@ -1816,9 +1919,12 @@ function SaleCaseSheet() {
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2>Net Meter Invoice</h2>
+            <h2>
+              {netMeterForm.isRegenerate ? "Re-generate Net Meter Invoice" : "Net Meter Invoice"}
+            </h2>
             <p className={styles.invoicePreviewNo}>
-              Next Invoice No. (series): <strong>{netMeterForm.previewInvoiceNo}</strong>
+              {netMeterForm.isRegenerate ? "Invoice No. (same):" : "Next Invoice No. (series):"}{" "}
+              <strong>{netMeterForm.previewInvoiceNo}</strong>
             </p>
             <div className={styles.partyBox}>
               <strong>Party — {netMeterRow.customerName}</strong>

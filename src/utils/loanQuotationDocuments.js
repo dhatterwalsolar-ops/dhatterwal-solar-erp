@@ -335,7 +335,9 @@ export async function generateAndSaveLoanQuotation(row, { amount, withGst = true
     throw new Error("Quotation amount sahi bharen.");
   }
 
-  const quotationNo = allocateNextQuotationSerial();
+  /* Re-generate pe purana Quotation No. same — series mat badhao */
+  const existingNo = String(row.quotationNo || "").trim();
+  const quotationNo = existingNo || allocateNextQuotationSerial();
   const date = formatQuotationDate();
   const computation = buildInvoiceComputation({
     taxableAmount: amt,

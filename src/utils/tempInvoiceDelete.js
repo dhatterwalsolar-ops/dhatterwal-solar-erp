@@ -31,8 +31,13 @@ function removeInvoiceFolderDocs(consumerNo, invoiceNo) {
   });
 }
 
-/** Clear invoice / e-way fields from a sale row object. */
-export function clearedSaleInvoiceFields(row = {}) {
+/**
+ * Clear invoice / e-way fields from a sale row object.
+ * keepReserved: dubara generate pe wahi Invoice No. reuse (series mat badhao).
+ */
+export function clearedSaleInvoiceFields(row = {}, { keepReserved = true } = {}) {
+  const keepNo = String(row.invoiceNo || row.reservedInvoiceNo || "").trim();
+  const keepDate = String(row.invoiceDate || row.reservedInvoiceDate || "").trim();
   return {
     ...row,
     invoiceId: "",
@@ -43,11 +48,15 @@ export function clearedSaleInvoiceFields(row = {}) {
     ewayBillNo: "",
     ewayDistanceKm: "",
     ewayValidUpto: "",
+    irn: "",
+    reservedInvoiceNo: keepReserved ? keepNo : "",
+    reservedInvoiceDate: keepReserved ? keepDate : "",
   };
 }
 
 /** Clear net-meter invoice / e-way fields only. */
-export function clearedNetMeterInvoiceFields(row = {}) {
+export function clearedNetMeterInvoiceFields(row = {}, { keepReserved = true } = {}) {
+  const keepNo = String(row.netMeterInvoiceNo || row.reservedNetMeterInvoiceNo || "").trim();
   return {
     ...row,
     netMeterInvoiceId: "",
@@ -55,6 +64,7 @@ export function clearedNetMeterInvoiceFields(row = {}) {
     netMeterEwayBillNo: "",
     netMeterEwayDistanceKm: "",
     netMeterEwayValidUpto: "",
+    reservedNetMeterInvoiceNo: keepReserved ? keepNo : "",
   };
 }
 

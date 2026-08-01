@@ -97,16 +97,51 @@ function formatInvoiceDate(date = new Date()) {
 /**
  * Push invoice into Invoice File.
  * - Default: allocates next Settings invoice series + today's date (With GST / Net Meter).
- * - reuseInvoiceNo + reuseDate: Without GST — same number/date as Net Meter (no series bump).
+ * - reuseInvoiceNo + reuseDate: same number (Without GST↔NM, ya re-generate) — series mat badhao.
+ * - replaceInvoiceId / same invoiceNo: in-place update (re-generate).
  */
 function pushInvoiceRecord(fields) {
   const list = readInvoiceFile();
-  const srNo = list.length + 1;
   const reuseNo = String(fields.reuseInvoiceNo || "").trim();
   const reuseDate = String(fields.reuseDate || "").trim();
+  const replaceId = String(fields.replaceInvoiceId || "").trim();
+  const { reuseInvoiceNo: _r1, reuseDate: _r2, replaceInvoiceId: _r3, ...rest } = fields;
+
+  const existingIdx = list.findIndex((inv) => {
+    if (replaceId && inv.id === replaceId) return true;
+    if (reuseNo && String(inv.invoiceNo || "").trim() === reuseNo) return true;
+    return false;
+  });
+
+  if (existingIdx >= 0) {
+    const prev = list[existingIdx];
+    const invoiceNo = reuseNo || String(prev.invoiceNo || "").trim();
+    const generateDate = reuseDate || prev.date || formatInvoiceDate();
+    const invoice = {
+      ...prev,
+      ...rest,
+      id: prev.id,
+      srNo: prev.srNo,
+      bookNo: rest.bookNo || prev.bookNo || prev.srNo,
+      invoiceNo,
+      date: generateDate,
+      monthKey: getMonthKeyFromDate(generateDate),
+      createdAt: prev.createdAt || new Date().toISOString(),
+      regeneratedAt: new Date().toISOString(),
+      generatedAt: new Date().toLocaleString("en-IN"),
+      ewayBillNo: rest.ewayBillNo || "",
+      ewayDistanceKm: rest.ewayDistanceKm || "",
+      ewayValidUpto: rest.ewayValidUpto || "",
+      ewayGeneratedAt: rest.ewayGeneratedAt || "",
+    };
+    list[existingIdx] = invoice;
+    writeInvoiceFile(list);
+    return invoice;
+  }
+
+  const srNo = list.length + 1;
   const invoiceNo = reuseNo || allocateNextInvoiceSerial();
   const generateDate = reuseDate || formatInvoiceDate();
-  const { reuseInvoiceNo: _r1, reuseDate: _r2, ...rest } = fields;
   const internalId = rest.id || `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const invoice = {
     ...rest,
@@ -129,9 +164,11 @@ function pushInvoiceRecord(fields) {
 }
 
 /** Net Meter invoice numbers already used for a Without GST invoice. */
-export function getUsedNetMeterNumbersForWithoutGst() {
+export function getUsedNetMeterNumbersForWithoutGst({ excludeInvoiceId = "" } = {}) {
   const used = new Set();
+  const exclude = String(excludeInvoiceId || "").trim();
   readInvoiceFile().forEach((inv) => {
+    if (exclude && inv.id === exclude) return;
     if (inv.invoiceKind === "net-meter") return;
     if (inv.withGst) return;
     if (inv.linkedNetMeterInvoiceNo) {
@@ -151,8 +188,9 @@ export function getUsedNetMeterNumbersForWithoutGst() {
 export function listAvailableNetMeterInvoicesForWithoutGst({
   query = "",
   consumerNo = "",
+  excludeInvoiceId = "",
 } = {}) {
-  const used = getUsedNetMeterNumbersForWithoutGst();
+  const used = getUsedNetMeterNumbersForWithoutGst({ excludeInvoiceId });
   const q = String(query || "").trim().toLowerCase();
   const cn = String(consumerNo || "").trim().toUpperCase();
   return getInvoiceFileRecords()
@@ -186,6 +224,7 @@ export function getNetMeterInvoiceByNo(invoiceNo) {
 /**
  * Issue invoice matching official Tax Invoice stationery fields.
  * Without GST: pass linkedNetMeterInvoiceNo — reuses that Net Meter number + date (no series bump).
+ * Re-generate: reuseInvoiceNo / replaceInvoiceId — purana number same (series mat badhao).
  */
 export function issueSaleInvoice({
   consumerNo,
@@ -206,6 +245,9 @@ export function issueSaleInvoice({
   transport,
   bookNo,
   linkedNetMeterInvoiceNo,
+  reuseInvoiceNo: preferReuseNo = "",
+  reuseDate: preferReuseDate = "",
+  replaceInvoiceId = "",
 }) {
   const format = getInvoiceFormat();
   const computation = buildInvoiceComputation({
@@ -223,13 +265,14 @@ export function issueSaleInvoice({
   let reuseDate = "";
   let linkedId = "";
   let linkedNo = "";
+  const replaceId = String(replaceInvoiceId || "").trim();
 
   if (!withGst) {
     const nmNo = String(linkedNetMeterInvoiceNo || "").trim();
     if (!nmNo) {
       throw new Error("Without GST ke liye Net Meter Invoice number select karein.");
     }
-    const used = getUsedNetMeterNumbersForWithoutGst();
+    const used = getUsedNetMeterNumbersForWithoutGst({ excludeInvoiceId: replaceId });
     if (used.has(nmNo)) {
       throw new Error(
         `Invoice number ${nmNo} pehle se Without GST me use ho chuka hai — dubara nahi katega.`,
@@ -243,6 +286,16 @@ export function issueSaleInvoice({
     reuseDate = nm.date;
     linkedId = nm.id;
     linkedNo = nm.invoiceNo;
+  } else {
+    const prefer = String(preferReuseNo || "").trim();
+    if (prefer) {
+      reuseInvoiceNo = prefer;
+      reuseDate = String(preferReuseDate || "").trim();
+      if (!reuseDate) {
+        const existing = getInvoiceByNo(prefer);
+        if (existing?.date) reuseDate = existing.date;
+      }
+    }
   }
 
   return pushInvoiceRecord({
@@ -273,6 +326,7 @@ export function issueSaleInvoice({
     linkedNetMeterInvoiceNo: linkedNo,
     reuseInvoiceNo,
     reuseDate,
+    replaceInvoiceId: replaceId,
     lines: computation.lines,
     taxRows: computation.taxRows,
     hsnSummary: computation.hsnSummary,
@@ -302,6 +356,9 @@ export function issueNetMeterInvoice({
   gstPercent,
   transport,
   bookNo,
+  reuseInvoiceNo = "",
+  reuseDate = "",
+  replaceInvoiceId = "",
 }) {
   const format = getInvoiceFormat();
   const computation = buildNetMeterInvoiceComputation({
@@ -313,6 +370,13 @@ export function issueNetMeterInvoice({
     amount,
     gstPercent,
   });
+
+  const prefer = String(reuseInvoiceNo || "").trim();
+  let keepDate = String(reuseDate || "").trim();
+  if (prefer && !keepDate) {
+    const existing = getInvoiceByNo(prefer);
+    if (existing?.date) keepDate = existing.date;
+  }
 
   return pushInvoiceRecord({
     bookNo,
@@ -349,6 +413,9 @@ export function issueNetMeterInvoice({
     hsnSummary: computation.hsnSummary,
     totalQty: computation.totalQty,
     amountInWords: computation.amountInWords,
+    reuseInvoiceNo: prefer,
+    reuseDate: keepDate,
+    replaceInvoiceId: String(replaceInvoiceId || "").trim(),
   });
 }
 

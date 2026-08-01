@@ -354,10 +354,12 @@ function CaseSheetTable({
       return;
     }
     const prefill = parseLoanAmount(row.loanPayment);
+    const existingNo = String(row.quotationNo || "").trim();
     setQuotationForm({
       row,
       amount: prefill > 0 ? String(prefill) : "",
-      previewNo: peekNextQuotationSerial(),
+      previewNo: existingNo || peekNextQuotationSerial(),
+      isRegenerate: Boolean(existingNo),
     });
   };
 
@@ -404,7 +406,11 @@ function CaseSheetTable({
       setDocRefresh((n) => n + 1);
       openLoanQuotationHtml(result.html);
       setQuotationForm(null);
-      window.alert(`Quotation ${result.quotationNo} generate ho gayi (folder + download).`);
+      window.alert(
+        quotationForm.isRegenerate
+          ? `Quotation re-generate ho gayi — number same: ${result.quotationNo}`
+          : `Quotation ${result.quotationNo} generate ho gayi (folder + download).`,
+      );
     } catch (err) {
       window.alert(err?.message || "Quotation generate fail hua.");
     } finally {
@@ -600,13 +606,14 @@ function CaseSheetTable({
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="quotation-form-title" className={styles.vendorModalTitle}>
-              Generate Loan Quotation
+              {quotationForm.isRegenerate ? "Re-generate Loan Quotation" : "Generate Loan Quotation"}
             </h2>
             <p className={styles.deleteHint}>
               Consumer <strong>{quotationForm.row.consumerNo}</strong> —{" "}
               {quotationForm.row.customerName}
               <br />
-              Next Quotation No.: <strong>{quotationForm.previewNo}</strong>
+              {quotationForm.isRegenerate ? "Quotation No. (same):" : "Next Quotation No.:"}{" "}
+              <strong>{quotationForm.previewNo}</strong>
               <br />
               Format: Settings → Loan Quotation Format (sirf billing address)
             </p>

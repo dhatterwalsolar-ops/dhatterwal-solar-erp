@@ -53,7 +53,9 @@ export function clearAllInvoicesForFreshStart() {
 
   const saleRows = loadSaleCaseRows();
   const clearedSales = saleRows.map((row) =>
-    clearedNetMeterInvoiceFields(clearedSaleInvoiceFields(row)),
+    clearedNetMeterInvoiceFields(clearedSaleInvoiceFields(row, { keepReserved: false }), {
+      keepReserved: false,
+    }),
   );
   saveSaleCaseRows(clearedSales, { syncBom: false, syncCustomerDetail: true });
   if (typeof window !== "undefined") {
