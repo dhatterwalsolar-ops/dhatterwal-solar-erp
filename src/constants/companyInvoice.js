@@ -12,7 +12,7 @@ export const DEFAULT_INVOICE_FORMAT = {
   placeOfSupply: "Haryana(06)",
   reverseCharge: "N",
   transportDefault: "SELF",
-  signatoryFor: "for Dhatterwal Solar Energy System",
+  signatoryFor: "For DHATTERWAL SOLAR ENERGY SYSTEM",
   authorisedLabel: "Authorised Signatory",
   receiverLabel: "Receiver's Signature :",
   paymentHeading: "Payment Instructions : Our Bank Details",

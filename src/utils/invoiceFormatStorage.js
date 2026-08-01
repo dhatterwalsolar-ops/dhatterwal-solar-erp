@@ -37,12 +37,23 @@ function normalizeTerms(terms) {
   return [...DEFAULT_INVOICE_FORMAT.terms];
 }
 
+function normalizeSignatoryFor(value) {
+  const raw = String(value || "").trim();
+  if (!raw || /^for\s+dhatterwal\s+solar\s+energy\s+system$/i.test(raw)) {
+    return DEFAULT_INVOICE_FORMAT.signatoryFor;
+  }
+  return raw;
+}
+
 /** Merged invoice stationery (Settings → Invoice Format). */
 export function getInvoiceFormat() {
   const saved = read().invoiceFormat || {};
   return {
     ...DEFAULT_INVOICE_FORMAT,
     ...saved,
+    signatoryFor: normalizeSignatoryFor(
+      saved.signatoryFor ?? DEFAULT_INVOICE_FORMAT.signatoryFor,
+    ),
     banks: normalizeBanks(saved.banks ?? DEFAULT_INVOICE_FORMAT.banks),
     terms: normalizeTerms(saved.terms ?? DEFAULT_INVOICE_FORMAT.terms),
     solarSharePercent: Number(saved.solarSharePercent ?? DEFAULT_INVOICE_FORMAT.solarSharePercent),

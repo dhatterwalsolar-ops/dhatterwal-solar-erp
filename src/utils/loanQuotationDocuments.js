@@ -145,20 +145,28 @@ export function buildLoanQuotationHtml(quotation, formatOverride) {
 <meta charset="utf-8"/>
 <title>Quotation ${esc(quotation.quotationNo)}</title>
 <style>
-  @page { size: A4; margin: 8mm; }
+  @page { size: A4 portrait; margin: 8mm; }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 6px; background:#fff; color:#000; font-family: "Times New Roman", Times, serif; font-size: 12px; }
-  .sheet { width: 100%; max-width: 190mm; margin: 0 auto; border: 2px solid #000; }
+  html, body { width: 210mm; }
+  body { margin: 0; padding: 0; background:#fff; color:#000; font-family: "Times New Roman", Times, serif; font-size: 11.5px; }
+  .sheet { width: 194mm; max-width: 194mm; min-height: 277mm; margin: 0 auto; border: 1.8px solid #000; }
   table { border-collapse: collapse; width: 100%; }
   .c { text-align: center; } .r { text-align: right; } .b { font-weight: 700; }
-  .header-table td { vertical-align: top; padding: 6px 8px; }
-  .logo { width: 92px; height: 92px; object-fit: contain; }
-  .company { text-align: center; }
-  .inv-title { font-size: 16px; font-weight: 700; margin: 0 0 2px; font-family: Arial, sans-serif; }
-  .co-name { font-size: 22px; font-weight: 900; margin: 0; letter-spacing: 0.2px; font-family: Arial Black, Arial, sans-serif; text-transform: uppercase; }
-  .co-line { margin: 1px 0; font-size: 12px; font-family: Arial, sans-serif; }
+  .header-table { width: 100%; table-layout: fixed; }
+  .header-table td { vertical-align: middle; padding: 5px 6px; }
+  .header-table td.logo-cell { width: 78px; }
+  .header-table td.copy-cell { width: 70px; }
+  .logo { width: 72px; height: 72px; object-fit: contain; display: block; }
+  .company { text-align: center; overflow: hidden; }
+  .inv-title { font-size: 14px; font-weight: 700; margin: 0 0 2px; font-family: Arial, sans-serif; }
+  .co-name {
+    font-size: 15px; font-weight: 900; margin: 0; letter-spacing: 0;
+    font-family: Arial Black, Arial, sans-serif; text-transform: uppercase;
+    white-space: nowrap; line-height: 1.2;
+  }
+  .co-line { margin: 1px 0; font-size: 11px; font-family: Arial, sans-serif; }
   .gstin { font-weight: 700; }
-  .copy { font-style: italic; font-size: 12px; text-align: right; white-space: nowrap; font-family: Arial, sans-serif; }
+  .copy { font-style: italic; font-size: 11px; text-align: right; white-space: nowrap; font-family: Arial, sans-serif; }
   .meta td { border: 1px solid #000; vertical-align: top; padding: 0; width: 50%; }
   .meta-inner { width: 100%; }
   .meta-inner td { border: none; padding: 3px 8px; font-family: Arial, sans-serif; font-size: 12px; }
@@ -184,22 +192,32 @@ export function buildLoanQuotationHtml(quotation, formatOverride) {
   .bank-name { font-weight: 700; margin-bottom: 2px; }
   .foot td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 6px 8px; font-family: Arial, sans-serif; font-size: 11px; }
   .terms-title { font-weight: 700; margin-bottom: 4px; }
-  .sign-wrap { min-height: 110px; position: relative; }
+  .sign-wrap { min-height: 148px; position: relative; }
   .recv-row td { min-height: 56px; padding: 10px 8px 28px; }
   .recv { font-weight: 700; }
-  .auth { text-align: right; margin-top: 8px; }
-  .auth-for { font-weight: 900; font-size: 12.5px; font-family: Arial, sans-serif; }
-  .auth-space { height: 48px; display: flex; align-items: flex-end; justify-content: flex-end; }
-  .auth-sign { max-height: 46px; max-width: 160px; object-fit: contain; }
-  .auth-label { font-weight: 900; font-size: 12.5px; margin-top: 4px; font-family: Arial, sans-serif; }
-  @media print { body { padding: 0; } }
+  .auth { text-align: right; margin-top: 4px; }
+  .auth-for {
+    font-weight: 900; font-size: 11px; font-family: Arial, sans-serif;
+    white-space: nowrap; line-height: 1.2; text-transform: none;
+  }
+  .auth-space {
+    min-height: 78px; height: 78px; margin: 6px 0 2px;
+    display: flex; align-items: flex-end; justify-content: flex-end;
+  }
+  .auth-sign { max-height: 74px; max-width: 220px; width: auto; height: auto; object-fit: contain; }
+  .auth-label { font-weight: 900; font-size: 12px; margin-top: 2px; font-family: Arial, sans-serif; white-space: nowrap; }
+  @media print {
+    html, body { width: 210mm; }
+    body { padding: 0; margin: 0; }
+    .sheet { width: 194mm; max-width: 194mm; box-shadow: none; }
+  }
 </style>
 </head>
 <body>
   <div class="sheet">
     <table class="header-table">
       <tr>
-        <td style="width:100px"><img class="logo" src="${logoSrc}" alt="Logo" /></td>
+        <td class="logo-cell"><img class="logo" src="${logoSrc}" alt="Logo" /></td>
         <td class="company">
           <div class="inv-title">${esc(fmt.title)}</div>
           <div class="co-name">${esc(fmt.legalName)}</div>
@@ -208,7 +226,7 @@ export function buildLoanQuotationHtml(quotation, formatOverride) {
           <div class="co-line gstin">GSTIN : ${esc(fmt.gstin)}</div>
           <div class="co-line">${esc(fmt.telEmailLine || `Tel.:${fmt.phones}-email:${fmt.email}`)}</div>
         </td>
-        <td style="width:90px"><div class="copy">${esc(fmt.copyLabel || "Original Copy")}</div></td>
+        <td class="copy-cell"><div class="copy">${esc(fmt.copyLabel || "Original Copy")}</div></td>
       </tr>
     </table>
 

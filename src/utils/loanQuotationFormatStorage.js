@@ -45,11 +45,22 @@ function normalizeInstallDetailLines(lines) {
   return [...(DEFAULT_LOAN_QUOTATION_FORMAT.installDetailLines || [])];
 }
 
+function normalizeSignatoryFor(value) {
+  const raw = String(value || "").trim();
+  if (!raw || /^for\s+dhatterwal\s+solar\s+energy\s+system$/i.test(raw)) {
+    return DEFAULT_LOAN_QUOTATION_FORMAT.signatoryFor;
+  }
+  return raw;
+}
+
 export function getLoanQuotationFormat() {
   const saved = read().loanQuotationFormat || {};
   return {
     ...DEFAULT_LOAN_QUOTATION_FORMAT,
     ...saved,
+    signatoryFor: normalizeSignatoryFor(
+      saved.signatoryFor ?? DEFAULT_LOAN_QUOTATION_FORMAT.signatoryFor,
+    ),
     banks: normalizeBanks(saved.banks ?? DEFAULT_LOAN_QUOTATION_FORMAT.banks),
     terms: normalizeTerms(saved.terms ?? DEFAULT_LOAN_QUOTATION_FORMAT.terms),
     installDetailLines: normalizeInstallDetailLines(
