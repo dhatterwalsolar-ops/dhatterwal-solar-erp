@@ -1,10 +1,6 @@
 import { SALE_TEAM_LEADER_MAP } from "./saleTeamMappingDefaults";
 import { getLabourEmployees } from "../utils/labourEmployeeStorage";
-import {
-  loadSaleTeams,
-  loadTeamMappings,
-  resolveSaleTeamConfig,
-} from "../utils/labourTeamMappingStorage";
+import { loadSaleTeams, resolveSaleTeamConfig } from "../utils/labourTeamMappingStorage";
 
 export { SALE_TEAM_LEADER_MAP };
 
@@ -21,14 +17,12 @@ function leaderMobile(leaderName, fallback) {
 export function getSaleTeamLeaderConfig(teamWork) {
   const fromStore = resolveSaleTeamConfig(teamWork);
   if (!fromStore) return null;
-  const mapping = loadTeamMappings().find(
-    (m) => m.leader.toLowerCase() === fromStore.leaderName.toLowerCase(),
-  );
   return {
     teamLabel: fromStore.teamLabel,
     leaderName: fromStore.leaderName,
     mobile: leaderMobile(fromStore.leaderName, fromStore.mobile),
-    defaultMembers: mapping?.members ?? fromStore.defaultMembers ?? [],
+    defaultMembers: fromStore.defaultMembers ?? [],
+    allNames: fromStore.allNames ?? [],
   };
 }
 

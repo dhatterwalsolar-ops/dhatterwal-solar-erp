@@ -19,10 +19,12 @@ function normalizeEmployee(e) {
     salaryType: "",
     fatherName: "",
     role: "",
+    teamLeaderName: "",
     wagesPaidTotal: 0,
     salaryPaidTotal: 0,
     ...e,
     fatherName: String(e.fatherName || "").trim(),
+    teamLeaderName: String(e.teamLeaderName || "").trim(),
     dailyWage: Number(e.dailyWage) || 0,
     monthlySalary: Number(e.monthlySalary) || 0,
     advanceTaken: Number(e.advanceTaken) || 0,
@@ -36,6 +38,16 @@ export function saveLabourEmployees(list) {
   try {
     erpSetItem(KEY, JSON.stringify(list));
     window.dispatchEvent(new Event("dhatterwal-labour-employees-sync"));
+    /* Dynamic import — circular dep avoid (team mapping ↔ employees) */
+    import("./labourTeamMappingStorage")
+      .then((mod) => {
+        try {
+          mod.syncTeamsFromLabourEmployees();
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => {});
   } catch {
     /* ignore */
   }

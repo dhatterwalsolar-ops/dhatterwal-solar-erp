@@ -13,7 +13,13 @@ import { formatSetupDetail } from "../../../constants/bomRegistry";
 import { getBomMaterialsForConsumer } from "../../../utils/bomSheetStorage";
 import { lookupCustomer } from "../../../constants/customerRegistry";
 import { createEmptySaleRow } from "../../../constants/saleCase";
-import { getSaleTeamWorkOptions } from "../../../utils/labourTeamMappingStorage";
+import {
+  getSaleTeamMembersDisplay,
+  getSaleTeamWorkOptions,
+  LABOUR_EMPLOYEES_SYNC_EVENT,
+  LABOUR_TEAM_MAPPING_SYNC_EVENT,
+  syncTeamsFromLabourEmployees,
+} from "../../../utils/labourTeamMappingStorage";
 import {
   loadSaleCaseRows,
   SALE_SETUP_DETAIL_SYNC_EVENT,
@@ -338,12 +344,33 @@ function SaleCaseSheet() {
     return map;
   }, [rows]);
 
+  const [teamTick, setTeamTick] = useState(0);
   const invoiceMaps = useMemo(() => getInvoiceLookupMaps(), [rows, docRefresh]);
-  const teamWorkOptions = useMemo(() => getSaleTeamWorkOptions(), [rows]);
+  const teamWorkOptions = useMemo(() => {
+    void teamTick;
+    return getSaleTeamWorkOptions();
+  }, [teamTick]);
   const docCountMap = useMemo(() => {
     void docRefresh;
     return getCustomerDocumentCountMap();
   }, [docRefresh, rows]);
+
+  useEffect(() => {
+    try {
+      syncTeamsFromLabourEmployees();
+    } catch {
+      /* ignore */
+    }
+    const refreshTeams = () => setTeamTick((n) => n + 1);
+    window.addEventListener(LABOUR_TEAM_MAPPING_SYNC_EVENT, refreshTeams);
+    window.addEventListener(LABOUR_EMPLOYEES_SYNC_EVENT, refreshTeams);
+    window.addEventListener("dhatterwal-labour-sync", refreshTeams);
+    return () => {
+      window.removeEventListener(LABOUR_TEAM_MAPPING_SYNC_EVENT, refreshTeams);
+      window.removeEventListener(LABOUR_EMPLOYEES_SYNC_EVENT, refreshTeams);
+      window.removeEventListener("dhatterwal-labour-sync", refreshTeams);
+    };
+  }, []);
 
   const closeSaleModals = () => {
     setInvoiceRow(null);
@@ -1407,18 +1434,29 @@ function SaleCaseSheet() {
                   />
                 </td>
                 <td>
-                  <select
-                    className={styles.cellSelect}
-                    value={row.teamWork}
-                    onChange={(e) => handleTeamWorkChange(row, e.target.value)}
-                  >
-                    <option value="">Select team</option>
-                    {teamWorkOptions.map((team) => (
-                      <option key={team} value={team}>
-                        {team}
-                      </option>
-                    ))}
-                  </select>
+                  <div className={styles.teamWorkCell}>
+                    <select
+                      className={styles.cellSelect}
+                      value={row.teamWork}
+                      onChange={(e) => handleTeamWorkChange(row, e.target.value)}
+                    >
+                      <option value="">Select team</option>
+                      {teamWorkOptions.map((team) => (
+                        <option key={team} value={team}>
+                          {team}
+                        </option>
+                      ))}
+                    </select>
+                    {row.teamWork ? (
+                      <div className={styles.teamMembersHint} title={getSaleTeamMembersDisplay(row.teamWork)}>
+                        {getSaleTeamMembersDisplay(row.teamWork)
+                          .split("\n")
+                          .map((line) => (
+                            <span key={line}>{line}</span>
+                          ))}
+                      </div>
+                    ) : null}
+                  </div>
                 </td>
                 <td>
                   {row.teamWork ? (

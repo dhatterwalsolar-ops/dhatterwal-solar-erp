@@ -7,6 +7,7 @@ import {
   deletePaymentsForEmployee,
 } from "../../../utils/labourPaymentStorage";
 import { getLabourEmployees, saveLabourEmployees } from "../../../utils/labourEmployeeStorage";
+import { syncTeamsFromLabourEmployees } from "../../../utils/labourTeamMappingStorage";
 import AddEmployeeSheet from "./AddEmployeeSheet";
 import AdvancePaymentSheet from "./AdvancePaymentSheet";
 import TeamMappingSheet from "./TeamMappingSheet";
@@ -68,10 +69,18 @@ function LabourDetailsPage() {
     });
 
     const exists = employees.some((e) => e.id === employee.id);
-    if (exists) {
-      persist(employees.map((e) => (e.id === employee.id ? employee : e)));
-    } else {
-      persist([...employees, employee]);
+    const next = exists
+      ? employees.map((e) => (e.id === employee.id ? employee : e))
+      : [...employees, employee];
+    persist(next);
+    try {
+      syncTeamsFromLabourEmployees();
+    } catch {
+      /* ignore */
+    }
+    if (!exists && String(employee.role || "").toLowerCase() === "team leader") {
+      const teamHint = `${String(employee.name || "").trim().split(/\s+/)[0]?.toUpperCase() || "LEADER"} TEAM`;
+      window.alert(`Team Leader save.\nSale Sheet → Team Work me ab "${teamHint}" dikhega.`);
     }
     setSheetOpen(false);
     setEditTarget(null);

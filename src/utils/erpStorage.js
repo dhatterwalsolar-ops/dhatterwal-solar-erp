@@ -71,8 +71,9 @@ const KEY_SYNC_EVENTS = {
   dhatterwal_credit_facility_txns: ["dhatterwal-credit-facility-sync"],
   dhatterwal_customer_detail_rows: ["dhatterwal-customer-detail-sale-sync"],
   dhatterwal_erp_settings: ["dhatterwal-invoice-format-sync"],
-  dhatterwal_labour_team_mapping: ["dhatterwal-labour-sync"],
-  dhatterwal_sale_team_leader_map: ["dhatterwal-labour-sync"],
+  dhatterwal_labour_team_mapping: ["dhatterwal-labour-sync", "dhatterwal-labour-team-mapping-sync"],
+  dhatterwal_sale_team_leader_map: ["dhatterwal-labour-sync", "dhatterwal-labour-team-mapping-sync"],
+  dhatterwal_labour_employees: ["dhatterwal-labour-sync", "dhatterwal-labour-employees-sync"],
 };
 
 const ALL_SHEET_EVENTS = [

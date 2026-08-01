@@ -7,6 +7,7 @@ import {
   computeMonthlyFromDaily,
   createEmptyLabourEmployee,
 } from "../../../constants/labourEmployeeForm";
+import { getLabourEmployees } from "../../../utils/labourEmployeeStorage";
 import { listPaymentsForEmployee } from "../../../utils/labourPaymentStorage";
 import styles from "./AddEmployeeSheet.module.css";
 
@@ -47,6 +48,7 @@ function AddEmployeeSheet({ open, initial, onClose, onSave }) {
         ...initial,
         fatherName: initial.fatherName ?? "",
         role: initial.role ?? "",
+        teamLeaderName: initial.teamLeaderName ?? "",
         dailyWage: initial.dailyWage ?? "",
         monthlySalary: initial.monthlySalary ?? "",
       });
@@ -68,6 +70,19 @@ function AddEmployeeSheet({ open, initial, onClose, onSave }) {
     [form.dailyWage],
   );
 
+  const teamLeaderOptions = useMemo(() => {
+    if (!open) return [];
+    return getLabourEmployees()
+      .filter(
+        (e) =>
+          String(e.role || "").toLowerCase() === "team leader" &&
+          String(e.status || "Active").toLowerCase() !== "inactive" &&
+          (!initial?.id || e.id !== initial.id),
+      )
+      .map((e) => e.name)
+      .filter(Boolean);
+  }, [open, initial?.id]);
+
   const dailyAmountPreview = useMemo(() => {
     const days = Number(dailyPay.days) || 0;
     const wage = Number(form.dailyWage) || 0;
@@ -84,6 +99,10 @@ function AddEmployeeSheet({ open, initial, onClose, onSave }) {
     }
     if (!form.mobile?.trim()) {
       window.alert("Mobile number zaroori hai (WhatsApp / site form ke liye).");
+      return;
+    }
+    if (form.role === "Helper" && !String(form.teamLeaderName || "").trim()) {
+      window.alert("Helper ke liye Team Leader select karein — Sale Sheet me naam dikhega.");
       return;
     }
 
@@ -158,6 +177,8 @@ function AddEmployeeSheet({ open, initial, onClose, onSave }) {
       name: form.name.trim(),
       fatherName: form.fatherName?.trim() || "",
       role: form.role || "",
+      teamLeaderName:
+        form.role === "Helper" ? String(form.teamLeaderName || "").trim() : "",
       mobile: form.mobile.trim(),
       dailyWage,
       monthlySalary,
@@ -210,7 +231,14 @@ function AddEmployeeSheet({ open, initial, onClose, onSave }) {
                 Team Type (optional)
                 <select
                   value={form.role}
-                  onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      role: e.target.value,
+                      teamLeaderName:
+                        e.target.value === "Helper" ? f.teamLeaderName : "",
+                    }))
+                  }
                 >
                   <option value="">Select…</option>
                   {LABOUR_TEAM_TYPES.map((r) => (
@@ -220,6 +248,24 @@ function AddEmployeeSheet({ open, initial, onClose, onSave }) {
                   ))}
                 </select>
               </label>
+              {form.role === "Helper" ? (
+                <label>
+                  Team Leader (Sale Sheet team) *
+                  <select
+                    value={form.teamLeaderName || ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, teamLeaderName: e.target.value }))
+                    }
+                  >
+                    <option value="">Select Team Leader…</option>
+                    {teamLeaderOptions.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label>
                 Mobile Number * (WhatsApp / site form)
                 <input
@@ -231,8 +277,8 @@ function AddEmployeeSheet({ open, initial, onClose, onSave }) {
               </label>
             </div>
             <p className={styles.hint}>
-              Team Leader select karne par Sale Sheet se isi mobile par site Google / ERP form
-              WhatsApp ho sakta hai.
+              Team Leader → Sale Sheet Team Work me auto aayega (jaise BALINDER TEAM). Helper pe
+              Team Leader select karein — Sale Sheet me us leader ke under labour naam dikhenge.
             </p>
           </section>
 

@@ -222,6 +222,29 @@
   border-color: var(--color-green);
 }
 
+.teamWorkCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 9rem;
+}
+
+.teamMembersHint {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.65rem;
+  line-height: 1.3;
+  color: var(--color-text-muted);
+  white-space: normal;
+  max-width: 14rem;
+}
+
+.teamMembersHint span:first-child {
+  font-weight: 700;
+  color: var(--color-green-dark);
+}
+
 .manualIdInput {
   font-weight: 700;
   color: var(--color-green-dark);

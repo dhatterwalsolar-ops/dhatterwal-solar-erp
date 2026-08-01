@@ -24,6 +24,8 @@ export function createEmptyLabourEmployee() {
     name: "",
     fatherName: "",
     role: "",
+    /** Helper ke liye — kis Team Leader ke under */
+    teamLeaderName: "",
     mobile: "",
     salaryType: "",
     dailyWage: "",
