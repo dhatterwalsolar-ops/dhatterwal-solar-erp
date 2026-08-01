@@ -8,6 +8,7 @@ import { findProductByName } from "./productStorage";
 import { applyBomToSaleSetupDetail, SALE_BOM_SYNC_EVENT } from "./saleCaseStorage";
 import { SALE_CASE_SYNC_EVENT } from "./saleCaseSync";
 import { applyStockOut, notifyStockSync } from "./stockStorage";
+import { syncSiteFormToCloud } from "./siteFormCloudSync";
 import { markSiteOrderSubmitted } from "./siteOrderStorage";
 
 function lineWithProductId(line) {
@@ -285,12 +286,55 @@ export async function submitSiteInstallationForm(order, form) {
     }
   }
 
+  /* TL phone pe local BOM office ko nahi dikhta — server sync zaroori */
+  const cloud = await syncSiteFormToCloud(order, formPayload);
+  if (cloud.ok) {
+    markSiteOrderSubmitted(order.id, {
+      ...formPayload,
+      cloudSyncedAt: new Date().toISOString(),
+    });
+  }
+
   return {
     ok: true,
     issuedLines,
     bomUpdated: Boolean(bomResult.ok),
     bomFolderSaved,
+    cloudSynced: Boolean(cloud.ok),
+    cloudMessage: cloud.ok ? "" : cloud.message || "",
     stockOk: Boolean(stockResult.ok),
     stockMessage: stockResult.ok ? "" : stockResult.message || "",
   };
+}
+
+/** Already-submitted form dubara office BOM pe bhejein (Aman Dware jaise stuck cases). */
+export async function resyncSubmittedSiteFormToCloud(order) {
+  if (!order?.id) return { ok: false, message: "Order missing." };
+  const formPayload = order.formPayload;
+  if (!formPayload || !formPayload.panelName) {
+    return {
+      ok: false,
+      message:
+        "Is phone pe form payload nahi mila. Form dubara fill karke Submit karein (naya WhatsApp link).",
+    };
+  }
+  const cloud = await syncSiteFormToCloud(order, formPayload);
+  if (cloud.ok) {
+    markSiteOrderSubmitted(order.id, {
+      ...formPayload,
+      cloudSyncedAt: new Date().toISOString(),
+    });
+    /* Local BOM bhi refresh */
+    applySiteOrderFormToBom(order, formPayload);
+    applyBomToSaleSetupDetail(order.consumerNo);
+    try {
+      window.dispatchEvent(new Event(SALE_BOM_SYNC_EVENT));
+      window.dispatchEvent(new Event(SALE_CASE_SYNC_EVENT));
+    } catch {
+      /* ignore */
+    }
+  }
+  return cloud.ok
+    ? { ok: true, message: "Office BOM Sheet me sync ho gaya." }
+    : { ok: false, message: cloud.message || "Cloud sync fail." };
 }

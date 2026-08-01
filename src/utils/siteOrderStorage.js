@@ -1,22 +1,49 @@
 import { panelCountFromSetupKw } from "./panelCountFromKw";
 import { getSaleTeamLeaderConfig } from "../constants/saleTeamMapping";
 import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
-import { buildSiteStockCatalog, stockCatalogNames } from "./siteStockCatalog";
+import { getLabourEmployees } from "./labourEmployeeStorage";
+import { buildSiteCatalogNameMap } from "./siteStockCatalog";
+
+/** Team helpers pehle, phir baaki active Labour employees — TL select kare. */
+export function listSiteEmployeeOptions(teamWork) {
+  const team = getSaleTeamLeaderConfig(teamWork);
+  const leader = String(team?.leaderName || "").trim().toLowerCase();
+  const teamFirst = [
+    ...(team?.defaultMembers || []),
+    ...(team?.allNames || []),
+  ]
+    .map((n) => String(n || "").trim())
+    .filter(Boolean)
+    .filter((n) => n.toLowerCase() !== leader);
+
+  const fromLabour = getLabourEmployees()
+    .filter((e) => String(e.status || "").toLowerCase() !== "inactive")
+    .map((e) => String(e.name || "").trim())
+    .filter(Boolean)
+    .filter((n) => n.toLowerCase() !== leader);
+
+  const seen = new Set();
+  const out = [];
+  for (const name of [...teamFirst, ...fromLabour]) {
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
+}
 
 function attachStockCatalog(order) {
+  const employeeOptions = listSiteEmployeeOptions(order.teamWork);
   try {
-    const cat = buildSiteStockCatalog();
     return {
       ...order,
-      stockCatalog: {
-        panels: stockCatalogNames(cat.panels),
-        inverters: stockCatalogNames(cat.inverters),
-        acBoxes: stockCatalogNames(cat.acBoxes),
-        dcBoxes: stockCatalogNames(cat.dcBoxes),
-        wires: stockCatalogNames(cat.wires),
-        laItems: stockCatalogNames(cat.laItems),
-        earthingItems: stockCatalogNames(cat.earthingItems),
-      },
+      stockCatalog: buildSiteCatalogNameMap(),
+      employeeOptions,
+      defaultMembers:
+        order.defaultMembers?.length > 0
+          ? order.defaultMembers
+          : employeeOptions.slice(0, 12),
     };
   } catch {
     return {
@@ -30,6 +57,7 @@ function attachStockCatalog(order) {
         laItems: [],
         earthingItems: [],
       },
+      employeeOptions: order.employeeOptions || employeeOptions,
     };
   }
 }

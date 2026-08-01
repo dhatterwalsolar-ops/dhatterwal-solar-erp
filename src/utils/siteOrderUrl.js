@@ -65,8 +65,10 @@ export function packSiteOrderForUrl(order) {
     siteDate: order.siteDate || "",
     panelCount: order.panelCount || 4,
     defaultMembers: order.defaultMembers || [],
+    /* Labour employees — TL select kare kaun saath tha */
+    employeeOptions: order.employeeOptions || order.defaultMembers || [],
     status: order.status || "pending",
-    /* Stock names for TL phone form selects */
+    /* Product Sheet + stock names for TL phone form selects */
     stockCatalog: order.stockCatalog || {
       panels: [],
       inverters: [],

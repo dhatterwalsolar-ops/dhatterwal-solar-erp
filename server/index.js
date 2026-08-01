@@ -10,6 +10,7 @@ import {
   applyGoogleFormToBomAndSale,
   getGoogleFormWebhookSecret,
 } from "./googleFormBom.js";
+import { applySiteFormToServer } from "./siteFormBom.js";
 import {
   generateEwayBill,
   generateGstEinvoice,
@@ -50,6 +51,7 @@ app.get("/", (_req, res) => {
     dbTest: "/api/db/test",
     login: "POST /api/auth/login",
     googleFormBom: "POST /api/public/google-form-bom",
+    siteFormSubmit: "POST /api/public/site-form-submit",
     gstStatus: "GET /api/gst/status",
     ewayGenerate: "POST /api/gst/eway/generate",
     einvoiceGenerate: "POST /api/gst/einvoice/generate",
@@ -314,6 +316,25 @@ app.post("/api/public/google-form-bom", async (req, res) => {
     res.status(result.ok ? 200 : 400).json(result);
   } catch (err) {
     res.status(500).json({ ok: false, error: err?.message || "Google Form BOM sync fail" });
+  }
+});
+
+/**
+ * Team Leader site form (no ERP login) → BOM Sheet + Sale Setup + site order on server.
+ * Office PCs poll sync se BOM dekhte hain.
+ */
+app.post("/api/public/site-form-submit", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const order = body.order || {};
+    const form = body.form || body.formPayload || {};
+    if (!order.consumerNo && form.consumerNo) {
+      order.consumerNo = form.consumerNo;
+    }
+    const result = await applySiteFormToServer({ order, form });
+    res.status(result.ok ? 200 : 400).json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err?.message || "Site form BOM sync fail" });
   }
 });
 

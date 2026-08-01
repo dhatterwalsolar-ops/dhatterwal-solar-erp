@@ -1,58 +1,57 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
+import { DEFAULT_PRODUCT_ITEMS } from "../../constants/productSheet";
 import { ensureSiteOrderInStorage } from "../../utils/siteOrderStorage";
-import { buildSiteStockCatalog, stockCatalogNames } from "../../utils/siteStockCatalog";
+import {
+  buildSiteCatalogNameMap,
+  mergeCatalogNameMaps,
+} from "../../utils/siteStockCatalog";
 import { resolveSiteOrder } from "../../utils/siteOrderUrl";
-import { submitSiteInstallationForm } from "../../utils/siteOrderStockSubmit";
+import {
+  resyncSubmittedSiteFormToCloud,
+  submitSiteInstallationForm,
+} from "../../utils/siteOrderStockSubmit";
 import styles from "./SiteOrderFormPage.module.css";
 
 const INVERTER_KW_OPTIONS = ["02 KW", "03 KW", "05 KW"];
 const STAND_OPTIONS = ["02 KW", "03 KW", "05 KW", "OTHER"];
 
+function defaultsCatalogMap() {
+  const buckets = {
+    panels: [],
+    inverters: [],
+    acBoxes: [],
+    dcBoxes: [],
+    wires: [],
+    laItems: [],
+    earthingItems: [],
+  };
+  for (const p of DEFAULT_PRODUCT_ITEMS) {
+    const name = String(p.itemName || "").trim();
+    const cat = String(p.category || "").toUpperCase();
+    if (!name) continue;
+    if (cat === "PANEL") buckets.panels.push(name);
+    else if (cat === "INVERTER") buckets.inverters.push(name);
+    else if (cat === "AC BOX") buckets.acBoxes.push(name);
+    else if (cat === "DC BOX") buckets.dcBoxes.push(name);
+    else if (cat === "WIRE") buckets.wires.push(name);
+    else if (cat === "GENERAL" && /earth/i.test(name)) buckets.earthingItems.push(name);
+    else if (cat === "GENERAL" && /\bla\b|lightning|arrester/i.test(name)) {
+      buckets.laItems.push(name);
+    }
+  }
+  return buckets;
+}
+
+/** Packed URL + live Product Sheet + defaults — kabhi empty “stock nahi” na dikhe. */
 function catalogFromOrder(order) {
-  const fromOrder = order?.stockCatalog;
-  if (
-    fromOrder &&
-    (fromOrder.panels?.length ||
-      fromOrder.inverters?.length ||
-      fromOrder.wires?.length ||
-      fromOrder.acBoxes?.length ||
-      fromOrder.dcBoxes?.length ||
-      fromOrder.laItems?.length ||
-      fromOrder.earthingItems?.length)
-  ) {
-    return {
-      panels: fromOrder.panels || [],
-      inverters: fromOrder.inverters || [],
-      acBoxes: fromOrder.acBoxes || [],
-      dcBoxes: fromOrder.dcBoxes || [],
-      wires: fromOrder.wires || [],
-      laItems: fromOrder.laItems || [],
-      earthingItems: fromOrder.earthingItems || [],
-    };
-  }
+  let live = {};
   try {
-    const live = buildSiteStockCatalog();
-    return {
-      panels: stockCatalogNames(live.panels),
-      inverters: stockCatalogNames(live.inverters),
-      acBoxes: stockCatalogNames(live.acBoxes),
-      dcBoxes: stockCatalogNames(live.dcBoxes),
-      wires: stockCatalogNames(live.wires),
-      laItems: stockCatalogNames(live.laItems),
-      earthingItems: stockCatalogNames(live.earthingItems),
-    };
+    live = buildSiteCatalogNameMap();
   } catch {
-    return {
-      panels: [],
-      inverters: [],
-      acBoxes: [],
-      dcBoxes: [],
-      wires: [],
-      laItems: [],
-      earthingItems: [],
-    };
+    live = {};
   }
+  return mergeCatalogNameMaps(order?.stockCatalog || {}, live, defaultsCatalogMap());
 }
 
 function StockSelect({ id, label, value, onChange, options, required, hint }) {
@@ -76,12 +75,12 @@ function StockSelect({ id, label, value, onChange, options, required, hint }) {
             type="text"
             value={value}
             onChange={onChange}
-            placeholder={required ? "Stock list empty — name likhein" : "Optional"}
+            placeholder={required ? "Item name likhein" : "Optional"}
             required={required}
           />
           <p className={styles.hint}>
             {hint ||
-              "Product Sheet / stock me item nahi — office ERP pe Product Sheet me add karein."}
+              "List empty — naya WhatsApp form bhejein (Product Sheet sync ke baad)."}
           </p>
         </>
       )}
@@ -98,6 +97,16 @@ function SiteOrderFormPage() {
   );
 
   const memberOptions = useMemo(() => {
+    const fromEmp = Array.isArray(order?.employeeOptions) ? order.employeeOptions : [];
+    const fromDefault = Array.isArray(order?.defaultMembers) ? order.defaultMembers : [];
+    return [
+      ...new Set(
+        [...fromEmp, ...fromDefault].map((n) => String(n || "").trim()).filter(Boolean),
+      ),
+    ];
+  }, [order?.employeeOptions, order?.defaultMembers]);
+
+  const suggestedMembers = useMemo(() => {
     const list = Array.isArray(order?.defaultMembers) ? order.defaultMembers : [];
     return [...new Set(list.map((n) => String(n || "").trim()).filter(Boolean))];
   }, [order?.defaultMembers]);
@@ -105,6 +114,7 @@ function SiteOrderFormPage() {
   const stock = useMemo(() => catalogFromOrder(order), [order]);
 
   const [teamMembers, setTeamMembers] = useState([]);
+  const [customMember, setCustomMember] = useState("");
   const [panelName, setPanelName] = useState("");
   const [panelQty, setPanelQty] = useState("");
   const [inverterKw, setInverterKw] = useState("02 KW");
@@ -136,7 +146,8 @@ function SiteOrderFormPage() {
   useEffect(() => {
     if (!order) return;
     setDone(order.status === "submitted");
-    setTeamMembers(memberOptions);
+    /* Team helpers suggested — TL checkbox se confirm kare kaun saath tha */
+    setTeamMembers(suggestedMembers.length ? suggestedMembers : []);
     const kw = String(order.setupKw || "").replace(/\s/g, "").toUpperCase();
     const inferred = kw.includes("05")
       ? "05 KW"
@@ -149,7 +160,7 @@ function SiteOrderFormPage() {
     if (stock.panels[0]) setPanelName(stock.panels[0]);
     if (stock.inverters[0]) setInverterName(stock.inverters[0]);
     ensureSiteOrderInStorage(order);
-  }, [order, memberOptions, stock.panels, stock.inverters]);
+  }, [order, suggestedMembers, stock.panels, stock.inverters]);
 
   if (!order) {
     return (
@@ -170,13 +181,24 @@ function SiteOrderFormPage() {
     );
   };
 
+  const addCustomMember = () => {
+    const name = String(customMember || "").trim();
+    if (!name) return;
+    setTeamMembers((prev) => (prev.includes(name) ? prev : [...prev, name]));
+    setCustomMember("");
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
     ensureSiteOrderInStorage(order);
 
+    if (!teamMembers.length) {
+      setError("Kam se kam 1 employee select karein jo aapke saath kaam kar raha tha.");
+      return;
+    }
     if (!String(panelName || "").trim()) {
-      setError("Panel name stock se select karein.");
+      setError("Panel name Product Sheet list se select karein.");
       return;
     }
     if (!(Number(panelQty) > 0)) {
@@ -184,7 +206,7 @@ function SiteOrderFormPage() {
       return;
     }
     if (!String(inverterName || "").trim()) {
-      setError("Inverter name stock se select karein.");
+      setError("Inverter name Product Sheet list se select karein.");
       return;
     }
     if (!siteGpsPhoto) {
@@ -254,13 +276,38 @@ function SiteOrderFormPage() {
         return;
       }
       setDone(true);
-      window.alert(
-        result.issuedLines
-          ? `Site form save ho gaya. Stock se ${result.issuedLines} line(s) less ho gayi.`
-          : "Site form save ho gaya (BOM / photos / materials).",
-      );
+      const bits = [];
+      if (result.issuedLines) {
+        bits.push(`Stock: ${result.issuedLines} line(s) less`);
+      }
+      if (result.cloudSynced) {
+        bits.push("Office BOM Sheet me sync ho gaya.");
+      } else {
+        bits.push(
+          `Office BOM sync pending: ${result.cloudMessage || "internet / API check"}. Neeche Retry dabayein.`,
+        );
+      }
+      window.alert(`Site form save ho gaya.\n\n${bits.join("\n")}`);
     } catch (err) {
       setError(err?.message || "Submit fail.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResyncCloud = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      ensureSiteOrderInStorage(order);
+      const result = await resyncSubmittedSiteFormToCloud(order);
+      if (!result.ok) {
+        setError(result.message || "Office BOM sync fail.");
+        return;
+      }
+      window.alert(result.message || "Office BOM Sheet me sync ho gaya.");
+    } catch (err) {
+      setError(err?.message || "Sync fail.");
     } finally {
       setBusy(false);
     }
@@ -289,25 +336,43 @@ function SiteOrderFormPage() {
             Site date: {order.siteDate}
           </p>
           <span className={`${styles.badge} ${done ? styles.badgeDone : ""}`}>
-            {done ? "Submitted" : "Pending — stock se select karke bharein"}
+            {done ? "Submitted" : "Pending — Product Sheet se select karke bharein"}
           </span>
           <p className={styles.hint}>
-            Panel / Inverter / AC-DC Box / Wire — sirf stock me maujood names select karein taaki
-            stock sahi update ho.
+            Panel / Inverter / AC-DC / Wire / LA / Earthing — Product Sheet ke items select karein.
+            Saath kaam karne wale employees bhi tick karein.
           </p>
         </header>
 
         {done ? (
-          <p className={styles.hint}>Form submit ho chuka hai.</p>
+          <div>
+            <p className={styles.hint}>
+              Form submit ho chuka hai. Agar office BOM Sheet me abhi nahi dikha, neeche button se
+              dubara sync karein.
+            </p>
+            <button
+              type="button"
+              className={styles.submit}
+              disabled={busy}
+              onClick={() => void handleResyncCloud()}
+            >
+              {busy ? "Syncing…" : "Office BOM me bhejein / Retry sync"}
+            </button>
+            {error ? <div className={styles.errorBox}>{error}</div> : null}
+          </div>
         ) : (
           <form onSubmit={handleSubmit}>
             {error ? <div className={styles.errorBox}>{error}</div> : null}
 
             <section className={styles.section}>
-              <h2>Team ke saath kaam karne wale employee</h2>
+              <h2>Saath kaam karne wale employees *</h2>
+              <p className={styles.hint}>
+                Jo employees aaj aapke saath site pe kaam kar rahe hain, unhe select karein.
+              </p>
               {memberOptions.length === 0 ? (
                 <p className={styles.hint}>
-                  Is Team Leader ke Helpers Labour Detail me add nahi mile.
+                  Employee list link me nahi aayi — neeche naam likh kar Add karein. Office se naya
+                  WhatsApp form bhejein (Labour Detail sync ke baad).
                 </p>
               ) : (
                 <div className={styles.members}>
@@ -323,10 +388,50 @@ function SiteOrderFormPage() {
                   ))}
                 </div>
               )}
+              {teamMembers.some((n) => !memberOptions.includes(n)) ? (
+                <div className={styles.members}>
+                  {teamMembers
+                    .filter((n) => !memberOptions.includes(n))
+                    .map((name) => (
+                      <label key={`extra-${name}`}>
+                        <input
+                          type="checkbox"
+                          checked
+                          onChange={() => toggleMember(name)}
+                        />
+                        {name}
+                      </label>
+                    ))}
+                </div>
+              ) : null}
+              <div className={styles.grid2}>
+                <div className={styles.field}>
+                  <label htmlFor="custom-member">Aur employee (name)</label>
+                  <input
+                    id="custom-member"
+                    type="text"
+                    value={customMember}
+                    onChange={(e) => setCustomMember(e.target.value)}
+                    placeholder="Naam likhein"
+                  />
+                </div>
+                <div className={styles.field}>
+                  <label htmlFor="add-member-btn">&nbsp;</label>
+                  <button
+                    id="add-member-btn"
+                    type="button"
+                    className={styles.submit}
+                    onClick={addCustomMember}
+                    style={{ marginTop: 0 }}
+                  >
+                    Add employee
+                  </button>
+                </div>
+              </div>
             </section>
 
             <section className={styles.section}>
-              <h2>Panel (stock)</h2>
+              <h2>Panel (Product Sheet)</h2>
               <div className={styles.grid2}>
                 <StockSelect
                   id="panel-name"
@@ -353,7 +458,7 @@ function SiteOrderFormPage() {
             </section>
 
             <section className={styles.section}>
-              <h2>Inverter (stock)</h2>
+              <h2>Inverter (Product Sheet)</h2>
               <div className={styles.grid2}>
                 <div className={styles.field}>
                   <label htmlFor="inv-kw">Inverter KW</label>
