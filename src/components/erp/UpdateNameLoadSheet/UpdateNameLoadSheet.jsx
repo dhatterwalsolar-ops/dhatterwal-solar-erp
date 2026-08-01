@@ -14,6 +14,11 @@ import {
 } from "../../../utils/customerPaymentLedger";
 import { getAuthSession } from "../../../utils/authSession";
 import { canChangeOrDelete } from "../../../utils/erpAccess";
+import { getPaymentModeNames } from "../../../utils/paymentAccountStorage";
+import {
+  addPaymentGiven,
+  deletePaymentGivenBySourceRef,
+} from "../../../utils/paymentManagementStorage";
 import {
   loadUpdateNameLoadRows,
   saveNameLoadOverride,
@@ -30,10 +35,19 @@ function UpdateNameLoadSheet() {
     return [createEmptyUpdateNameLoadRow()];
   });
   const [query, setQuery] = useState("");
+  const [accountsTick, setAccountsTick] = useState(0);
+
+  const paymentAccounts = useMemo(() => getPaymentModeNames(), [accountsTick]);
 
   useEffect(() => {
     saveUpdateNameLoadRows(rows);
   }, [rows]);
+
+  useEffect(() => {
+    const refresh = () => setAccountsTick((n) => n + 1);
+    window.addEventListener("dhatterwal-payment-accounts-sync", refresh);
+    return () => window.removeEventListener("dhatterwal-payment-accounts-sync", refresh);
+  }, []);
 
   const filteredRows = useMemo(() => {
     if (!query.trim()) return rows;
@@ -45,6 +59,7 @@ function UpdateNameLoadSheet() {
         row.subject,
         row.applicationNo,
         row.reference,
+        row.paymentAccount,
       ].some((v) => String(v ?? "").toLowerCase().includes(q)),
     );
   }, [query, rows]);
@@ -87,7 +102,17 @@ function UpdateNameLoadSheet() {
     }
 
     const totalFees = calcTotalFees(row.fees, row.affidavitFee);
-    const saved = upsertUpdateNameLoadRow({ ...row, totalFees });
+    const debitAccount = String(row.paymentAccount || "").trim();
+
+    if (totalFees > 0 && !debitAccount) {
+      window.alert(
+        "Fees / Affidavit Fee ke liye Payment Debit Account select karein\n" +
+          "(Azad Credit Card, Sonu Credit Card, HDFC, Canara, Cash… — Settings → Payment Types).",
+      );
+      return;
+    }
+
+    const saved = upsertUpdateNameLoadRow({ ...row, totalFees, paymentAccount: debitAccount });
 
     const base = getBaseCustomer(row.consumerNo);
     if (row.subject === "Name Change" && row.customerName?.trim() && base) {
@@ -99,9 +124,13 @@ function UpdateNameLoadSheet() {
       saveNameLoadOverride(row.consumerNo, { setupKw: row.newLoadKw.trim() });
     }
 
+    const ledgerRef = `unl-${saved.id}`;
+    const givenRef = `pg-unl-${saved.id}`;
+
     if (totalFees > 0) {
+      /* 1) Customer ledger — Customer All Detail Name/Load Fees */
       addCustomerPayment({
-        sourceRef: `unl-${saved.id}`,
+        sourceRef: ledgerRef,
         consumerNo: row.consumerNo,
         date: row.date,
         amount: totalFees,
@@ -109,12 +138,41 @@ function UpdateNameLoadSheet() {
         label: row.subject,
         reference: row.reference,
         applicationNo: row.applicationNo,
+        paymentMode: debitAccount,
+        fees: Number(row.fees) || 0,
+        affidavitFee: Number(row.affidavitFee) || 0,
       });
+
+      /* 2) Payment Given — selected account se debit */
+      addPaymentGiven({
+        id: givenRef,
+        sourceRef: givenRef,
+        date: row.date,
+        partyName: `${row.customerName || row.consumerNo} (${row.subject})`,
+        partyType: "Name/Load Fee",
+        amount: totalFees,
+        paymentMode: debitAccount,
+        fundingType: "account",
+        referenceNo: row.applicationNo || row.reference || row.consumerNo,
+        remarks: `Fees ₹${Number(row.fees) || 0} + Affidavit ₹${Number(row.affidavitFee) || 0} — ${row.consumerNo}`,
+      });
+      notifyPaymentSync();
+    } else {
+      removePaymentBySourceRef(ledgerRef);
+      deletePaymentGivenBySourceRef(givenRef);
       notifyPaymentSync();
     }
 
+    setRows((prev) => prev.map((r) => (r.id === saved.id || r === row ? { ...saved } : r)));
+
     window.alert(
-      `Saved — ${row.consumerNo}. Total Fees ₹${totalFees.toLocaleString("en-IN")} Payment Sheet & Customer All Detail me add ho gayi.`,
+      `Saved — ${row.consumerNo}\n` +
+        `Total Fees ₹${totalFees.toLocaleString("en-IN")}` +
+        (totalFees > 0
+          ? `\nDebit account: ${debitAccount}\n` +
+            `→ Payment Given me debit\n` +
+            `→ Customer (${row.customerName || row.consumerNo}) Name/Load Fees me feed`
+          : ""),
     );
   };
 
@@ -127,6 +185,7 @@ function UpdateNameLoadSheet() {
     if (!window.confirm(`"${label}" ko sheet se delete karein?`)) return;
     if (row?.id) {
       removePaymentBySourceRef(`unl-${row.id}`);
+      deletePaymentGivenBySourceRef(`pg-unl-${row.id}`);
       notifyPaymentSync();
     }
     setRows((prev) => {
@@ -141,9 +200,9 @@ function UpdateNameLoadSheet() {
         <div>
           <h1>Update Name / Load</h1>
           <p>
-            Consumer No. par detail auto aati hai. Save par fees Payment Sheet me jati hai aur
-            Customer All Detail me Name/Load + Sale payments ke saath total dikhega. Delete sirf
-            Admin.
+            Fees + Affidavit Fee save par <strong>Payment Debit Account</strong> se Payment Given
+            me debit hoga (Azad / Sonu Credit Card, HDFC, Canara, Cash…). Us customer ke Name/Load
+            Fees Customer All Detail + Payment Sheet me automatic feed. Delete sirf Admin.
           </p>
         </div>
         <div className={styles.toolbarActions}>
@@ -180,6 +239,7 @@ function UpdateNameLoadSheet() {
               <th>Fees</th>
               <th>Affidavit Fee</th>
               <th>Total Fees</th>
+              <th>Payment Debit Account</th>
               <th>Reference</th>
               <th>Action</th>
             </tr>
@@ -286,6 +346,21 @@ function UpdateNameLoadSheet() {
                   </td>
                   <td className={styles.totalCell}>
                     ₹{totalFees.toLocaleString("en-IN")}
+                  </td>
+                  <td>
+                    <select
+                      className={styles.cellSelect}
+                      value={row.paymentAccount || ""}
+                      onChange={(e) => patchRow(row, { paymentAccount: e.target.value })}
+                      title="Payment Sheet accounts — fees isi se debit"
+                    >
+                      <option value="">Select account…</option>
+                      {paymentAccounts.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td>
                     <input

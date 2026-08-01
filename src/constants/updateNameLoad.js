@@ -19,6 +19,8 @@ export function createEmptyUpdateNameLoadRow() {
     applicationNo: "",
     fees: "",
     affidavitFee: "",
+    /** Payment Sheet account — fees/affidavit yahan se debit */
+    paymentAccount: "",
     reference: "",
     newLoadKw: "",
   };

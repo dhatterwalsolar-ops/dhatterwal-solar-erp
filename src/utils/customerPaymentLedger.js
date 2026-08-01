@@ -50,6 +50,10 @@ export function addCustomerPayment(entry) {
     reference: entry.reference || "",
     applicationNo: entry.applicationNo || "",
     sourceRef: entry.sourceRef || "",
+    /** Debit account (Payment Sheet) — Name/Load fees */
+    paymentMode: entry.paymentMode || entry.paymentAccount || "",
+    fees: Number(entry.fees) || 0,
+    affidavitFee: Number(entry.affidavitFee) || 0,
     createdAt: new Date().toISOString(),
   };
 

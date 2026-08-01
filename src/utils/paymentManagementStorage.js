@@ -197,14 +197,33 @@ export function addPaymentGiven(entry) {
     fundingType: entry.fundingType || "account",
     creditFacilityId: entry.creditFacilityId || "",
     creditFacilityName: entry.creditFacilityName || "",
+    sourceRef: entry.sourceRef || "",
     createdAt: new Date().toISOString(),
   };
 
   const list = readGiven();
+  /* Name/Load etc. — same sourceRef pe update (re-save) */
+  if (record.sourceRef) {
+    const idx = list.findIndex((r) => r.sourceRef === record.sourceRef);
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...record, id: list[idx].id, createdAt: list[idx].createdAt };
+      writeGiven(list);
+      notifyMgmtSync();
+      return list[idx];
+    }
+  }
+
   list.unshift(record);
   writeGiven(list);
   notifyMgmtSync();
   return record;
+}
+
+export function deletePaymentGivenBySourceRef(sourceRef) {
+  const ref = String(sourceRef || "").trim();
+  if (!ref) return;
+  writeGiven(readGiven().filter((r) => r.sourceRef !== ref));
+  notifyMgmtSync();
 }
 
 export function updatePaymentGiven(id, patch) {
@@ -265,13 +284,12 @@ export function computeAccountModeBalances() {
     accounts.get(mode).received += Number(r.amount) || 0;
   });
 
+  /* Sale invoice receipts — paymentMode pe agar set ho. Name/Load fees = Payment Given debit (not received). */
   listAllPayments()
-    .filter((p) => p.category === PAYMENT_CATEGORIES.SALE || p.category === PAYMENT_CATEGORIES.NAME_LOAD)
+    .filter((p) => p.category === PAYMENT_CATEGORIES.SALE)
     .forEach((p) => {
-      const mode = p.label || "Other";
-      if (!accounts.has(mode)) {
-        accounts.set(mode, emptyBalanceRow(mode, getOpeningBalanceForMode(mode)));
-      }
+      const mode = p.paymentMode || p.label || "";
+      if (!mode || !accounts.has(mode)) return;
       accounts.get(mode).received += Number(p.amount) || 0;
     });
 
@@ -332,9 +350,7 @@ export function getMonthlyPaymentTotals(month, year) {
 
   const receivedAuto = listAllPayments()
     .filter(
-      (p) =>
-        isInMonth(p.date, month, year) &&
-        (p.category === PAYMENT_CATEGORIES.SALE || p.category === PAYMENT_CATEGORIES.NAME_LOAD),
+      (p) => isInMonth(p.date, month, year) && p.category === PAYMENT_CATEGORIES.SALE,
     )
     .reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
