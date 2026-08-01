@@ -60,26 +60,58 @@ function partyAddressLine(invoice) {
 
 function ensureComputation(invoice, format) {
   if (Array.isArray(invoice.lines) && invoice.lines.length) {
+    const lines = invoice.lines;
+    let hsnSummary = Array.isArray(invoice.hsnSummary) ? invoice.hsnSummary : [];
+    if (!hsnSummary.length) {
+      hsnSummary = lines.map((line) => ({
+        hsn: line.hsn,
+        taxRate: Number(line.gstRate) > 1 ? Number(line.gstRate) : (Number(line.gstRate) || 0) * 100,
+        taxableAmt: line.amount,
+        cgstAmt: line.cgstAmt || 0,
+        sgstAmt: line.sgstAmt || 0,
+        totalTax: Number(line.cgstAmt || 0) + Number(line.sgstAmt || 0),
+      }));
+    }
+    let taxRows = Array.isArray(invoice.taxRows) ? invoice.taxRows : [];
+    if (!taxRows.length && invoice.withGst) {
+      lines.forEach((line) => {
+        const half =
+          Number(line.cgstRate) > 0
+            ? Number(line.cgstRate) > 1
+              ? Number(line.cgstRate)
+              : Number(line.cgstRate) * 100
+            : (Number(line.gstRate) > 1 ? Number(line.gstRate) : (Number(line.gstRate) || 0) * 100) / 2;
+        if (Number(line.cgstAmt) > 0 || Number(line.sgstAmt) > 0) {
+          taxRows.push({ label: "Add: CGST", rate: half, amount: line.cgstAmt || 0 });
+          taxRows.push({ label: "Add: SGST", rate: half, amount: line.sgstAmt || 0 });
+        }
+      });
+    }
     return {
       taxableAmount: invoice.taxableAmount,
       gstAmount: invoice.gstAmount,
       totalAmount: invoice.totalAmount,
-      lines: invoice.lines,
-      taxRows: invoice.taxRows || [],
-      hsnSummary: invoice.hsnSummary || [],
-      totalQty: invoice.totalQty || invoice.lines.reduce((s, l) => s + (l.qty || 0), 0),
+      lines,
+      taxRows,
+      hsnSummary,
+      totalQty: invoice.totalQty || lines.reduce((s, l) => s + (l.qty || 0), 0),
       amountInWords: invoice.amountInWords || "",
+      withGst: Boolean(invoice.withGst),
     };
   }
-  return buildInvoiceComputation({
-    taxableAmount: invoice.taxableAmount,
-    withGst: invoice.withGst,
-    panelName: invoice.panelName,
-    inverterName: invoice.inverterName,
-    inverterSerial: invoice.inverterSerial,
-    setupKw: invoice.setupKw,
-    format,
-  });
+  return {
+    ...buildInvoiceComputation({
+      taxableAmount: invoice.taxableAmount ?? invoice.totalAmount,
+      withGst: invoice.withGst,
+      amountInclusive: Boolean(invoice.withGst),
+      panelName: invoice.panelName,
+      inverterName: invoice.inverterName,
+      inverterSerial: invoice.inverterSerial,
+      setupKw: invoice.setupKw,
+      format,
+    }),
+    withGst: Boolean(invoice.withGst),
+  };
 }
 
 /**
@@ -110,15 +142,64 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
     })
     .join("");
 
+  /* Upar GST — items table me (saved format jaisa Add: CGST / SGST) */
   const taxRowsHtml = (calc.taxRows || [])
     .map(
-      (row) => `<tr>
+      (row) => `<tr class="gst-add-row">
         <td colspan="5" class="noborder-left"></td>
-        <td class="r tax-label">${esc(row.label)}&nbsp;&nbsp;${esc(fmtRate(row.rate))}%</td>
+        <td class="r tax-label">${esc(row.label)}&nbsp;&nbsp;@&nbsp;${esc(fmtRate(row.rate))}%</td>
         <td class="r">${esc(fmtMoney(row.amount))}</td>
       </tr>`,
     )
     .join("");
+
+  /* Niche GST — HSN/SAC tax summary (format stationery) */
+  const hsnRows = calc.hsnSummary || [];
+  const hsnTotals = hsnRows.reduce(
+    (acc, row) => ({
+      taxable: acc.taxable + (Number(row.taxableAmt) || 0),
+      cgst: acc.cgst + (Number(row.cgstAmt) || 0),
+      sgst: acc.sgst + (Number(row.sgstAmt) || 0),
+      tax: acc.tax + (Number(row.totalTax) || 0),
+    }),
+    { taxable: 0, cgst: 0, sgst: 0, tax: 0 },
+  );
+  const hsnSummaryHtml =
+    calc.withGst && hsnRows.length
+      ? `<table class="hsn-tax">
+        <thead>
+          <tr>
+            <th>HSN/SAC</th>
+            <th>Tax Rate</th>
+            <th>Taxable Amt.</th>
+            <th>CGST Amt.</th>
+            <th>SGST Amt.</th>
+            <th>Total Tax</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${hsnRows
+            .map(
+              (row) => `<tr>
+              <td class="c">${esc(row.hsn)}</td>
+              <td class="c">${esc(fmtRate(row.taxRate))}%</td>
+              <td class="r">${esc(fmtMoney(row.taxableAmt))}</td>
+              <td class="r">${esc(fmtMoney(row.cgstAmt))}</td>
+              <td class="r">${esc(fmtMoney(row.sgstAmt))}</td>
+              <td class="r">${esc(fmtMoney(row.totalTax))}</td>
+            </tr>`,
+            )
+            .join("")}
+          <tr class="hsn-total">
+            <td colspan="2" class="r b">Total</td>
+            <td class="r b">${esc(fmtMoney(hsnTotals.taxable))}</td>
+            <td class="r b">${esc(fmtMoney(hsnTotals.cgst))}</td>
+            <td class="r b">${esc(fmtMoney(hsnTotals.sgst))}</td>
+            <td class="r b">${esc(fmtMoney(hsnTotals.tax))}</td>
+          </tr>
+        </tbody>
+      </table>`
+      : "";
 
   const banks = (fmt.banks || [])
     .filter((b) => String(b?.name || "").trim() || String(b?.accountNo || "").trim())
@@ -200,8 +281,16 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
   .item-title { font-weight: 700; text-transform: uppercase; line-height: 1.35; }
   .item-sub { font-size: 11.5px; margin-top: 3px; text-transform: uppercase; line-height: 1.35; }
   .spacer-row td { height: 100%; border: 1px solid #000; padding: 0 !important; vertical-align: top; }
-  .tax-label { white-space: nowrap; }
+  .noborder-left { border-left: 1px solid #000; border-right: none; }
+  .gst-add-row td { font-size: 11.5px; }
+  .tax-label { white-space: nowrap; font-weight: 700; }
   .grand td { font-weight: 900; }
+  .hsn-tax { width: 100%; border-collapse: collapse; margin-top: 0; }
+  .hsn-tax th, .hsn-tax td {
+    border: 1px solid #000; padding: 5px 6px; font-family: Arial, sans-serif; font-size: 11.5px;
+  }
+  .hsn-tax th { font-weight: 700; background: #f3f3f3; }
+  .hsn-total td { font-weight: 700; }
   .words { padding: 8px 10px; border: 1px solid #000; border-top: none; font-weight: 700; font-family: Arial, sans-serif; line-height: 1.4; }
   .pay-head { border: 1px solid #000; border-top: none; padding: 7px 10px; font-weight: 700; font-family: Arial, sans-serif; }
   .banks td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 8px 10px; width: 50%; font-family: Arial, sans-serif; font-size: 11.5px; line-height: 1.4; }
@@ -324,6 +413,7 @@ export function buildSaleInvoiceHtml(invoice, formatOverride) {
           </tr>
         </tbody>
       </table>
+      ${hsnSummaryHtml}
     </div>
 
     <div class="sheet-bottom">

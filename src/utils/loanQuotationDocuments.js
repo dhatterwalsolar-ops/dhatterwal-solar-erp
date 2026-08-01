@@ -67,28 +67,65 @@ export function parseLoanAmount(value) {
  */
 export function buildLoanQuotationHtml(quotation, formatOverride) {
   const fmt = formatOverride || getLoanQuotationFormat();
-  const calc =
-    Array.isArray(quotation.lines) && quotation.lines.length
-      ? {
-          taxableAmount: quotation.taxableAmount,
-          gstAmount: quotation.gstAmount,
-          totalAmount: quotation.totalAmount,
-          lines: quotation.lines,
-          taxRows: quotation.taxRows || [],
-          totalQty: quotation.totalQty || quotation.lines.reduce((s, l) => s + (l.qty || 0), 0),
-          amountInWords: quotation.amountInWords || "",
-        }
-      : buildInvoiceComputation({
-          taxableAmount: quotation.amount,
-          withGst: quotation.withGst,
-          amountInclusive: Boolean(quotation.withGst),
-          panelName: quotation.panelName,
-          inverterName: quotation.inverterName,
-          inverterSerial: quotation.inverterSerial,
-          setupKw: quotation.setupKw,
-          format: fmt,
-          detailStyle: "quotation",
-        });
+  const computed = Array.isArray(quotation.lines) && quotation.lines.length
+    ? null
+    : buildInvoiceComputation({
+        taxableAmount: quotation.amount,
+        withGst: quotation.withGst,
+        amountInclusive: Boolean(quotation.withGst),
+        panelName: quotation.panelName,
+        inverterName: quotation.inverterName,
+        inverterSerial: quotation.inverterSerial,
+        setupKw: quotation.setupKw,
+        format: fmt,
+        detailStyle: "quotation",
+      });
+
+  const lines =
+    computed?.lines ||
+    quotation.lines ||
+    [];
+  let taxRows = computed?.taxRows || quotation.taxRows || [];
+  let hsnSummary = computed?.hsnSummary || quotation.hsnSummary || [];
+  if (!hsnSummary.length && lines.length) {
+    hsnSummary = lines.map((line) => ({
+      hsn: line.hsn,
+      taxRate: Number(line.gstRate) > 1 ? Number(line.gstRate) : (Number(line.gstRate) || 0) * 100,
+      taxableAmt: line.amount,
+      cgstAmt: line.cgstAmt || 0,
+      sgstAmt: line.sgstAmt || 0,
+      totalTax: Number(line.cgstAmt || 0) + Number(line.sgstAmt || 0),
+    }));
+  }
+  if (!taxRows.length && quotation.withGst) {
+    lines.forEach((line) => {
+      const half =
+        Number(line.cgstRate) > 0
+          ? Number(line.cgstRate) > 1
+            ? Number(line.cgstRate)
+            : Number(line.cgstRate) * 100
+          : (Number(line.gstRate) > 1 ? Number(line.gstRate) : (Number(line.gstRate) || 0) * 100) / 2;
+      if (Number(line.cgstAmt) > 0 || Number(line.sgstAmt) > 0) {
+        taxRows.push({ label: "Add: CGST", rate: half, amount: line.cgstAmt || 0 });
+        taxRows.push({ label: "Add: SGST", rate: half, amount: line.sgstAmt || 0 });
+      }
+    });
+  }
+
+  const calc = {
+    taxableAmount: computed?.taxableAmount ?? quotation.taxableAmount,
+    gstAmount: computed?.gstAmount ?? quotation.gstAmount,
+    totalAmount: computed?.totalAmount ?? quotation.totalAmount,
+    lines,
+    taxRows,
+    hsnSummary,
+    totalQty:
+      computed?.totalQty ||
+      quotation.totalQty ||
+      lines.reduce((s, l) => s + (l.qty || 0), 0),
+    amountInWords: computed?.amountInWords || quotation.amountInWords || "",
+    withGst: Boolean(quotation.withGst),
+  };
 
   const billedName = partyNameLine(quotation);
   const billedAddr = partyAddressLine(quotation);
@@ -114,13 +151,60 @@ export function buildLoanQuotationHtml(quotation, formatOverride) {
 
   const taxRowsHtml = (calc.taxRows || [])
     .map(
-      (row) => `<tr>
+      (row) => `<tr class="gst-add-row">
         <td colspan="5" class="noborder-left"></td>
-        <td class="r tax-label">${esc(row.label)}&nbsp;&nbsp;${esc(fmtRate(row.rate))}%</td>
+        <td class="r tax-label">${esc(row.label)}&nbsp;&nbsp;@&nbsp;${esc(fmtRate(row.rate))}%</td>
         <td class="r">${esc(fmtMoney(row.amount))}</td>
       </tr>`,
     )
     .join("");
+
+  const hsnRows = calc.hsnSummary || [];
+  const hsnTotals = hsnRows.reduce(
+    (acc, row) => ({
+      taxable: acc.taxable + (Number(row.taxableAmt) || 0),
+      cgst: acc.cgst + (Number(row.cgstAmt) || 0),
+      sgst: acc.sgst + (Number(row.sgstAmt) || 0),
+      tax: acc.tax + (Number(row.totalTax) || 0),
+    }),
+    { taxable: 0, cgst: 0, sgst: 0, tax: 0 },
+  );
+  const hsnSummaryHtml =
+    calc.withGst && hsnRows.length
+      ? `<table class="hsn-tax">
+        <thead>
+          <tr>
+            <th>HSN/SAC</th>
+            <th>Tax Rate</th>
+            <th>Taxable Amt.</th>
+            <th>CGST Amt.</th>
+            <th>SGST Amt.</th>
+            <th>Total Tax</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${hsnRows
+            .map(
+              (row) => `<tr>
+              <td class="c">${esc(row.hsn)}</td>
+              <td class="c">${esc(fmtRate(row.taxRate))}%</td>
+              <td class="r">${esc(fmtMoney(row.taxableAmt))}</td>
+              <td class="r">${esc(fmtMoney(row.cgstAmt))}</td>
+              <td class="r">${esc(fmtMoney(row.sgstAmt))}</td>
+              <td class="r">${esc(fmtMoney(row.totalTax))}</td>
+            </tr>`,
+            )
+            .join("")}
+          <tr class="hsn-total">
+            <td colspan="2" class="r b">Total</td>
+            <td class="r b">${esc(fmtMoney(hsnTotals.taxable))}</td>
+            <td class="r b">${esc(fmtMoney(hsnTotals.cgst))}</td>
+            <td class="r b">${esc(fmtMoney(hsnTotals.sgst))}</td>
+            <td class="r b">${esc(fmtMoney(hsnTotals.tax))}</td>
+          </tr>
+        </tbody>
+      </table>`
+      : "";
 
   const banks = (fmt.banks || [])
     .filter((b) => String(b?.name || "").trim() || String(b?.accountNo || "").trim())
