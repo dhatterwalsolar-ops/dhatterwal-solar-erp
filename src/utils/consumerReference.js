@@ -46,6 +46,29 @@ function patchReferenceInList(list, consumerNo, reference) {
   return { next, changed };
 }
 
+/** Loan → Cash → Backup priority (same as getConsumerReference). Filter ke liye ek baar. */
+export function buildConsumerReferenceMap() {
+  const map = new Map();
+  for (const r of readRows(BACKUP_KEY)) {
+    const cn = normalizeConsumerNo(r.consumerNo);
+    const ref = String(r.reference || "").trim();
+    if (cn && ref) map.set(cn, ref);
+  }
+  for (const r of readRows(CASH_KEY)) {
+    if (r.isBackupEntry) continue;
+    const cn = normalizeConsumerNo(r.consumerNo);
+    const ref = String(r.reference || "").trim();
+    if (cn && ref) map.set(cn, ref);
+  }
+  for (const r of readRows(LOAN_KEY)) {
+    if (r.isBackupEntry) continue;
+    const cn = normalizeConsumerNo(r.consumerNo);
+    const ref = String(r.reference || "").trim();
+    if (cn && ref) map.set(cn, ref);
+  }
+  return map;
+}
+
 /** Loan / Cash / Backup se consumer ka Reference nikaalo. */
 export function getConsumerReference(consumerNo) {
   const cn = normalizeConsumerNo(consumerNo);
@@ -132,11 +155,20 @@ export function syncReferencesFromCaseRows(rows, source) {
   return { changed: any };
 }
 
-export function consumerMatchesReference(consumerNo, referenceFilter, storedReference = "") {
+export function consumerMatchesReference(
+  consumerNo,
+  referenceFilter,
+  storedReference = "",
+  referenceMap = null,
+) {
   const want = norm(referenceFilter);
   if (!want) return true;
   /* Hamesha Loan/Cash live reference check — Sale pe stale/empty reference se miss na ho */
-  const fromSheets = norm(getConsumerReference(consumerNo));
+  const fromSheets = norm(
+    referenceMap
+      ? referenceMap.get(normalizeConsumerNo(consumerNo)) || ""
+      : getConsumerReference(consumerNo),
+  );
   if (fromSheets && fromSheets === want) return true;
   const stored = norm(storedReference);
   return Boolean(stored && stored === want);

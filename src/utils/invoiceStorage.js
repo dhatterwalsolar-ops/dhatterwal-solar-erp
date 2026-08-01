@@ -403,8 +403,33 @@ export function clearAllInvoiceFileRecords() {
   return { count: previous.length, invoices: previous };
 }
 
-export function findInvoiceForSaleRow(row) {
+/** Ek baar parse — Sale Sheet render pe O(1) invoice lookup. */
+export function getInvoiceLookupMaps() {
+  const byId = new Map();
+  const byNo = new Map();
+  for (const inv of readInvoiceFile()) {
+    if (!inv || typeof inv !== "object") continue;
+    if (inv.id) byId.set(inv.id, inv);
+    const no = String(inv.invoiceNo || "").trim();
+    if (no && !byNo.has(no)) byNo.set(no, inv);
+  }
+  return { byId, byNo };
+}
+
+export function findInvoiceForSaleRow(row, maps = null) {
   if (!row) return null;
+  if (maps) {
+    if (row.invoiceId) {
+      const byId = maps.byId.get(row.invoiceId);
+      if (byId) return byId;
+    }
+    const no = String(row.invoiceNo || "").trim();
+    if (no) {
+      const byNo = maps.byNo.get(no);
+      if (byNo) return byNo;
+    }
+    return null;
+  }
   if (row.invoiceId) {
     const byId = getInvoiceById(row.invoiceId);
     if (byId) return byId;
@@ -416,8 +441,20 @@ export function findInvoiceForSaleRow(row) {
   return null;
 }
 
-export function findNetMeterInvoiceForSaleRow(row) {
+export function findNetMeterInvoiceForSaleRow(row, maps = null) {
   if (!row) return null;
+  if (maps) {
+    if (row.netMeterInvoiceId) {
+      const byId = maps.byId.get(row.netMeterInvoiceId);
+      if (byId) return byId;
+    }
+    const no = String(row.netMeterInvoiceNo || "").trim();
+    if (no) {
+      const byNo = maps.byNo.get(no);
+      if (byNo) return byNo;
+    }
+    return null;
+  }
   if (row.netMeterInvoiceId) {
     const byId = getInvoiceById(row.netMeterInvoiceId);
     if (byId) return byId;

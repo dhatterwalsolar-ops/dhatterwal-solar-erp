@@ -16,7 +16,6 @@ import { createEmptySaleRow } from "../../../constants/saleCase";
 import { getSaleTeamWorkOptions } from "../../../utils/labourTeamMappingStorage";
 import {
   loadSaleCaseRows,
-  SALE_BOM_SYNC_EVENT,
   SALE_SETUP_DETAIL_SYNC_EVENT,
   saveSaleCaseRows,
 } from "../../../utils/saleCaseStorage";
@@ -30,6 +29,7 @@ import { CASH_CASE_SYNC_EVENT } from "../../../utils/cashCaseStorage";
 import { generateCompleteFilePackage } from "../../../utils/completeFileGenerator";
 import {
   customerFolderPath,
+  getCustomerDocumentCountMap,
   listCustomerDocuments,
   readFileAsDataUrl,
 } from "../../../utils/customerDocuments";
@@ -40,6 +40,7 @@ import {
   findInvoiceForSaleRow,
   findNetMeterInvoiceForSaleRow,
   getInvoiceById,
+  getInvoiceLookupMaps,
   issueNetMeterInvoice,
   issueSaleInvoice,
   listAvailableNetMeterInvoicesForWithoutGst,
@@ -53,7 +54,10 @@ import {
   deleteInvoiceCompletely,
 } from "../../../utils/tempInvoiceDelete";
 import { getAuthSession } from "../../../utils/authSession";
-import { consumerMatchesReference } from "../../../utils/consumerReference";
+import {
+  buildConsumerReferenceMap,
+  consumerMatchesReference,
+} from "../../../utils/consumerReference";
 import { flushErpPushNow } from "../../../utils/erpStorage";
 import {
   canChangeOrDelete,
@@ -228,20 +232,48 @@ function SaleCaseSheet() {
   const [lanUrlDraft, setLanUrlDraft] = useState(() => getSavedPublicAppBaseUrl());
   const [linkBaseTick, setLinkBaseTick] = useState(0);
   const consumerSyncTimers = useRef(new Map());
+  const suppressReloadRef = useRef(false);
+  const saveTimerRef = useRef(null);
+  const heavySaveTimerRef = useRef(null);
 
+  /* Debounced save: typing pe BOM/Customer Detail sync mat chalao (lag ka main cause). */
   useEffect(() => {
-    saveSaleCaseRows(rows.filter((r) => !r.isBackupEntry));
+    const data = rows.filter((r) => !r.isBackupEntry);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      suppressReloadRef.current = true;
+      saveSaleCaseRows(data, { syncBom: false, syncCustomerDetail: false });
+      window.setTimeout(() => {
+        suppressReloadRef.current = false;
+      }, 100);
+    }, 450);
+
+    if (heavySaveTimerRef.current) clearTimeout(heavySaveTimerRef.current);
+    heavySaveTimerRef.current = setTimeout(() => {
+      suppressReloadRef.current = true;
+      saveSaleCaseRows(data, { syncBom: true, syncCustomerDetail: true });
+      window.setTimeout(() => {
+        suppressReloadRef.current = false;
+      }, 150);
+    }, 2000);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (heavySaveTimerRef.current) clearTimeout(heavySaveTimerRef.current);
+    };
   }, [rows]);
 
   useEffect(() => {
     const reloadFromCaseSheets = () => {
+      if (suppressReloadRef.current) return;
       setRows(reloadSaleRowsFromStorage());
     };
     const refreshBackups = () => {
+      if (suppressReloadRef.current) return;
       setRows(reloadSaleRowsFromStorage());
     };
+    /* SALE_BOM_SYNC pe full reload mat — khud ke save se loop + lag */
     window.addEventListener(SALE_CASE_SYNC_EVENT, reloadFromCaseSheets);
-    window.addEventListener(SALE_BOM_SYNC_EVENT, reloadFromCaseSheets);
     window.addEventListener(SALE_SETUP_DETAIL_SYNC_EVENT, reloadFromCaseSheets);
     window.addEventListener(BACKUP_ENTRY_SYNC_EVENT, refreshBackups);
     window.addEventListener(LOAN_CASE_SYNC_EVENT, reloadFromCaseSheets);
@@ -259,7 +291,6 @@ function SaleCaseSheet() {
     window.addEventListener(SITE_ORDER_SYNC_EVENT, onSiteOrder);
     return () => {
       window.removeEventListener(SALE_CASE_SYNC_EVENT, reloadFromCaseSheets);
-      window.removeEventListener(SALE_BOM_SYNC_EVENT, reloadFromCaseSheets);
       window.removeEventListener(SALE_SETUP_DETAIL_SYNC_EVENT, reloadFromCaseSheets);
       window.removeEventListener(BACKUP_ENTRY_SYNC_EVENT, refreshBackups);
       window.removeEventListener(LOAN_CASE_SYNC_EVENT, reloadFromCaseSheets);
@@ -268,12 +299,22 @@ function SaleCaseSheet() {
     };
   }, []);
 
+  const consumerRefMap = useMemo(() => {
+    if (!saleRefFilter) return null;
+    return buildConsumerReferenceMap();
+  }, [saleRefFilter, rows]);
+
   const filteredRows = useMemo(() => {
     let list = rows;
     if (saleRefFilter) {
       /* Loan/Cash Reference se match — Sale row pe galat/empty reference ignore */
       list = list.filter((row) =>
-        consumerMatchesReference(row.consumerNo, saleRefFilter),
+        consumerMatchesReference(
+          row.consumerNo,
+          saleRefFilter,
+          row.reference,
+          consumerRefMap,
+        ),
       );
     }
     if (!query.trim()) return list;
@@ -281,7 +322,20 @@ function SaleCaseSheet() {
     return list.filter((row) =>
       Object.values(row).some((value) => String(value).toLowerCase().includes(q)),
     );
-  }, [query, rows, saleRefFilter]);
+  }, [query, rows, saleRefFilter, consumerRefMap]);
+
+  const rowIndexByRef = useMemo(() => {
+    const map = new Map();
+    rows.forEach((row, index) => map.set(row, index));
+    return map;
+  }, [rows]);
+
+  const invoiceMaps = useMemo(() => getInvoiceLookupMaps(), [rows, docRefresh]);
+  const teamWorkOptions = useMemo(() => getSaleTeamWorkOptions(), [rows]);
+  const docCountMap = useMemo(() => {
+    void docRefresh;
+    return getCustomerDocumentCountMap();
+  }, [docRefresh, rows]);
 
   const closeSaleModals = () => {
     setInvoiceRow(null);
@@ -1124,9 +1178,9 @@ function SaleCaseSheet() {
   };
 
   const docCountForRow = (row) => {
-    void docRefresh;
-    if (!row.consumerNo?.trim()) return 0;
-    return listCustomerDocuments(row.consumerNo).length;
+    const cn = String(row.consumerNo || "").trim().toUpperCase();
+    if (!cn) return 0;
+    return docCountMap.get(cn) || 0;
   };
 
   return (
@@ -1216,13 +1270,19 @@ function SaleCaseSheet() {
             </tr>
           </thead>
           <tbody>
-            {filteredRows.map((row) => (
+            {filteredRows.map((row) => {
+              const rowIndex = rowIndexByRef.get(row) ?? 0;
+              const rowKey = saleRowKey(row) || row.id || `sale-${rowIndex}`;
+              const saleInv =
+                findInvoiceForSaleRow(row, invoiceMaps) ||
+                (row.invoiceId ? invoiceMaps.byId.get(row.invoiceId) : null);
+              return (
               <tr
-                key={saleRowKey(row) || `sale-${rows.indexOf(row)}`}
+                key={rowKey}
                 className={row.isBackupEntry ? styles.backupRow : undefined}
               >
                 <td>
-                  {rows.indexOf(row) + 1}
+                  {rowIndex + 1}
                   {row.isBackupEntry ? <span className={styles.backupBadge}>Backup</span> : null}
                 </td>
                 <td>
@@ -1299,7 +1359,7 @@ function SaleCaseSheet() {
                     onChange={(e) => handleTeamWorkChange(row, e.target.value)}
                   >
                     <option value="">Select team</option>
-                    {getSaleTeamWorkOptions().map((team) => (
+                    {teamWorkOptions.map((team) => (
                       <option key={team} value={team}>
                         {team}
                       </option>
@@ -1390,8 +1450,6 @@ function SaleCaseSheet() {
                           Download Invoice
                         </button>
                         {(() => {
-                          const saleInv =
-                            findInvoiceForSaleRow(row) || getInvoiceById(row.invoiceId);
                           const gstInvoice = Boolean(
                             saleInv?.withGst ?? row.invoiceWithGst,
                           );
@@ -1563,7 +1621,8 @@ function SaleCaseSheet() {
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

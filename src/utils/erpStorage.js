@@ -51,27 +51,60 @@ export function isHydrated() {
   return hydrated;
 }
 
-function notifySync() {
+/** Storage key → sheet events. Poll pe sirf changed keys ke events — Sale Sheet lag kam. */
+const KEY_SYNC_EVENTS = {
+  dhatterwal_loan_case_rows: ["dhatterwal-loan-case-sync", "dhatterwal-sale-case-sync"],
+  dhatterwal_cash_case_rows: ["dhatterwal-cash-case-sync", "dhatterwal-sale-case-sync"],
+  dhatterwal_sale_case_rows: ["dhatterwal-sale-case-sync"],
+  dhatterwal_bom_sheet_files: ["dhatterwal-sale-bom-sync", "dhatterwal-sale-setup-detail-sync"],
+  dhatterwal_invoice_file: ["dhatterwal-invoice-file-sync"],
+  dhatterwal_stock_balances: ["dhatterwal-stock-sync"],
+  dhatterwal_stock_ledger: ["dhatterwal-stock-sync"],
+  dhatterwal_payment_received: ["dhatterwal-payment-mgmt-sync"],
+  dhatterwal_payment_given: ["dhatterwal-payment-mgmt-sync"],
+  dhatterwal_payment_accounts: ["dhatterwal-payment-accounts-sync"],
+  dhatterwal_customer_payments: ["dhatterwal-customer-payment-sync"],
+  dhatterwal_purchase_history: ["dhatterwal-purchase-history-sync"],
+  dhatterwal_site_orders: ["dhatterwal-site-order-sync"],
+  dhatterwal_backup_entries: ["dhatterwal-backup-entry-sync"],
+  dhatterwal_credit_facilities: ["dhatterwal-credit-facility-sync"],
+  dhatterwal_credit_facility_txns: ["dhatterwal-credit-facility-sync"],
+  dhatterwal_customer_detail_rows: ["dhatterwal-customer-detail-sale-sync"],
+  dhatterwal_erp_settings: ["dhatterwal-invoice-format-sync"],
+  dhatterwal_labour_team_mapping: ["dhatterwal-labour-sync"],
+  dhatterwal_sale_team_leader_map: ["dhatterwal-labour-sync"],
+};
+
+const ALL_SHEET_EVENTS = [
+  "dhatterwal-sale-case-sync",
+  "dhatterwal-sale-bom-sync",
+  "dhatterwal-loan-case-sync",
+  "dhatterwal-cash-case-sync",
+  "dhatterwal-invoice-file-sync",
+  "dhatterwal-stock-sync",
+  "dhatterwal-payment-mgmt-sync",
+  "dhatterwal-payment-accounts-sync",
+  "dhatterwal-customer-payment-sync",
+  "dhatterwal-purchase-history-sync",
+  "dhatterwal-site-order-sync",
+  "dhatterwal-backup-entry-sync",
+  "dhatterwal-credit-facility-sync",
+  "dhatterwal-customer-detail-sale-sync",
+  "dhatterwal-invoice-format-sync",
+];
+
+function notifySync(changedKeys = null) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(SYNC_EVENT));
-  const sheetEvents = [
-    "dhatterwal-sale-case-sync",
-    "dhatterwal-sale-bom-sync",
-    "dhatterwal-loan-case-sync",
-    "dhatterwal-cash-case-sync",
-    "dhatterwal-invoice-file-sync",
-    "dhatterwal-stock-sync",
-    "dhatterwal-payment-mgmt-sync",
-    "dhatterwal-payment-accounts-sync",
-    "dhatterwal-customer-payment-sync",
-    "dhatterwal-purchase-history-sync",
-    "dhatterwal-site-order-sync",
-    "dhatterwal-backup-entry-sync",
-    "dhatterwal-credit-facility-sync",
-    "dhatterwal-customer-detail-sale-sync",
-    "dhatterwal-invoice-format-sync",
-  ];
-  sheetEvents.forEach((name) => window.dispatchEvent(new Event(name)));
+  const events = new Set();
+  if (!changedKeys || !changedKeys.length) {
+    ALL_SHEET_EVENTS.forEach((e) => events.add(e));
+  } else {
+    changedKeys.forEach((key) => {
+      (KEY_SYNC_EVENTS[key] || []).forEach((e) => events.add(e));
+    });
+  }
+  events.forEach((name) => window.dispatchEvent(new Event(name)));
 }
 
 export { SYNC_EVENT };
@@ -236,7 +269,7 @@ export function startPolling(intervalMs = 5000) {
       if (!data.updatedAt || data.updatedAt === lastServerUpdatedAt) return;
       lastServerUpdatedAt = data.updatedAt;
       const keys = data.keys || {};
-      let changed = false;
+      const changedKeys = [];
       Object.entries(keys).forEach(([key, value]) => {
         if (typeof value !== "string") return;
         /* Local pending write ko server ke purane data se overwrite mat karo */
@@ -248,9 +281,9 @@ export function startPolling(intervalMs = 5000) {
         } catch {
           /* ignore */
         }
-        changed = true;
+        changedKeys.push(key);
       });
-      if (changed) notifySync();
+      if (changedKeys.length) notifySync(changedKeys);
     } catch {
       /* offline */
     }

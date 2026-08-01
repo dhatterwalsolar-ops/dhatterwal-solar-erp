@@ -102,6 +102,17 @@ export function listCustomerDocuments(consumerNo, { source, subfolder } = {}) {
   return items.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
 }
 
+/** Sale Sheet: har row pe readAll mat chalao — ek Map. */
+export function getCustomerDocumentCountMap() {
+  const counts = new Map();
+  for (const d of readAll()) {
+    const cn = normalizeConsumerNo(d?.consumerNo);
+    if (!cn) continue;
+    counts.set(cn, (counts.get(cn) || 0) + 1);
+  }
+  return counts;
+}
+
 export function countCustomerDocuments(consumerNo, source) {
   return listCustomerDocuments(consumerNo, source ? { source } : {}).length;
 }
