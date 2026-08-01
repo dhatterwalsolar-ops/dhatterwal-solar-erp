@@ -145,176 +145,198 @@ export function buildLoanQuotationHtml(quotation, formatOverride) {
 <meta charset="utf-8"/>
 <title>Quotation ${esc(quotation.quotationNo)}</title>
 <style>
-  @page { size: A4 portrait; margin: 8mm; }
+  @page { size: A4 portrait; margin: 6mm; }
   * { box-sizing: border-box; }
-  html, body { width: 210mm; }
-  body { margin: 0; padding: 0; background:#fff; color:#000; font-family: "Times New Roman", Times, serif; font-size: 11.5px; }
-  .sheet { width: 194mm; max-width: 194mm; min-height: 277mm; margin: 0 auto; border: 1.8px solid #000; }
+  html, body { width: 210mm; height: 297mm; }
+  body {
+    margin: 0; padding: 0; background:#fff; color:#000;
+    font-family: "Times New Roman", Times, serif; font-size: 12px;
+  }
+  .sheet {
+    width: 198mm; max-width: 198mm; height: 285mm; min-height: 285mm;
+    margin: 0 auto; border: 2px solid #000;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sheet-top, .sheet-bottom { flex: 0 0 auto; }
+  .sheet-mid {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column;
+  }
   table { border-collapse: collapse; width: 100%; }
   .c { text-align: center; } .r { text-align: right; } .b { font-weight: 700; }
   .header-table { width: 100%; table-layout: fixed; }
-  .header-table td { vertical-align: middle; padding: 5px 6px; }
-  .header-table td.logo-cell { width: 78px; }
-  .header-table td.copy-cell { width: 70px; }
-  .logo { width: 72px; height: 72px; object-fit: contain; display: block; }
-  .company { text-align: center; overflow: hidden; }
-  .inv-title { font-size: 14px; font-weight: 700; margin: 0 0 2px; font-family: Arial, sans-serif; }
-  .co-name {
-    font-size: 15px; font-weight: 900; margin: 0; letter-spacing: 0;
-    font-family: Arial Black, Arial, sans-serif; text-transform: uppercase;
-    white-space: nowrap; line-height: 1.2;
+  .header-table td { vertical-align: middle; padding: 8px 7px; }
+  .header-table td.logo-cell { width: 84px; }
+  .header-table td.copy-cell { width: 68px; }
+  .logo { width: 78px; height: 78px; object-fit: contain; display: block; }
+  .company { text-align: center; overflow: hidden; padding: 2px 0; }
+  .inv-title {
+    font-size: 15px; font-weight: 800; margin: 0 0 4px;
+    font-family: Arial, sans-serif; letter-spacing: 0.6px;
   }
-  .co-line { margin: 1px 0; font-size: 11px; font-family: Arial, sans-serif; }
+  .co-name {
+    font-size: 17.5px; font-weight: 900; margin: 0 0 5px; letter-spacing: 0.35px;
+    font-family: Arial Black, Arial, sans-serif; text-transform: uppercase;
+    white-space: nowrap; line-height: 1.15; color: #0b1f4d;
+  }
+  .co-line { margin: 3px 0; font-size: 11.5px; font-family: Arial, sans-serif; line-height: 1.35; }
   .gstin { font-weight: 700; }
   .copy { font-style: italic; font-size: 11px; text-align: right; white-space: nowrap; font-family: Arial, sans-serif; }
   .meta td { border: 1px solid #000; vertical-align: top; padding: 0; width: 50%; }
   .meta-inner { width: 100%; }
-  .meta-inner td { border: none; padding: 3px 8px; font-family: Arial, sans-serif; font-size: 12px; }
+  .meta-inner td { border: none; padding: 4px 9px; font-family: Arial, sans-serif; font-size: 12px; line-height: 1.4; }
   .meta-inner .k { font-weight: 700; width: 120px; }
-  .party td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 6px 8px; font-family: Arial, sans-serif; }
-  .party-head { font-weight: 700; margin-bottom: 4px; }
-  .party-name { font-weight: 700; text-transform: uppercase; }
-  .party-addr { text-transform: uppercase; margin-top: 2px; }
-  .gstin-line { margin-top: 10px; }
-  .items th, .items td { border: 1px solid #000; padding: 4px 5px; font-family: Arial, sans-serif; font-size: 11.5px; vertical-align: top; }
-  .items th { font-weight: 700; }
-  .sn { width: 28px; }
+  .party td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 8px 9px; font-family: Arial, sans-serif; }
+  .party-head { font-weight: 700; margin-bottom: 5px; }
+  .party-name { font-weight: 700; text-transform: uppercase; line-height: 1.35; }
+  .party-addr { text-transform: uppercase; margin-top: 3px; line-height: 1.4; }
+  .gstin-line { margin-top: 12px; }
+  .items { height: 100%; }
+  .items th, .items td { border: 1px solid #000; padding: 5px 6px; font-family: Arial, sans-serif; font-size: 12px; vertical-align: top; }
+  .items th { font-weight: 700; background: #f3f3f3; }
+  .sn { width: 30px; }
   .desc { width: 48%; }
-  .hsn-cell { width: 52px; max-width: 58px; font-size: 10px; padding: 4px 2px !important; word-break: break-all; }
-  .items th:nth-child(3) { width: 52px; max-width: 58px; font-size: 10px; padding: 4px 2px; }
-  .item-title { font-weight: 700; text-transform: uppercase; }
-  .item-sub { font-size: 11px; margin-top: 1px; text-transform: uppercase; }
+  .hsn-cell { width: 54px; max-width: 58px; font-size: 10.5px; padding: 5px 2px !important; word-break: break-all; }
+  .items th:nth-child(3) { width: 54px; max-width: 58px; font-size: 10.5px; padding: 5px 2px; }
+  .item-title { font-weight: 700; text-transform: uppercase; line-height: 1.35; }
+  .item-sub { font-size: 11.5px; margin-top: 3px; text-transform: uppercase; line-height: 1.35; }
+  .spacer-row td { height: 100%; border: 1px solid #000; padding: 0 !important; vertical-align: top; }
   .tax-label { white-space: nowrap; }
   .grand td { font-weight: 900; }
-  .words { padding: 6px 8px; border: 1px solid #000; border-top: none; font-weight: 700; font-family: Arial, sans-serif; }
-  .pay-head { border: 1px solid #000; border-top: none; padding: 5px 8px; font-weight: 700; font-family: Arial, sans-serif; }
-  .banks td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 6px 8px; width: 50%; font-family: Arial, sans-serif; font-size: 11px; }
-  .bank-name { font-weight: 700; margin-bottom: 2px; }
-  .foot td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 6px 8px; font-family: Arial, sans-serif; font-size: 11px; }
-  .terms-title { font-weight: 700; margin-bottom: 4px; }
-  .sign-wrap { min-height: 148px; position: relative; }
-  .recv-row td { min-height: 56px; padding: 10px 8px 28px; }
+  .words { padding: 8px 10px; border: 1px solid #000; border-top: none; font-weight: 700; font-family: Arial, sans-serif; line-height: 1.4; }
+  .pay-head { border: 1px solid #000; border-top: none; padding: 7px 10px; font-weight: 700; font-family: Arial, sans-serif; }
+  .banks td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 8px 10px; width: 50%; font-family: Arial, sans-serif; font-size: 11.5px; line-height: 1.4; }
+  .bank-name { font-weight: 700; margin-bottom: 3px; }
+  .foot td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 8px 10px; font-family: Arial, sans-serif; font-size: 11.5px; line-height: 1.4; }
+  .terms-title { font-weight: 700; margin-bottom: 6px; }
+  .sign-wrap { min-height: 155px; position: relative; }
+  .recv-row td { min-height: 52px; padding: 12px 10px 22px; }
   .recv { font-weight: 700; }
   .auth { text-align: right; margin-top: 4px; }
   .auth-for {
-    font-weight: 900; font-size: 11px; font-family: Arial, sans-serif;
-    white-space: nowrap; line-height: 1.2; text-transform: none;
+    font-weight: 900; font-size: 11.5px; font-family: Arial, sans-serif;
+    white-space: nowrap; line-height: 1.25; letter-spacing: 0.2px;
   }
   .auth-space {
-    min-height: 78px; height: 78px; margin: 6px 0 2px;
+    min-height: 82px; height: 82px; margin: 8px 0 3px;
     display: flex; align-items: flex-end; justify-content: flex-end;
   }
-  .auth-sign { max-height: 74px; max-width: 220px; width: auto; height: auto; object-fit: contain; }
-  .auth-label { font-weight: 900; font-size: 12px; margin-top: 2px; font-family: Arial, sans-serif; white-space: nowrap; }
+  .auth-sign { max-height: 78px; max-width: 230px; width: auto; height: auto; object-fit: contain; }
+  .auth-label { font-weight: 900; font-size: 12.5px; margin-top: 2px; font-family: Arial, sans-serif; white-space: nowrap; }
   @media print {
-    html, body { width: 210mm; }
+    html, body { width: 210mm; height: 297mm; }
     body { padding: 0; margin: 0; }
-    .sheet { width: 194mm; max-width: 194mm; box-shadow: none; }
+    .sheet { width: 198mm; height: 285mm; box-shadow: none; page-break-inside: avoid; }
   }
 </style>
 </head>
 <body>
   <div class="sheet">
-    <table class="header-table">
-      <tr>
-        <td class="logo-cell"><img class="logo" src="${logoSrc}" alt="Logo" /></td>
-        <td class="company">
-          <div class="inv-title">${esc(fmt.title)}</div>
-          <div class="co-name">${esc(fmt.legalName)}</div>
-          <div class="co-line">${esc(fmt.address)}</div>
-          <div class="co-line">${esc(fmt.phones)}</div>
-          <div class="co-line gstin">GSTIN : ${esc(fmt.gstin)}</div>
-          <div class="co-line">${esc(fmt.telEmailLine || `Tel.:${fmt.phones}-email:${fmt.email}`)}</div>
-        </td>
-        <td class="copy-cell"><div class="copy">${esc(fmt.copyLabel || "Original Copy")}</div></td>
-      </tr>
-    </table>
-
-    <table class="meta">
-      <tr>
-        <td>
-          <div class="party-head" style="padding:6px 8px 0;font-family:Arial,sans-serif">${esc(fmt.billedToLabel || "Party Details:")}</div>
-          <div style="padding:4px 8px 8px;font-family:Arial,sans-serif">
-            <div class="party-name">${esc(billedName)}</div>
-            <div class="party-addr">${esc(billedAddr)}</div>
-            <div class="gstin-line">GSTIN / UIN :</div>
-          </div>
-        </td>
-        <td>
-          <table class="meta-inner">
-            <tr><td class="k">Quotation No.</td><td>: ${esc(quotation.quotationNo || "")}</td></tr>
-            <tr><td class="k">Dated</td><td>: ${esc(quotation.date || "")}</td></tr>
-            <tr><td class="k">Setup</td><td>: ${esc(String(quotation.setupKw || "").toUpperCase())}</td></tr>
-            <tr><td class="k">Consumer No.</td><td>: ${esc(quotation.consumerNo || "")}</td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-
-    <table class="items">
-      <thead>
+    <div class="sheet-top">
+      <table class="header-table">
         <tr>
-          <th>S.N.</th>
-          <th>Description of Goods</th>
-          <th>HSN/SAC Code</th>
-          <th>Qty.</th>
-          <th>Unit</th>
-          <th>Price</th>
-          <th>Amount(₹)</th>
+          <td class="logo-cell"><img class="logo" src="${logoSrc}" alt="Logo" /></td>
+          <td class="company">
+            <div class="inv-title">${esc(fmt.title)}</div>
+            <div class="co-name">${esc(fmt.legalName)}</div>
+            <div class="co-line">${esc(fmt.address)}</div>
+            <div class="co-line">${esc(fmt.phones)}</div>
+            <div class="co-line gstin">GSTIN : ${esc(fmt.gstin)}</div>
+            <div class="co-line">${esc(fmt.telEmailLine || `Tel.:${fmt.phones}-email:${fmt.email}`)}</div>
+          </td>
+          <td class="copy-cell"><div class="copy">${esc(fmt.copyLabel || "Original Copy")}</div></td>
         </tr>
-      </thead>
-      <tbody>
-        ${itemRows}
+      </table>
+
+      <table class="meta">
         <tr>
-          <td colspan="6" class="r b">Taxable Amount</td>
-          <td class="r b">${esc(fmtMoney(calc.taxableAmount))}</td>
-        </tr>
-        ${taxRowsHtml}
-        <tr class="grand">
-          <td></td>
-          <td class="b">Grand Total</td>
-          <td></td>
-          <td class="c">${esc(fmtQty(calc.totalQty))}</td>
-          <td class="c">${esc(unit)}</td>
-          <td></td>
-          <td class="r">${esc(fmtMoney(calc.totalAmount))}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="words">Amount in Words : ${esc(calc.amountInWords)}</div>
-
-    <div class="pay-head">${esc(fmt.paymentHeading)}</div>
-    <table class="banks"><tr>${banks}</tr></table>
-
-    <table class="foot">
-      <tr>
-        <td style="width:58%">
-          <div class="terms-title">${esc(fmt.termsHeading)}</div>
-          ${terms}
-        </td>
-        <td>
-          <div class="sign-wrap">
-            <div class="auth">
-              <div class="auth-for">${esc(fmt.signatoryFor)}</div>
-              <div class="auth-space">
-                ${
-                  fmt.signDataUrl
-                    ? `<img class="auth-sign" src="${fmt.signDataUrl}" alt="Authorised signature" />`
-                    : ""
-                }
-              </div>
-              <div class="auth-label">${esc(fmt.authorisedLabel)}</div>
+          <td>
+            <div class="party-head" style="padding:8px 9px 0;font-family:Arial,sans-serif">${esc(fmt.billedToLabel || "Party Details:")}</div>
+            <div style="padding:5px 9px 10px;font-family:Arial,sans-serif">
+              <div class="party-name">${esc(billedName)}</div>
+              <div class="party-addr">${esc(billedAddr)}</div>
+              <div class="gstin-line">GSTIN / UIN :</div>
             </div>
-          </div>
-        </td>
-      </tr>
-      <tr class="recv-row">
-        <td colspan="2">
-          <div class="recv">${esc(fmt.receiverLabel)}</div>
-        </td>
-      </tr>
-    </table>
+          </td>
+          <td>
+            <table class="meta-inner">
+              <tr><td class="k">Quotation No.</td><td>: ${esc(quotation.quotationNo || "")}</td></tr>
+              <tr><td class="k">Dated</td><td>: ${esc(quotation.date || "")}</td></tr>
+              <tr><td class="k">Setup</td><td>: ${esc(String(quotation.setupKw || "").toUpperCase())}</td></tr>
+              <tr><td class="k">Consumer No.</td><td>: ${esc(quotation.consumerNo || "")}</td></tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="sheet-mid">
+      <table class="items">
+        <thead>
+          <tr>
+            <th>S.N.</th>
+            <th>Description of Goods</th>
+            <th>HSN/SAC Code</th>
+            <th>Qty.</th>
+            <th>Unit</th>
+            <th>Price</th>
+            <th>Amount(₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemRows}
+          <tr class="spacer-row"><td colspan="7"></td></tr>
+          <tr>
+            <td colspan="6" class="r b">Taxable Amount</td>
+            <td class="r b">${esc(fmtMoney(calc.taxableAmount))}</td>
+          </tr>
+          ${taxRowsHtml}
+          <tr class="grand">
+            <td></td>
+            <td class="b">Grand Total</td>
+            <td></td>
+            <td class="c">${esc(fmtQty(calc.totalQty))}</td>
+            <td class="c">${esc(unit)}</td>
+            <td></td>
+            <td class="r">${esc(fmtMoney(calc.totalAmount))}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sheet-bottom">
+      <div class="words">Amount in Words : ${esc(calc.amountInWords)}</div>
+      <div class="pay-head">${esc(fmt.paymentHeading)}</div>
+      <table class="banks"><tr>${banks}</tr></table>
+      <table class="foot">
+        <tr>
+          <td style="width:58%">
+            <div class="terms-title">${esc(fmt.termsHeading)}</div>
+            ${terms}
+          </td>
+          <td>
+            <div class="sign-wrap">
+              <div class="auth">
+                <div class="auth-for">${esc(fmt.signatoryFor)}</div>
+                <div class="auth-space">
+                  ${
+                    fmt.signDataUrl
+                      ? `<img class="auth-sign" src="${fmt.signDataUrl}" alt="Authorised signature" />`
+                      : ""
+                  }
+                </div>
+                <div class="auth-label">${esc(fmt.authorisedLabel)}</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr class="recv-row">
+          <td colspan="2">
+            <div class="recv">${esc(fmt.receiverLabel)}</div>
+          </td>
+        </tr>
+      </table>
+    </div>
   </div>
 </body>
 </html>`;
