@@ -13,8 +13,11 @@ import {
 } from "../../../utils/backupEntryStorage";
 import {
   addCustomerDocument,
+  downloadStoredDocument,
+  listCustomerDocuments,
   listDocumentsBySource,
   readFileAsDataUrl,
+  removeCustomerDocument,
 } from "../../../utils/customerDocuments";
 import { getAuthSession } from "../../../utils/authSession";
 import { canChangeOrDelete } from "../../../utils/erpAccess";
@@ -44,6 +47,45 @@ import {
 } from "../../../utils/loanQuotationDocuments";
 import { peekNextQuotationSerial } from "../../../utils/quotationSerial";
 import styles from "./CaseSheetTable.module.css";
+
+/** DD/MM/YYYY → timestamp; invalid/empty → null */
+function parseCaseDateMs(value) {
+  const m = String(value || "")
+    .trim()
+    .match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = Number(m[3]);
+  if (!day || !month || !year) return null;
+  const t = new Date(year, month - 1, day).getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
+/**
+ * Newest date upar, purani / back-date niche.
+ * Khali date = naya draft → upar.
+ */
+function compareCaseRowsByDateDesc(a, b) {
+  const ta = parseCaseDateMs(a?.date);
+  const tb = parseCaseDateMs(b?.date);
+  if (ta == null && tb == null) {
+    return String(b?._rowId || b?.entryId || "").localeCompare(
+      String(a?._rowId || a?.entryId || ""),
+    );
+  }
+  if (ta == null) return -1;
+  if (tb == null) return 1;
+  if (tb !== ta) return tb - ta;
+  return String(b?._rowId || b?.entryId || "").localeCompare(
+    String(a?._rowId || a?.entryId || ""),
+  );
+}
+
+function sortCaseRowsNewestFirst(list) {
+  return [...(list || [])].sort(compareCaseRowsByDateDesc);
+}
+
 function CaseSheetTable({
   title,
   description,
@@ -78,7 +120,8 @@ function CaseSheetTable({
 
   const [rows, setRows] = useState(() => {
     const main = (loadRows ? loadRows() : initialRows).map((row) => assignRowId({ ...row }));
-    return enableBackupEntries ? mergeWithBackup(main) : main;
+    const merged = enableBackupEntries ? mergeWithBackup(main) : main;
+    return sortCaseRowsNewestFirst(merged);
   });
   const [query, setQuery] = useState("");
   const [docRefresh, setDocRefresh] = useState(0);
@@ -92,6 +135,7 @@ function CaseSheetTable({
   const [filesBusy, setFilesBusy] = useState(false);
   const [quotationForm, setQuotationForm] = useState(null);
   const [quotationBusy, setQuotationBusy] = useState(false);
+  const [docsModal, setDocsModal] = useState(null);
 
   const getRowId = (row) => row._rowId || row.entryId || row.consumerNo || "";
 
@@ -134,18 +178,24 @@ function CaseSheetTable({
   useEffect(() => {
     if (!enableBackupEntries) return undefined;
     const refreshBackups = () => {
-      setRows((prev) => mergeWithBackup(prev.filter((r) => !r.isBackupEntry)));
+      setRows((prev) =>
+        sortCaseRowsNewestFirst(mergeWithBackup(prev.filter((r) => !r.isBackupEntry))),
+      );
     };
     window.addEventListener(BACKUP_ENTRY_SYNC_EVENT, refreshBackups);
     return () => window.removeEventListener(BACKUP_ENTRY_SYNC_EVENT, refreshBackups);
   }, [enableBackupEntries, backupSheetKind]);
 
   const filteredRows = useMemo(() => {
-    if (!query.trim()) return rows;
-    const q = query.toLowerCase();
-    return rows.filter((row) =>
-      Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(q)),
-    );
+    let list = rows;
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      list = rows.filter((row) =>
+        Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(q)),
+      );
+    }
+    /* Date: nayi upar, back-date / purani sabse niche */
+    return sortCaseRowsNewestFirst(list);
   }, [query, rows]);
 
   const docCountByConsumer = useMemo(() => {
@@ -160,28 +210,38 @@ function CaseSheetTable({
     return counts;
   }, [documentUploadSource, docRefresh]);
 
+  const docsModalList = useMemo(() => {
+    if (!docsModal?.consumerNo || !documentUploadSource) return [];
+    void docRefresh;
+    return listCustomerDocuments(docsModal.consumerNo, {
+      source: documentUploadSource,
+    });
+  }, [docsModal, documentUploadSource, docRefresh]);
+
   const updateCell = (rowRef, key, value) => {
-    setRows((prev) =>
-      prev.map((row) => {
+    setRows((prev) => {
+      const next = prev.map((row) => {
         if (row !== rowRef) return row;
-        const next = { ...row, [key]: value };
+        const updated = { ...row, [key]: value };
         if (row.isBackupEntry && row.entryId) {
           const patch =
             backupSheetKind === "cash"
-              ? patchBackupFromCashRow(next)
-              : patchBackupFromLoanRow(next);
+              ? patchBackupFromCashRow(updated)
+              : patchBackupFromLoanRow(updated);
           upsertBackupEntry(patch);
         }
-        return next;
-      }),
-    );
+        return updated;
+      });
+      /* Date change pe back-date auto niche */
+      return key === "date" ? sortCaseRowsNewestFirst(next) : next;
+    });
   };
 
   const handleAddBackupEntry = () => {
     const created = addBackupEntry();
     const backupRow =
       backupSheetKind === "cash" ? backupToCashRow(created) : backupToLoanRow(created);
-    setRows((prev) => [...prev, backupRow]);
+    setRows((prev) => sortCaseRowsNewestFirst([backupRow, ...prev]));
   };
 
   const performDeleteRow = (row) => {
@@ -517,6 +577,27 @@ function CaseSheetTable({
     fileInputRef.current?.click();
   };
 
+  const openDocsModalForRow = (row) => {
+    if (!row.consumerNo?.trim()) {
+      window.alert("Enter Consumer No. first.");
+      return;
+    }
+    setDocsModal({
+      consumerNo: String(row.consumerNo).trim(),
+      customerName: row.customerName || "",
+    });
+  };
+
+  const deleteUploadedDoc = (doc) => {
+    if (!doc?.id) return;
+    const ok = window.confirm(
+      `Delete document?\n\n${doc.fileName || "Untitled"}\n\nGalat upload hone par delete kar sakte ho.`,
+    );
+    if (!ok) return;
+    removeCustomerDocument(doc.id);
+    setDocRefresh((n) => n + 1);
+  };
+
   const onFilesSelected = async (event) => {
     const row = uploadRowRef.current;
     const files = Array.from(event.target.files || []);
@@ -538,7 +619,7 @@ function CaseSheetTable({
       }
       setDocRefresh((n) => n + 1);
       window.alert(
-        `${files.length} file(s) saved to Sale Sheet customer folder for ${row.consumerNo}.`,
+        `${files.length} file(s) saved for ${row.consumerNo}. Galat file ho to Manage → Delete karein.`,
       );
     } catch (err) {
       window.alert(err.message || "Upload failed.");
@@ -953,8 +1034,13 @@ function CaseSheetTable({
             type="button"
             className={styles.btnPrimary}
             onClick={() => {
-              const empty = assignRowId(createEmptyRow());
-              setRows((prev) => [...prev, empty]);
+              const blank = createEmptyRow();
+              const empty = assignRowId({
+                ...blank,
+                date: String(blank.date || "").trim() || new Date().toLocaleDateString("en-GB"),
+              });
+              /* Nayi entry upar; Sr. No. niche se count */
+              setRows((prev) => sortCaseRowsNewestFirst([empty, ...prev]));
               if (rowEditLock) {
                 setEditingRowIds((prev) => new Set(prev).add(getRowId(empty)));
               }
@@ -996,6 +1082,8 @@ function CaseSheetTable({
               const consumerKey = String(row.consumerNo || "").trim().toUpperCase();
               const docCount = consumerKey ? docCountByConsumer[consumerKey] || 0 : 0;
               const editing = isRowEditing(row);
+              /* Sr. No. niche se 1 — upar badhta number (nayi entry upar) */
+              const srNo = filteredRows.length - rowIndex;
 
               return (
                 <tr
@@ -1009,7 +1097,7 @@ function CaseSheetTable({
                   }
                 >
                   <td>
-                    {rowIndex + 1}
+                    {srNo}
                     {row.isBackupEntry ? (
                       <span className={styles.backupBadge} title="Synced backup entry">
                         Backup
@@ -1023,16 +1111,31 @@ function CaseSheetTable({
                   ))}
                   {showUpload && (
                     <td className={styles.docCell}>
-                      <button
-                        type="button"
-                        className={styles.uploadBtn}
-                        onClick={() => openUploadForRow(row)}
-                      >
-                        Upload
-                      </button>
-                      <span className={styles.docCount}>
-                        {docCount} file{docCount === 1 ? "" : "s"}
-                      </span>
+                      <div className={styles.docActions}>
+                        <button
+                          type="button"
+                          className={styles.uploadBtn}
+                          onClick={() => openUploadForRow(row)}
+                        >
+                          Upload
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.manageDocsBtn}
+                          onClick={() => openDocsModalForRow(row)}
+                          disabled={docCount === 0}
+                          title={
+                            docCount === 0
+                              ? "Pehle document upload karein"
+                              : "View / delete uploaded documents"
+                          }
+                        >
+                          Manage / Delete
+                        </button>
+                        <span className={styles.docCount}>
+                          {docCount} file{docCount === 1 ? "" : "s"}
+                        </span>
+                      </div>
                     </td>
                   )}
                   {actions.map((action) => {
@@ -1129,6 +1232,89 @@ function CaseSheetTable({
           </tbody>
         </table>
       </div>
+
+      {docsModal ? (
+        <div
+          className={styles.deleteModalBackdrop}
+          role="presentation"
+          onClick={() => setDocsModal(null)}
+        >
+          <div
+            className={styles.docsModal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="docs-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="docs-modal-title">Uploaded documents</h2>
+            <p className={styles.docsModalMeta}>
+              Consumer <strong>{docsModal.consumerNo}</strong>
+              {docsModal.customerName ? ` — ${docsModal.customerName}` : ""}
+              <br />
+              Galat document ho to Delete dabayein.
+            </p>
+            {docsModalList.length === 0 ? (
+              <p className={styles.docsEmpty}>Is consumer pe koi document nahi.</p>
+            ) : (
+              <ul className={styles.docsList}>
+                {docsModalList.map((doc) => (
+                  <li key={doc.id} className={styles.docsListItem}>
+                    <div className={styles.docsListInfo}>
+                      <strong title={doc.fileName}>{doc.fileName || "Untitled"}</strong>
+                      <span>
+                        {doc.uploadedAt
+                          ? new Date(doc.uploadedAt).toLocaleString("en-IN")
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className={styles.docsListBtns}>
+                      <button
+                        type="button"
+                        className={styles.docDownloadBtn}
+                        onClick={() => downloadStoredDocument(doc)}
+                      >
+                        Download
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.docDeleteBtn}
+                        onClick={() => deleteUploadedDoc(doc)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className={styles.docsModalFooter}>
+              <button
+                type="button"
+                className={styles.uploadBtn}
+                onClick={() => {
+                  const row = rows.find(
+                    (r) =>
+                      String(r.consumerNo || "")
+                        .trim()
+                        .toUpperCase() ===
+                      String(docsModal.consumerNo).trim().toUpperCase(),
+                  );
+                  if (row) openUploadForRow(row);
+                }}
+              >
+                Upload more
+              </button>
+              <button
+                type="button"
+                className={styles.docsCloseBtn}
+                onClick={() => setDocsModal(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

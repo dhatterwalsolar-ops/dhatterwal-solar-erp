@@ -1,4 +1,8 @@
 import { applySiteOrderFormToBom } from "./bomSheetStorage";
+import {
+  addCustomerDocument,
+  readFileAsDataUrl,
+} from "./customerDocuments";
 import { findProductByName } from "./productStorage";
 import { applyBomToSaleSetupDetail, SALE_BOM_SYNC_EVENT } from "./saleCaseStorage";
 import { SALE_CASE_SYNC_EVENT } from "./saleCaseSync";
@@ -19,7 +23,21 @@ function parseQty(value) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-export function submitSiteInstallationForm(order, form) {
+async function saveSiteDoc(order, file, category, subfolder) {
+  if (!file) return null;
+  const dataUrl = await readFileAsDataUrl(file);
+  return addCustomerDocument({
+    consumerNo: order.consumerNo,
+    source: "sale",
+    category,
+    fileName: file.name || `${category}.jpg`,
+    mimeType: file.type || "application/octet-stream",
+    dataUrl,
+    subfolder,
+  });
+}
+
+export async function submitSiteInstallationForm(order, form) {
   if (!order?.id) return { ok: false, message: "Order missing." };
   if (order.status === "submitted") {
     return { ok: false, message: "Yeh site form pehle hi submit ho chuka hai." };
@@ -27,61 +45,80 @@ export function submitSiteInstallationForm(order, form) {
 
   const lines = [];
   const errors = [];
+  const panelQty = parseQty(form.panelQty);
+  const panelName = String(form.panelName || form.panelProductName || "Solar Panel").trim();
 
-  for (let i = 0; i < (form.panelSerials || []).length; i += 1) {
-    const serial = String(form.panelSerials[i] || "").trim();
-    if (!serial) {
-      errors.push(`Panel ${i + 1} serial khali hai.`);
-      continue;
-    }
-  if (!serialExistsInStock(serial, { category: "PANEL" })) {
-      if (!form.allowManualSerials) {
-        errors.push(`Panel serial "${serial}" stock me nahi mila.`);
-        continue;
-      }
-    }
+  if (!panelName) errors.push("Panel name zaroori hai.");
+  if (!(panelQty > 0)) errors.push("Panel quantity zaroori hai.");
+
+  if (panelQty > 0 && panelName) {
     lines.push(
       lineWithProductId({
-        itemName: form.panelProductName || "Solar Panel",
+        itemName: panelName,
         category: "PANEL",
-        qty: 1,
+        qty: panelQty,
         unit: "NOS",
-        serialNumbers: serial,
       }),
     );
   }
 
-  if (form.inverterSerial?.trim()) {
-    const serial = form.inverterSerial.trim();
-    if (!serialExistsInStock(serial, { category: "INVERTER" })) {
-      if (!form.allowManualSerials) {
-        errors.push(`Inverter serial "${serial}" stock me match nahi hua.`);
-      } else {
-        lines.push(
-          lineWithProductId({
-            itemName: form.inverterName || "Inverter",
-            category: "INVERTER",
-            qty: 1,
-            unit: "NOS",
-            serialNumbers: serial,
-          }),
-        );
-      }
-    } else {
+  const inverterName =
+    String(form.inverterName || "").trim() ||
+    `Inverter (${form.inverterKw || "02 KW"})`;
+  const inverterSerial = String(form.inverterSerial || "").trim();
+
+  if (inverterSerial) {
+    if (!serialExistsInStock(inverterSerial, { category: "INVERTER" })) {
       lines.push(
         lineWithProductId({
-          itemName: form.inverterName || "Inverter",
+          itemName: inverterName,
           category: "INVERTER",
           qty: 1,
           unit: "NOS",
-          serialNumbers: serial,
+          serialNumbers: inverterSerial,
+        }),
+      );
+    } else {
+      lines.push(
+        lineWithProductId({
+          itemName: inverterName,
+          category: "INVERTER",
+          qty: 1,
+          unit: "NOS",
+          serialNumbers: inverterSerial,
         }),
       );
     }
   } else {
-    errors.push("Inverter serial zaroori hai.");
+    lines.push(
+      lineWithProductId({
+        itemName: inverterName,
+        category: "INVERTER",
+        qty: 1,
+        unit: "NOS",
+      }),
+    );
   }
 
+  const wireDefs = [
+    { key: "dcWireMtr", itemName: "DC Wire", category: "WIRE" },
+    { key: "copperWireMtr", itemName: "Copper Wire", category: "WIRE" },
+    { key: "mainWireMtr", itemName: "Main Wire", category: "WIRE" },
+  ];
+  for (const def of wireDefs) {
+    const qty = parseQty(form[def.key]);
+    if (qty <= 0) continue;
+    lines.push(
+      lineWithProductId({
+        itemName: def.itemName,
+        category: def.category,
+        qty,
+        unit: "MTR",
+      }),
+    );
+  }
+
+  /* Legacy wireLines support */
   for (const wire of form.wireLines || []) {
     const qty = parseQty(wire.qtyMtr);
     if (qty <= 0) continue;
@@ -95,6 +132,44 @@ export function submitSiteInstallationForm(order, form) {
       }),
     );
   }
+
+  const countDefs = [
+    { key: "acBoxQty", itemName: "AC Box", category: "AC BOX", unit: "NOS" },
+    { key: "dcBoxQty", itemName: "DC Box", category: "DC BOX", unit: "NOS" },
+    { key: "laQty", itemName: "LA", category: "GENERAL", unit: "NOS" },
+    {
+      key: "earthingRodQty",
+      itemName: "Earthing Rod",
+      category: "GENERAL",
+      unit: "NOS",
+    },
+  ];
+  for (const def of countDefs) {
+    const qty = parseQty(form[def.key]);
+    if (qty <= 0) continue;
+    lines.push(
+      lineWithProductId({
+        itemName: def.itemName,
+        category: def.category,
+        qty,
+        unit: def.unit,
+      }),
+    );
+  }
+
+  const standKw = String(form.standKw || "").trim() || "02 KW";
+  const standLabel =
+    standKw === "OTHER"
+      ? String(form.standOther || "").trim() || "OTHER Stand"
+      : `${standKw} Structure Stand`;
+  lines.push(
+    lineWithProductId({
+      itemName: standLabel,
+      category: "STAND",
+      qty: 1,
+      unit: "SET",
+    }),
+  );
 
   for (const piece of form.countLines || []) {
     const qty = parseQty(piece.qty);
@@ -110,13 +185,56 @@ export function submitSiteInstallationForm(order, form) {
     );
   }
 
+  if (!form.siteGpsPhoto) errors.push("Site GPS photo zaroori hai.");
+  if (!form.earthingPhoto) errors.push("Earthing photo zaroori hai.");
+
   if (errors.length) {
     return { ok: false, message: errors.join("\n") };
   }
-  if (!lines.length) {
-    return { ok: false, message: "Koi stock line select nahi hui." };
+
+  let gpsDoc = null;
+  let earthDoc = null;
+  let completeDoc = null;
+  try {
+    gpsDoc = await saveSiteDoc(order, form.siteGpsPhoto, "site-gps-photo", "site");
+    earthDoc = await saveSiteDoc(order, form.earthingPhoto, "earthing-photo", "site");
+    if (form.completeFile) {
+      completeDoc = await saveSiteDoc(
+        order,
+        form.completeFile,
+        "complete-package",
+        "complete",
+      );
+    }
+  } catch (err) {
+    return { ok: false, message: err?.message || "Photo / file save fail." };
   }
 
+  const formPayload = {
+    teamMembers: form.teamMembers || [],
+    panelName,
+    panelQty,
+    inverterKw: form.inverterKw || "",
+    inverterName,
+    inverterSerial,
+    acBoxQty: form.acBoxQty || "",
+    dcBoxQty: form.dcBoxQty || "",
+    standKw,
+    standOther: form.standOther || "",
+    standPaymentType: standKw,
+    dcWireMtr: form.dcWireMtr || "",
+    copperWireMtr: form.copperWireMtr || "",
+    mainWireMtr: form.mainWireMtr || "",
+    laQty: form.laQty || "",
+    earthingRodQty: form.earthingRodQty || "",
+    siteGpsDocId: gpsDoc?.id || "",
+    earthingDocId: earthDoc?.id || "",
+    completeDocId: completeDoc?.id || "",
+    stockLines: lines,
+    stockIssuedAt: new Date().toISOString(),
+  };
+
+  let issuedLines = 0;
   const stockResult = applyStockOut({
     reference: `site-${order.id}`,
     consumerNo: order.consumerNo,
@@ -124,23 +242,16 @@ export function submitSiteInstallationForm(order, form) {
     lines,
   });
 
-  if (!stockResult.ok) {
-    return {
-      ok: false,
-      message: stockResult.message || "Stock se material issue nahi ho paya.",
-    };
+  if (stockResult.ok) {
+    issuedLines = stockResult.updatedLines || 0;
+    notifyStockSync();
+    formPayload.stockBilledAt = new Date().toISOString();
   }
+  /* Stock match fail — BOM/photos phir bhi save; Sale pe OK/Bill BOM se office retry */
 
-  markSiteOrderSubmitted(order.id, {
-    ...form,
-    teamMembers: form.teamMembers || [],
-    stockLines: lines,
-    stockIssuedAt: new Date().toISOString(),
-  });
-  notifyStockSync();
+  markSiteOrderSubmitted(order.id, formPayload);
 
-  /* ERP site form → BOM Sheet + Sale Setup Detail */
-  const bomResult = applySiteOrderFormToBom(order, form);
+  const bomResult = applySiteOrderFormToBom(order, formPayload);
   if (bomResult.ok) {
     applyBomToSaleSetupDetail(order.consumerNo);
     try {
@@ -153,7 +264,9 @@ export function submitSiteInstallationForm(order, form) {
 
   return {
     ok: true,
-    issuedLines: stockResult.updatedLines,
+    issuedLines,
     bomUpdated: Boolean(bomResult.ok),
+    stockOk: Boolean(stockResult.ok),
+    stockMessage: stockResult.ok ? "" : stockResult.message || "",
   };
 }

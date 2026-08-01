@@ -59,7 +59,21 @@ export function getNameLoadOverride(consumerNo) {
 export function upsertUpdateNameLoadRow(row) {
   const list = loadUpdateNameLoadRows();
   const idx = list.findIndex((r) => r.id === row.id);
-  const next = { ...row, savedAt: new Date().toISOString() };
+  const prev = idx >= 0 ? list[idx] : null;
+  const paymentAlreadyLocked = Boolean(prev?.paymentLocked || prev?.savedAt);
+
+  const next = {
+    ...row,
+    /* Pehle se locked payment fields overwrite mat karo */
+    fees: paymentAlreadyLocked ? prev.fees : row.fees,
+    affidavitFee: paymentAlreadyLocked ? prev.affidavitFee : row.affidavitFee,
+    paymentAccount: paymentAlreadyLocked ? prev.paymentAccount : row.paymentAccount,
+    totalFees: paymentAlreadyLocked
+      ? prev.totalFees ?? row.totalFees
+      : row.totalFees,
+    paymentLocked: true,
+    savedAt: prev?.savedAt || new Date().toISOString(),
+  };
   if (idx >= 0) {
     list[idx] = next;
   } else {

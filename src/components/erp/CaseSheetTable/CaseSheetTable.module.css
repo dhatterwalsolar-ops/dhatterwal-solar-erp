@@ -256,6 +256,14 @@
   white-space: nowrap;
 }
 
+.docActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  min-width: 7.5rem;
+}
+
 .uploadBtn {
   border: 1px dashed var(--color-green);
   background: #f2faf4;
@@ -264,13 +272,148 @@
   padding: 0.35rem 0.55rem;
   font-size: 0.6875rem;
   font-weight: 700;
-  margin-right: 0.35rem;
+}
+
+.manageDocsBtn {
+  border: 1px solid #b91c1c;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: 8px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.manageDocsBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: #d1d5db;
+  background: #f9fafb;
+  color: #9ca3af;
 }
 
 .docCount {
   font-size: 0.6875rem;
   color: var(--color-text-soft);
   font-weight: 600;
+}
+
+.docsModal {
+  width: min(520px, 100%);
+  max-height: min(80vh, 640px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.15rem 1.25rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+
+.docsModal h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--color-green-dark, #1b4332);
+}
+
+.docsModalMeta {
+  margin: 0.4rem 0 0.85rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-soft, #5c6b62);
+  line-height: 1.45;
+}
+
+.docsEmpty {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0.5rem 0 1rem;
+}
+
+.docsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.docsListItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--color-border, #dce5df);
+  border-radius: 10px;
+  background: #fafcfb;
+}
+
+.docsListInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.docsListInfo strong {
+  font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.docsListInfo span {
+  font-size: 0.6875rem;
+  color: #6b7280;
+}
+
+.docsListBtns {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.docDownloadBtn,
+.docDeleteBtn,
+.docsCloseBtn {
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.docDownloadBtn {
+  border: 1px solid var(--color-border, #dce5df);
+  background: #fff;
+  color: var(--color-text, #1f2937);
+}
+
+.docDeleteBtn {
+  border: 1px solid #b91c1c;
+  background: #b91c1c;
+  color: #fff;
+}
+
+.docsModalFooter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border, #e5e7eb);
+}
+
+.docsCloseBtn {
+  border: 1px solid var(--color-border, #dce5df);
+  background: #fff;
+  color: var(--color-text, #1f2937);
 }
 
 @media (max-width: 768px) {

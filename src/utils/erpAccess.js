@@ -44,6 +44,8 @@ export const ACCESS_PROFILES = {
     /** Sale + Customer All Detail me sirf is Reference wale customers */
     saleReferenceFilter: "Ajay Nain",
     saleInvoiceDownloadOnly: true,
+    /** Customer All Detail — amount / received payment add-edit band */
+    customerDetailAmountReadOnly: true,
   },
 };
 
@@ -104,6 +106,11 @@ export function getCustomerReferenceFilter(session) {
 
 export function isSaleInvoiceDownloadOnly(session) {
   return Boolean(resolveAccessProfile(session)?.saleInvoiceDownloadOnly);
+}
+
+/** Customer All Detail — amount / received payments edit (ajaynain = no). */
+export function canEditCustomerDetailAmounts(session) {
+  return !resolveAccessProfile(session)?.customerDetailAmountReadOnly;
 }
 
 export function canAccessPath(session, pathname) {

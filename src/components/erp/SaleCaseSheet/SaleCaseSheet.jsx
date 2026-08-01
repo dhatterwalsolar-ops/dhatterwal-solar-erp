@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../../constants/routes";
 import { BACKUP_ENTRY_SYNC_EVENT } from "../../../constants/backupEntry";
 import {
   addBackupEntry,
@@ -99,6 +101,7 @@ import {
   SITE_ORDER_SYNC_EVENT,
 } from "../../../utils/siteOrderStorage";
 import { openWhatsAppSiteOrder, buildSiteOrderFormUrl } from "../../../utils/siteOrderWhatsApp";
+import { billBomFromSaleRow } from "../../../utils/bomBillFromSale";
 import {
   getPublicAppBaseUrl,
   getSavedPublicAppBaseUrl,
@@ -194,6 +197,7 @@ function reloadSaleRowsFromStorage() {
 }
 
 function SaleCaseSheet() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState(() => reloadSaleRowsFromStorage());
   const session = getAuthSession();
   const saleRefFilter = getSaleReferenceFilter(session);
@@ -499,8 +503,8 @@ function SaleCaseSheet() {
   };
 
   const siteFormHrefForRow = (row) => {
-    const stored = row.siteOrderId ? getSiteOrderById(row.siteOrderId) : null;
-    const order = stored || upsertSiteOrderForSaleRow(row);
+    /* Always refresh defaultMembers from Labour Detail */
+    const order = upsertSiteOrderForSaleRow(row);
     return order ? buildSiteOrderFormUrl(order) : "#";
   };
 
@@ -513,14 +517,56 @@ function SaleCaseSheet() {
       window.alert("Team Work select karein.");
       return;
     }
-    const order =
-      getSiteOrderById(row.siteOrderId) || upsertSiteOrderForSaleRow(row);
+    const order = upsertSiteOrderForSaleRow(row);
     if (!order) return;
     if (!order.teamLeaderMobile) {
       window.alert("Team leader mobile nahi mila — Labour Details check karein.");
       return;
     }
     void openWhatsAppSiteOrder(order);
+  };
+
+  const openBomForRow = (row) => {
+    if (!row.consumerNo?.trim()) {
+      window.alert("Consumer No. zaroori hai.");
+      return;
+    }
+    const date = String(row.date || "").trim() || new Date().toLocaleDateString("en-GB");
+    const params = new URLSearchParams({
+      date,
+      consumer: String(row.consumerNo).trim().toUpperCase(),
+    });
+    navigate(`${ROUTES.BOM_SHEET}?${params.toString()}`);
+  };
+
+  const okBillBomForRow = (row) => {
+    if (!row.consumerNo?.trim()) {
+      window.alert("Consumer No. zaroori hai.");
+      return;
+    }
+    if (row.siteOrderStatus !== "submitted" && !row.bomBilled) {
+      window.alert(
+        "Pehle Team Leader site / BOM form submit karein.\nUske baad OK / Bill BOM dabayein — stock se items kam honge aur BOM pe site kharch set hoga.",
+      );
+      return;
+    }
+    const confirmOk = window.confirm(
+      `OK / Bill BOM?\n\nConsumer: ${row.consumerNo}\nTeam: ${row.teamWork || "—"}\n\nTeam Leader ne jo items fill kiye hain wo stock se kam honge, aur BOM Sheet me site kharch (File/Dept/Net Meter/02 KW/Auto Rent + Total) update hoga.`,
+    );
+    if (!confirmOk) return;
+
+    const result = billBomFromSaleRow(row);
+    if (!result.ok) {
+      window.alert(result.message || "Bill BOM fail.");
+      return;
+    }
+    setRows(reloadSaleRowsFromStorage());
+    setDocRefresh((n) => n + 1);
+    const bits = [];
+    if (result.issuedLines) bits.push(`Stock: ${result.issuedLines} line(s) kam`);
+    if (result.stockMessage) bits.push(result.stockMessage);
+    bits.push(`Total Kharch: ₹${Number(result.totalKharch || 0).toLocaleString("en-IN")}`);
+    window.alert(`BOM OK / Bill ho gaya.\n\n${bits.join("\n")}`);
   };
 
   const requireConsumerRow = (row) => {
@@ -1487,12 +1533,41 @@ function SaleCaseSheet() {
                   )}
                 </td>
                 <td>
-                  <textarea
-                    className={styles.setupDetail}
-                    value={row.setupDetail}
-                    readOnly
-                    rows={4}
-                  />
+                  <div className={styles.setupDetailCell}>
+                    <textarea
+                      className={styles.setupDetail}
+                      value={row.setupDetail}
+                      readOnly
+                      rows={4}
+                    />
+                    {row.consumerNo?.trim() ? (
+                      <>
+                        <button
+                          type="button"
+                          className={styles.actionBtn}
+                          onClick={() => openBomForRow(row)}
+                          title="BOM Sheet — is sale date ke hisaab se"
+                        >
+                          Open BOM
+                        </button>
+                        <button
+                          type="button"
+                          className={
+                            row.bomBilled
+                              ? `${styles.actionBtn} ${styles.actionBtnMuted}`
+                              : `${styles.actionBtn} ${styles.actionBtnGold}`
+                          }
+                          onClick={() => okBillBomForRow(row)}
+                          title="Site form items stock se kam + BOM site kharch"
+                          disabled={
+                            row.siteOrderStatus !== "submitted" && !row.bomBilled
+                          }
+                        >
+                          {row.bomBilled ? "BOM Billed" : "OK / Bill BOM"}
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
                 </td>
                 <td>
                   <div className={styles.invoiceActions}>

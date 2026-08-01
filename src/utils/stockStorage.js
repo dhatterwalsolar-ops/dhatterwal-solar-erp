@@ -392,6 +392,14 @@ export function listPurchaseStockDetailRows() {
 /**
  * Site installation / labour form — stock issue (qtyOut).
  */
+export function hasSiteStockOut(reference) {
+  const ref = String(reference || "").trim();
+  if (!ref) return false;
+  return readLedger().some(
+    (e) => e?.type === "site-out" && String(e.reference || "").trim() === ref,
+  );
+}
+
 export function applyStockOut({
   reference = "",
   consumerNo = "",

@@ -36,6 +36,60 @@
   align-items: center;
 }
 
+.dateHint {
+  margin-top: 0.35rem !important;
+  font-weight: 700;
+  color: var(--color-green-dark) !important;
+}
+
+.dateLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-text-soft);
+}
+
+.dateInput {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+}
+
+.allDatesToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fileCardHighlight {
+  outline: 2px solid var(--color-green, #2d6a4f);
+  box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.15);
+}
+
+.standCell {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.standSelect {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  font: inherit;
+  max-width: 8rem;
+}
+
+.standDetail {
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+}
+
 .search {
   border: 1px solid var(--color-border);
   border-radius: 8px;
@@ -134,6 +188,58 @@
 
 .grandValue {
   font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-green-dark);
+}
+
+.subTotalHint {
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--color-text-soft);
+  max-width: 14rem;
+  line-height: 1.35;
+}
+
+.chargesWrap {
+  padding: 0.75rem 1rem 0.25rem;
+  border-bottom: 1px solid var(--color-border);
+  background: #fbfdfc;
+}
+
+.chargesTitle {
+  margin: 0 0 0.55rem;
+  font-size: 0.8125rem;
+  color: var(--color-green-dark);
+}
+
+.chargesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.55rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.chargeField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-text-soft);
+}
+
+.chargeHint {
+  font-weight: 600;
+  font-size: 0.625rem;
+  color: #6b7280;
+}
+
+.totalKharchBox {
+  border: 1px solid var(--color-green, #2d6a4f);
+  background: #e8f5ee;
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  font-size: 1rem;
   font-weight: 800;
   color: var(--color-green-dark);
 }

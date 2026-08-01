@@ -23,5 +23,13 @@ export function createEmptyUpdateNameLoadRow() {
     paymentAccount: "",
     reference: "",
     newLoadKw: "",
+    /** Save ke baad fees / payment account lock */
+    paymentLocked: false,
+    savedAt: "",
   };
+}
+
+/** Pehle save ho chuka — payment dobara fill/update nahi. */
+export function isNameLoadPaymentLocked(row) {
+  return Boolean(row?.paymentLocked || row?.savedAt);
 }

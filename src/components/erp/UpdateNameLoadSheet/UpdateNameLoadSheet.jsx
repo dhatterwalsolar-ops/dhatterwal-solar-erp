@@ -4,6 +4,7 @@ import {
   UPDATE_NAME_LOAD_SUBJECTS,
   calcTotalFees,
   createEmptyUpdateNameLoadRow,
+  isNameLoadPaymentLocked,
 } from "../../../constants/updateNameLoad";
 import { lookupCustomer, getBaseCustomer } from "../../../constants/customerRegistry";
 import {
@@ -101,10 +102,11 @@ function UpdateNameLoadSheet() {
       return;
     }
 
+    const paymentLocked = isNameLoadPaymentLocked(row);
     const totalFees = calcTotalFees(row.fees, row.affidavitFee);
     const debitAccount = String(row.paymentAccount || "").trim();
 
-    if (totalFees > 0 && !debitAccount) {
+    if (!paymentLocked && totalFees > 0 && !debitAccount) {
       window.alert(
         "Fees / Affidavit Fee ke liye Payment Debit Account select karein\n" +
           "(Azad Credit Card, Sonu Credit Card, HDFC, Canara, Cash… — Settings → Payment Types).",
@@ -127,8 +129,8 @@ function UpdateNameLoadSheet() {
     const ledgerRef = `unl-${saved.id}`;
     const givenRef = `pg-unl-${saved.id}`;
 
-    if (totalFees > 0) {
-      /* 1) Customer ledger — Customer All Detail Name/Load Fees */
+    /* Payment sirf pehli baar save pe — dobara fill/update nahi */
+    if (!paymentLocked && totalFees > 0) {
       addCustomerPayment({
         sourceRef: ledgerRef,
         consumerNo: row.consumerNo,
@@ -143,7 +145,6 @@ function UpdateNameLoadSheet() {
         affidavitFee: Number(row.affidavitFee) || 0,
       });
 
-      /* 2) Payment Given — selected account se debit */
       addPaymentGiven({
         id: givenRef,
         sourceRef: givenRef,
@@ -157,22 +158,21 @@ function UpdateNameLoadSheet() {
         remarks: `Fees ₹${Number(row.fees) || 0} + Affidavit ₹${Number(row.affidavitFee) || 0} — ${row.consumerNo}`,
       });
       notifyPaymentSync();
-    } else {
-      removePaymentBySourceRef(ledgerRef);
-      deletePaymentGivenBySourceRef(givenRef);
-      notifyPaymentSync();
     }
 
     setRows((prev) => prev.map((r) => (r.id === saved.id || r === row ? { ...saved } : r)));
 
     window.alert(
-      `Saved — ${row.consumerNo}\n` +
-        `Total Fees ₹${totalFees.toLocaleString("en-IN")}` +
-        (totalFees > 0
-          ? `\nDebit account: ${debitAccount}\n` +
-            `→ Payment Given me debit\n` +
-            `→ Customer (${row.customerName || row.consumerNo}) Name/Load Fees me feed`
-          : ""),
+      paymentLocked
+        ? `Updated — ${row.consumerNo}\nPayment pehle save ho chuka hai — Fees / Account change nahi hoga.`
+        : `Saved — ${row.consumerNo}\n` +
+            `Total Fees ₹${totalFees.toLocaleString("en-IN")}` +
+            (totalFees > 0
+              ? `\nDebit account: ${debitAccount}\n` +
+                `→ Payment Given me debit\n` +
+                `→ Customer Name/Load Fees me feed\n` +
+                `(Ab payment dobara change nahi hoga)`
+              : "\n(Ab payment fields lock — dobara fill/update nahi)"),
     );
   };
 
@@ -201,8 +201,8 @@ function UpdateNameLoadSheet() {
           <h1>Update Name / Load</h1>
           <p>
             Fees + Affidavit Fee save par <strong>Payment Debit Account</strong> se Payment Given
-            me debit hoga (Azad / Sonu Credit Card, HDFC, Canara, Cash…). Us customer ke Name/Load
-            Fees Customer All Detail + Payment Sheet me automatic feed. Delete sirf Admin.
+            me debit hoga. Save ke baad Fees / Affidavit / Payment Account <strong>lock</strong> —
+            dobara fill ya update nahi. Delete sirf Admin.
           </p>
         </div>
         <div className={styles.toolbarActions}>
@@ -248,10 +248,18 @@ function UpdateNameLoadSheet() {
             {filteredRows.map((row, index) => {
               const totalFees = calcTotalFees(row.fees, row.affidavitFee);
               const nameEditable = row.subject === "Name Change";
+              const payLocked = isNameLoadPaymentLocked(row);
 
               return (
-                <tr key={row.id}>
-                  <td>{index + 1}</td>
+                <tr key={row.id} className={payLocked ? styles.rowLocked : undefined}>
+                  <td>
+                    {index + 1}
+                    {payLocked ? (
+                      <span className={styles.lockedBadge} title="Payment locked after save">
+                        Locked
+                      </span>
+                    ) : null}
+                  </td>
                   <td>
                     <input
                       className={styles.cellInput}
@@ -330,18 +338,36 @@ function UpdateNameLoadSheet() {
                     <input
                       type="number"
                       min="0"
-                      className={styles.numInput}
+                      className={payLocked ? styles.readOnly : styles.numInput}
                       value={row.fees}
-                      onChange={(e) => patchRow(row, { fees: e.target.value })}
+                      onChange={(e) => {
+                        if (payLocked) return;
+                        patchRow(row, { fees: e.target.value });
+                      }}
+                      readOnly={payLocked}
+                      title={
+                        payLocked
+                          ? "Save ke baad Fees change nahi ho sakti"
+                          : "Fees"
+                      }
                     />
                   </td>
                   <td>
                     <input
                       type="number"
                       min="0"
-                      className={styles.numInput}
+                      className={payLocked ? styles.readOnly : styles.numInput}
                       value={row.affidavitFee}
-                      onChange={(e) => patchRow(row, { affidavitFee: e.target.value })}
+                      onChange={(e) => {
+                        if (payLocked) return;
+                        patchRow(row, { affidavitFee: e.target.value });
+                      }}
+                      readOnly={payLocked}
+                      title={
+                        payLocked
+                          ? "Save ke baad Affidavit Fee change nahi ho sakti"
+                          : "Affidavit Fee"
+                      }
                     />
                   </td>
                   <td className={styles.totalCell}>
@@ -349,10 +375,18 @@ function UpdateNameLoadSheet() {
                   </td>
                   <td>
                     <select
-                      className={styles.cellSelect}
+                      className={payLocked ? styles.readOnlySelect : styles.cellSelect}
                       value={row.paymentAccount || ""}
-                      onChange={(e) => patchRow(row, { paymentAccount: e.target.value })}
-                      title="Payment Sheet accounts — fees isi se debit"
+                      onChange={(e) => {
+                        if (payLocked) return;
+                        patchRow(row, { paymentAccount: e.target.value });
+                      }}
+                      disabled={payLocked}
+                      title={
+                        payLocked
+                          ? "Save ke baad Payment Account change nahi hoga"
+                          : "Payment Sheet accounts — fees isi se debit"
+                      }
                     >
                       <option value="">Select account…</option>
                       {paymentAccounts.map((name) => (

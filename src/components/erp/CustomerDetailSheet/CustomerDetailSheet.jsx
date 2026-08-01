@@ -27,7 +27,10 @@ import {
   countCustomersForReference,
   getConsumerReference,
 } from "../../../utils/consumerReference";
-import { getCustomerReferenceFilter } from "../../../utils/erpAccess";
+import {
+  canEditCustomerDetailAmounts,
+  getCustomerReferenceFilter,
+} from "../../../utils/erpAccess";
 import { LOAN_CASE_SYNC_EVENT } from "../../../utils/loanCaseStorage";
 import { SALE_CASE_SYNC_EVENT } from "../../../utils/saleCaseSync";
 import styles from "./CustomerDetailSheet.module.css";
@@ -40,9 +43,20 @@ function rowReference(row) {
   return String(row.reference || getConsumerReference(row.consumerNo) || "").trim();
 }
 
+const AMOUNT_EDIT_KEYS = new Set([
+  "amount",
+  "receivedAmount",
+  "receivedDate",
+  "receivedRemark",
+  "secondReceivedAmount",
+  "secondReceivedDate",
+  "secondPaymentRemark",
+]);
+
 function CustomerDetailSheet() {
   const session = getAuthSession();
   const referenceFilter = getCustomerReferenceFilter(session);
+  const amountEditable = canEditCustomerDetailAmounts(session);
   const [rows, setRows] = useState(() => {
     syncCustomerDetailFromSaleSheet({ dispatchEvent: false });
     return loadCustomerDetailRows();
@@ -107,6 +121,7 @@ function CustomerDetailSheet() {
   }, [query, rows, referenceFilter, scopedRows]);
 
   const updateCell = (rowRef, key, value) => {
+    if (!amountEditable && AMOUNT_EDIT_KEYS.has(key)) return;
     setRows((prev) =>
       prev.map((row) => {
         if (row !== rowRef) return row;
@@ -120,6 +135,7 @@ function CustomerDetailSheet() {
   };
 
   const isRemarkReadOnly = (row) => row.amountType === "Loan" && !row.isBackupEntry;
+  const amountFieldClass = amountEditable ? styles.cellInput : styles.readOnly;
 
   return (
     <section className={styles.sheet}>
@@ -253,10 +269,16 @@ function CustomerDetailSheet() {
                   </td>
                   <td>
                     <input
-                      className={styles.cellInput}
+                      className={amountFieldClass}
                       value={row.amount}
                       onChange={(e) => updateCell(row, "amount", e.target.value)}
+                      readOnly={!amountEditable}
                       placeholder="Total amount"
+                      title={
+                        amountEditable
+                          ? undefined
+                          : "Amount edit allowed nahi (view only)"
+                      }
                     />
                   </td>
                   <td>
@@ -269,52 +291,78 @@ function CustomerDetailSheet() {
                   </td>
                   <td>
                     <input
-                      className={styles.cellInput}
+                      className={amountFieldClass}
                       value={row.receivedAmount}
                       onChange={(e) => updateCell(row, "receivedAmount", e.target.value)}
+                      readOnly={!amountEditable}
                       placeholder="0"
                     />
                   </td>
                   <td>
                     <input
-                      className={styles.cellInput}
+                      className={amountFieldClass}
                       value={row.receivedDate}
                       onChange={(e) => updateCell(row, "receivedDate", e.target.value)}
+                      readOnly={!amountEditable}
                       placeholder="DD/MM/YYYY"
                     />
                   </td>
                   <td>
                     <input
-                      className={remarkLocked ? styles.readOnly : styles.cellInput}
+                      className={
+                        !amountEditable || remarkLocked ? styles.readOnly : styles.cellInput
+                      }
                       value={row.receivedRemark}
                       onChange={(e) => updateCell(row, "receivedRemark", e.target.value)}
-                      readOnly={remarkLocked}
-                      placeholder={remarkLocked ? "Auto (Loan bank)" : "Manual remark"}
+                      readOnly={!amountEditable || remarkLocked}
+                      placeholder={
+                        !amountEditable
+                          ? "View only"
+                          : remarkLocked
+                            ? "Auto (Loan bank)"
+                            : "Manual remark"
+                      }
                     />
                   </td>
                   <td>
                     <input
-                      className={styles.cellInput}
+                      className={amountFieldClass}
                       value={row.secondReceivedAmount}
-                      onChange={(e) => updateCell(row, "secondReceivedAmount", e.target.value)}
+                      onChange={(e) =>
+                        updateCell(row, "secondReceivedAmount", e.target.value)
+                      }
+                      readOnly={!amountEditable}
                       placeholder="0"
                     />
                   </td>
                   <td>
                     <input
-                      className={styles.cellInput}
+                      className={amountFieldClass}
                       value={row.secondReceivedDate}
-                      onChange={(e) => updateCell(row, "secondReceivedDate", e.target.value)}
+                      onChange={(e) =>
+                        updateCell(row, "secondReceivedDate", e.target.value)
+                      }
+                      readOnly={!amountEditable}
                       placeholder="DD/MM/YYYY"
                     />
                   </td>
                   <td>
                     <input
-                      className={remarkLocked ? styles.readOnly : styles.cellInput}
+                      className={
+                        !amountEditable || remarkLocked ? styles.readOnly : styles.cellInput
+                      }
                       value={row.secondPaymentRemark}
-                      onChange={(e) => updateCell(row, "secondPaymentRemark", e.target.value)}
-                      readOnly={remarkLocked}
-                      placeholder={remarkLocked ? "Auto (Loan bank)" : "Manual remark"}
+                      onChange={(e) =>
+                        updateCell(row, "secondPaymentRemark", e.target.value)
+                      }
+                      readOnly={!amountEditable || remarkLocked}
+                      placeholder={
+                        !amountEditable
+                          ? "View only"
+                          : remarkLocked
+                            ? "Auto (Loan bank)"
+                            : "Manual remark"
+                      }
                     />
                   </td>
                   <td>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { AUTH_ROLES } from "../../constants/auth";
+import { AUTH_ROLES, IDLE_LOGOUT_FLAG_KEY } from "../../constants/auth";
 import { COMPANY_MD_LABEL, COMPANY_MD_NAME, CONTACT } from "../../constants/contact";
 import { ROUTES } from "../../constants/routes";
 import { setAuthSession } from "../../utils/authSession";
@@ -46,6 +46,17 @@ function LoginPage() {
     setPassword("");
     setError("");
   }, [role]);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(IDLE_LOGOUT_FLAG_KEY) === "1") {
+        sessionStorage.removeItem(IDLE_LOGOUT_FLAG_KEY);
+        setError("10 minute tak koi activity nahi mili — aap automatic logout ho gaye. Phir se login karein.");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();

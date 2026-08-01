@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ErpIcon } from "../components/erp/ErpIcon";
 import { getPageTitleByPath } from "../constants/erpMenu";
 import { CONTACT } from "../constants/contact";
+import { IDLE_LOGOUT_FLAG_KEY, IDLE_LOGOUT_MS } from "../constants/auth";
 import { ROUTES } from "../constants/routes";
+import { useIdleLogout } from "../hooks/useIdleLogout";
 import { clearAuthSession, getAuthSession } from "../utils/authSession";
 import {
   DASHBOARD_SYNC_EVENTS,
@@ -115,11 +117,28 @@ function DashboardLayout() {
     };
   }, [syncReady, session]);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     logoutCloud();
     clearAuthSession();
     navigate(ROUTES.LOGIN, { replace: true });
-  };
+  }, [navigate]);
+
+  const handleIdleLogout = useCallback(() => {
+    try {
+      sessionStorage.setItem(IDLE_LOGOUT_FLAG_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    logoutCloud();
+    clearAuthSession();
+    navigate(ROUTES.LOGIN, { replace: true });
+  }, [navigate]);
+
+  useIdleLogout({
+    enabled: Boolean(session) && syncReady,
+    timeoutMs: IDLE_LOGOUT_MS,
+    onIdle: handleIdleLogout,
+  });
 
   if (!syncReady) {
     return (

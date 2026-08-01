@@ -255,6 +255,13 @@
   color: var(--color-text-muted);
 }
 
+.setupDetailCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 12rem;
+}
+
 .setupDetail {
   width: 100%;
   min-width: 16rem;
@@ -312,6 +319,17 @@
   font-size: 0.625rem;
   font-weight: 800;
   color: #92400e;
+}
+
+.actionBtnMuted {
+  opacity: 0.75;
+  background: #6b7280 !important;
+  border-color: #6b7280 !important;
+}
+
+.actionBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .actionBtnGold {
