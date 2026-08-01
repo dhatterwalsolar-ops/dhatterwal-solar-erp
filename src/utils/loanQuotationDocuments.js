@@ -272,26 +272,30 @@ export function buildLoanQuotationHtml(quotation, formatOverride) {
   .items th { font-weight: 700; background: #f3f3f3; }
   .sn { width: 30px; }
   .desc { width: 48%; }
-  .hsn-cell { width: 54px; max-width: 58px; font-size: 10.5px; padding: 3px 2px !important; word-break: break-all; }
-  .items th:nth-child(3) { width: 54px; max-width: 58px; font-size: 10.5px; padding: 3px 2px; }
+  .hsn-cell { width: 78px; min-width: 78px; max-width: 90px; font-size: 11px; padding: 3px 4px !important; word-break: break-all; }
+  .items th:nth-child(3) { width: 78px; min-width: 78px; max-width: 90px; font-size: 11px; padding: 3px 4px; }
   .item-title { font-weight: 700; text-transform: uppercase; line-height: 1.25; }
   .item-sub { font-size: 11.5px; margin-top: 1px; text-transform: uppercase; line-height: 1.25; }
   .gst-add-row td { font-size: 11.5px; padding-top: 2px; padding-bottom: 2px; }
   .tax-label { white-space: nowrap; font-weight: 700; }
   .grand td { font-weight: 900; }
-  .hsn-tax { width: 100%; border-collapse: collapse; margin: 0; }
+  .hsn-tax { width: 100%; border-collapse: collapse; margin: 0; table-layout: fixed; }
   .hsn-tax th, .hsn-tax td {
     border: 1px solid #000; padding: 4px 5px; font-family: Arial, sans-serif; font-size: 11.5px;
   }
   .hsn-tax th { font-weight: 700; background: #f3f3f3; }
+  .hsn-tax th:nth-child(1), .hsn-tax td:nth-child(1) { width: 18%; }
   .hsn-total td { font-weight: 700; }
   .words { padding: 6px 9px; border: 1px solid #000; border-top: none; font-weight: 700; font-family: Arial, sans-serif; line-height: 1.35; }
   .pay-head { border: 1px solid #000; border-top: none; padding: 6px 9px; font-weight: 700; font-family: Arial, sans-serif; }
   .banks td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 6px 9px; width: 50%; font-family: Arial, sans-serif; font-size: 11.5px; line-height: 1.35; }
   .bank-name { font-weight: 700; margin-bottom: 2px; }
+  .foot { table-layout: fixed; width: 100%; }
   .foot td { border: 1px solid #000; border-top: none; vertical-align: top; padding: 6px 9px; font-family: Arial, sans-serif; font-size: 11.5px; line-height: 1.35; }
+  .foot td.terms-cell { width: 48%; }
+  .foot td.sign-cell { width: 52%; }
   .terms-title { font-weight: 700; margin-bottom: 4px; }
-  .sign-wrap { position: relative; }
+  .sign-wrap { position: relative; min-width: 100%; }
   .recv-row td { padding: 8px 9px 14px; }
   .recv { font-weight: 700; }
   .auth { text-align: right; margin-top: 2px; }
@@ -300,10 +304,10 @@ export function buildLoanQuotationHtml(quotation, formatOverride) {
     white-space: nowrap; line-height: 1.25; letter-spacing: 0.2px;
   }
   .auth-space {
-    min-height: 70px; margin: 4px 0 2px;
+    min-height: 72px; margin: 4px 0 2px;
     display: flex; align-items: flex-end; justify-content: flex-end;
   }
-  .auth-sign { max-height: 68px; max-width: 210px; width: auto; height: auto; object-fit: contain; }
+  .auth-sign { max-height: 72px; max-width: 260px; width: auto; height: auto; object-fit: contain; }
   .auth-label { font-weight: 900; font-size: 12.5px; margin-top: 2px; font-family: Arial, sans-serif; white-space: nowrap; }
   @media print {
     html, body { width: 210mm; }
@@ -392,11 +396,11 @@ export function buildLoanQuotationHtml(quotation, formatOverride) {
       <table class="banks"><tr>${banks}</tr></table>
       <table class="foot">
         <tr>
-          <td style="width:58%">
+          <td class="terms-cell">
             <div class="terms-title">${esc(fmt.termsHeading)}</div>
             ${terms}
           </td>
-          <td>
+          <td class="sign-cell">
             <div class="sign-wrap">
               <div class="auth">
                 <div class="auth-for">${esc(fmt.signatoryFor)}</div>
