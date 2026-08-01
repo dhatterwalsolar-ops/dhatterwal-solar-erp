@@ -46,7 +46,8 @@ export const SERVER_USERS = [
 ];
 
 const LOGIN_USERS_KEY = "dhatterwal_erp_login_users";
-const FORCE_SEED_IDS = new Set(["jagdeep", "randeep", "ajaynain"]);
+/** Pehli baar missing ho to add — password overwrite mat karo (Settings changes). */
+const SEED_IF_MISSING_IDS = new Set(["jagdeep", "randeep", "ajaynain"]);
 
 function normalizeUser(u) {
   const userId = String(u?.userId || "").trim();
@@ -99,7 +100,7 @@ async function loadUsersFromStore() {
   }
 }
 
-/** Jagdeep / Randeep / Ajay Nain ko store me sahi password + Staff role se sync. */
+/** Missing seed users add karo; existing password/username Settings wale hi rahenge. */
 export async function ensureSeededLoginUsers() {
   const fromStore = await loadUsersFromStore();
   const list = fromStore?.length
@@ -108,7 +109,7 @@ export async function ensureSeededLoginUsers() {
   let changed = false;
 
   for (const seed of SERVER_USERS) {
-    if (!FORCE_SEED_IDS.has(seed.userId)) continue;
+    if (!SEED_IF_MISSING_IDS.has(seed.userId)) continue;
     const idx = list.findIndex(
       (u) => u.userId.toLowerCase() === seed.userId.toLowerCase(),
     );
@@ -118,19 +119,23 @@ export async function ensureSeededLoginUsers() {
       continue;
     }
     const cur = list[idx];
-    const next = normalizeUser({
-      ...cur,
-      password: seed.password,
-      role: seed.role,
-      accessProfile: seed.accessProfile,
-      displayName: cur.displayName || seed.displayName,
-    });
+    const lockedProfile =
+      seed.userId.toLowerCase() === "ajaynain" ? "ajay_nain" : "";
+    const nextProfile = lockedProfile || cur.accessProfile || seed.accessProfile;
+    const nextPassword = cur.password || seed.password;
+    /* Empty password fill; Ajay Nain profile lock; Settings password mat mito */
     if (
-      cur.password !== next.password ||
-      cur.role !== next.role ||
-      cur.accessProfile !== next.accessProfile
+      !cur.password ||
+      !cur.accessProfile ||
+      (lockedProfile && cur.accessProfile !== lockedProfile)
     ) {
-      list[idx] = next;
+      list[idx] = normalizeUser({
+        ...cur,
+        password: nextPassword,
+        role: cur.role || seed.role,
+        accessProfile: nextProfile,
+        displayName: cur.displayName || seed.displayName,
+      });
       changed = true;
     }
   }

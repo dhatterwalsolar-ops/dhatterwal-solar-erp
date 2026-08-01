@@ -10,7 +10,7 @@ export const LABOUR_SALARY_TYPE_LABELS = {
 };
 
 /** Team type (optional) — WhatsApp site form ke liye Team Leader mobile. */
-export const LABOUR_TEAM_TYPES = ["Team Leader", "Helper"];
+export const LABOUR_TEAM_TYPES = ["Team Leader", "Helper", "Transporter"];
 
 export const LABOUR_DAYS_PER_MONTH = 26;
 

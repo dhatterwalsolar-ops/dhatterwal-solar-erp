@@ -23,12 +23,18 @@ function emptySalaryPayment() {
   return { date: todayStr(), amount: "", remark: "" };
 }
 
+function emptyAdvancePayment() {
+  return { date: todayStr(), amount: "", remark: "" };
+}
+
 function AddEmployeeSheet({ open, initial, onClose, onSave }) {
   const [form, setForm] = useState(() => createEmptyLabourEmployee());
   const [addDailyPay, setAddDailyPay] = useState(false);
   const [addSalaryPay, setAddSalaryPay] = useState(false);
+  const [addAdvancePay, setAddAdvancePay] = useState(false);
   const [dailyPay, setDailyPay] = useState(emptyDailyPayment);
   const [salaryPay, setSalaryPay] = useState(emptySalaryPayment);
+  const [advancePay, setAdvancePay] = useState(emptyAdvancePayment);
   const [history, setHistory] = useState([]);
 
   const isEdit = Boolean(initial?.id);
@@ -51,8 +57,10 @@ function AddEmployeeSheet({ open, initial, onClose, onSave }) {
     }
     setAddDailyPay(false);
     setAddSalaryPay(false);
+    setAddAdvancePay(false);
     setDailyPay(emptyDailyPayment());
     setSalaryPay(emptySalaryPayment());
+    setAdvancePay(emptyAdvancePayment());
   }, [open, initial]);
 
   const monthlyFromDailyPreview = useMemo(
@@ -93,7 +101,24 @@ function AddEmployeeSheet({ open, initial, onClose, onSave }) {
 
     let wagesPaidTotal = Number(form.wagesPaidTotal) || 0;
     let salaryPaidTotal = Number(form.salaryPaidTotal) || 0;
+    let advanceTaken = Number(form.advanceTaken) || 0;
     const pendingPayments = [];
+
+    if (addAdvancePay) {
+      const amt = Number(advancePay.amount) || 0;
+      if (!(amt > 0)) {
+        window.alert("Advance amount enter karein.");
+        return;
+      }
+      pendingPayments.push({
+        type: "advance",
+        date: advancePay.date,
+        amount: amt,
+        days: 0,
+        remark: advancePay.remark,
+      });
+      advanceTaken += amt;
+    }
 
     if (addDailyPay && form.salaryType === LABOUR_SALARY_TYPES.DAILY) {
       const amt = dailyPay.amount ? Number(dailyPay.amount) : dailyAmountPreview;
@@ -138,7 +163,7 @@ function AddEmployeeSheet({ open, initial, onClose, onSave }) {
       monthlySalary,
       wagesPaidTotal,
       salaryPaidTotal,
-      advanceTaken: Number(form.advanceTaken) || 0,
+      advanceTaken,
     };
     employee.balance = computeEmployeeBalance(employee);
 
@@ -366,14 +391,65 @@ function AddEmployeeSheet({ open, initial, onClose, onSave }) {
             </section>
           )}
 
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <h3>Advance payment (save ke sath)</h3>
+              <label className={styles.checkLabel}>
+                <input
+                  type="checkbox"
+                  checked={addAdvancePay}
+                  onChange={(e) => setAddAdvancePay(e.target.checked)}
+                />
+                Abhi advance fill karein
+              </label>
+            </div>
+            {addAdvancePay ? (
+              <div className={styles.grid}>
+                <label>
+                  Date
+                  <input
+                    value={advancePay.date}
+                    onChange={(e) => setAdvancePay((p) => ({ ...p, date: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Advance Amount (₹)
+                  <input
+                    type="number"
+                    min="0"
+                    value={advancePay.amount}
+                    onChange={(e) => setAdvancePay((p) => ({ ...p, amount: e.target.value }))}
+                  />
+                </label>
+                <label className={styles.span2}>
+                  Remark
+                  <input
+                    value={advancePay.remark}
+                    onChange={(e) => setAdvancePay((p) => ({ ...p, remark: e.target.value }))}
+                  />
+                </label>
+              </div>
+            ) : (
+              <p className={styles.hint}>
+                Optional — ya header se “Advance Payment” button use karein. Current advance: ₹
+                {Number(form.advanceTaken || 0).toLocaleString("en-IN")}
+              </p>
+            )}
+          </section>
+
           {isEdit && history.length > 0 ? (
             <section className={styles.section}>
               <h3>Payment History</h3>
               <ul className={styles.historyList}>
                 {history.slice(0, 8).map((p) => (
                   <li key={p.id}>
-                    {p.date} — {p.type === "daily-wages" ? "Daily" : "Salary"} — ₹
-                    {Number(p.amount).toLocaleString("en-IN")}
+                    {p.date} —{" "}
+                    {p.type === "daily-wages"
+                      ? "Daily"
+                      : p.type === "advance"
+                        ? "Advance"
+                        : "Salary"}{" "}
+                    — ₹{Number(p.amount).toLocaleString("en-IN")}
                   </li>
                 ))}
               </ul>

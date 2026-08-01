@@ -1,10 +1,10 @@
-import { TEMP_ALLOW_INVOICE_DELETE } from "../constants/tempInvoiceDelete";
 import { removePaymentBySourceRef, notifyPaymentSync } from "./customerPaymentLedger";
 import {
   listCustomerDocuments,
   removeCustomerDocument,
 } from "./customerDocuments";
 import { deleteInvoiceRecord, getInvoiceById } from "./invoiceStorage";
+import { flushErpPushNow } from "./erpStorage";
 
 function normalizeConsumerNo(value) {
   return String(value || "").trim().toUpperCase();
@@ -59,13 +59,10 @@ export function clearedNetMeterInvoiceFields(row = {}) {
 }
 
 /**
- * TEMP delete: invoice file + payment ledger + folder docs.
- * Does not touch sale rows — caller updates UI/storage.
+ * Ek invoice delete — Invoice File + payment + folder docs.
+ * Sale rows caller clear kare (clearSaleRowsForInvoice).
  */
-export function deleteOldInvoiceCompletely(invoiceId) {
-  if (!TEMP_ALLOW_INVOICE_DELETE) {
-    return { ok: false, error: "Invoice delete live site pe band hai." };
-  }
+export function deleteInvoiceCompletely(invoiceId) {
   const existing = getInvoiceById(invoiceId);
   if (!existing) {
     return { ok: false, error: "Invoice nahi mili." };
@@ -80,6 +77,12 @@ export function deleteOldInvoiceCompletely(invoiceId) {
   removePaymentBySourceRef(`sale-nm-${invoiceId}`);
   notifyPaymentSync();
   removeInvoiceFolderDocs(removed.consumerNo, removed.invoiceNo);
+  flushErpPushNow();
 
   return { ok: true, invoice: removed };
+}
+
+/** @deprecated use deleteInvoiceCompletely */
+export function deleteOldInvoiceCompletely(invoiceId) {
+  return deleteInvoiceCompletely(invoiceId);
 }

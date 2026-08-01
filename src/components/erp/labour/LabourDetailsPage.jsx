@@ -8,6 +8,8 @@ import {
 } from "../../../utils/labourPaymentStorage";
 import { getLabourEmployees, saveLabourEmployees } from "../../../utils/labourEmployeeStorage";
 import AddEmployeeSheet from "./AddEmployeeSheet";
+import AdvancePaymentSheet from "./AdvancePaymentSheet";
+import TeamMappingSheet from "./TeamMappingSheet";
 import styles from "./LabourDetailsPage.module.css";
 
 const FILTERS = ["All Employees", "Team Leaders", "Helpers", "Transporters"];
@@ -25,6 +27,9 @@ function LabourDetailsPage() {
   const [query, setQuery] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
+  const [advanceOpen, setAdvanceOpen] = useState(false);
+  const [advanceEmployeeId, setAdvanceEmployeeId] = useState("");
+  const [teamOpen, setTeamOpen] = useState(false);
 
   const rows = useMemo(() => {
     let list = filterEmployees(employees, filter);
@@ -52,6 +57,11 @@ function LabourDetailsPage() {
     setSheetOpen(true);
   };
 
+  const openAdvance = (employeeId = "") => {
+    setAdvanceEmployeeId(employeeId || "");
+    setAdvanceOpen(true);
+  };
+
   const handleSaveEmployee = (employee, pendingPayments) => {
     pendingPayments.forEach((p) => {
       addLabourEmployeePayment({ ...p, employeeId: employee.id });
@@ -67,27 +77,17 @@ function LabourDetailsPage() {
     setEditTarget(null);
   };
 
+  const handleSaveAdvance = (employee, payment) => {
+    addLabourEmployeePayment({ ...payment, employeeId: employee.id });
+    persist(employees.map((e) => (e.id === employee.id ? employee : e)));
+    setAdvanceOpen(false);
+    setAdvanceEmployeeId("");
+  };
+
   const deleteEmployee = (id) => {
     if (!window.confirm("Delete this employee?")) return;
     deletePaymentsForEmployee(id);
     persist(employees.filter((e) => e.id !== id));
-  };
-
-  const advancePayment = () => {
-    const name = window.prompt("Employee name for advance:");
-    const amount = Number(window.prompt("Advance amount (₹):", "1000"));
-    if (!name || !amount) return;
-    persist(
-      employees.map((e) =>
-        e.name.toLowerCase() === name.toLowerCase()
-          ? {
-              ...e,
-              advanceTaken: (Number(e.advanceTaken) || 0) + amount,
-              balance: Math.max(0, (Number(e.balance) || 0) - amount),
-            }
-          : e,
-      ),
-    );
   };
 
   return (
@@ -103,8 +103,11 @@ function LabourDetailsPage() {
           <button type="button" className={styles.btnAdd} onClick={openAdd}>
             + Add Employee
           </button>
-          <button type="button" className={styles.btnAdvance} onClick={advancePayment}>
+          <button type="button" className={styles.btnAdvance} onClick={() => openAdvance()}>
             Advance Payment
+          </button>
+          <button type="button" className={styles.btnTeam} onClick={() => setTeamOpen(true)}>
+            Update Team Detail
           </button>
         </div>
       </header>
@@ -166,8 +169,16 @@ function LabourDetailsPage() {
                   <span className={styles.statusActive}>{row.status}</span>
                 </td>
                 <td className={styles.actions}>
-                  <button type="button" onClick={() => openEdit(row)} aria-label="Edit">
+                  <button type="button" onClick={() => openEdit(row)} aria-label="Edit" title="Edit">
                     ✎
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openAdvance(row.id)}
+                    aria-label="Advance"
+                    title="Advance payment"
+                  >
+                    ₹
                   </button>
                   <button type="button" onClick={() => deleteEmployee(row.id)} aria-label="Delete">
                     🗑
@@ -188,6 +199,19 @@ function LabourDetailsPage() {
         }}
         onSave={handleSaveEmployee}
       />
+
+      <AdvancePaymentSheet
+        open={advanceOpen}
+        employees={employees}
+        initialEmployeeId={advanceEmployeeId}
+        onClose={() => {
+          setAdvanceOpen(false);
+          setAdvanceEmployeeId("");
+        }}
+        onSave={handleSaveAdvance}
+      />
+
+      <TeamMappingSheet open={teamOpen} onClose={() => setTeamOpen(false)} />
     </div>
   );
 }

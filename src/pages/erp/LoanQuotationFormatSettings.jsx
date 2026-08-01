@@ -7,6 +7,7 @@ import {
 } from "../../utils/loanQuotationFormatStorage";
 import { buildLoanQuotationFormatPreviewHtml } from "../../utils/loanQuotationDocuments";
 import { appendActivityLog } from "../../utils/settingsStorage";
+import DocumentSeriesEditor from "./DocumentSeriesEditor";
 import styles from "./SettingsPage.module.css";
 
 function LoanQuotationFormatSettings({ session }) {
@@ -95,7 +96,10 @@ function LoanQuotationFormatSettings({ session }) {
   };
 
   return (
-    <section className={styles.card}>
+    <>
+      <DocumentSeriesEditor kind="quotation" session={session} />
+
+      <section className={styles.card}>
       <div className={styles.cardHead}>
         <h2>Loan Quotation Format</h2>
         <div className={styles.formatActions}>
@@ -112,9 +116,9 @@ function LoanQuotationFormatSettings({ session }) {
       </div>
       <p className={styles.cardHint}>
         Sample jaisa <strong>Sales Quotation</strong> format. Item-1: setup KW + DCR PANNEL / ONGRID
-        INVERTER auto. Item-2 details sample jaisi. Loan Case → Generate Quotation. Series: Settings →
-        Quotation Series. Pehle se save format ho to <strong>Reset Default</strong> se naya sample
-        defaults lao.
+        INVERTER auto. Item-2 details sample jaisi. Loan Case → Generate Quotation. Upar{" "}
+        <strong>Quotation Series</strong> se number change karein. Pehle se save format ho to{" "}
+        <strong>Reset Default</strong> se naya sample defaults lao.
       </p>
 
       <div className={styles.formatLayout}>
@@ -332,6 +336,7 @@ function LoanQuotationFormatSettings({ session }) {
         </div>
       </div>
     </section>
+    </>
   );
 }
 

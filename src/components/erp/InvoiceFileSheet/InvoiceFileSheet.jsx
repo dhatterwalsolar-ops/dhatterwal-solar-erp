@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { TEMP_ALLOW_INVOICE_DELETE } from "../../../constants/tempInvoiceDelete";
+import { getAuthSession } from "../../../utils/authSession";
+import { clearAllInvoicesForFreshStart } from "../../../utils/clearAllInvoices";
+import { clearSaleRowsForInvoice } from "../../../utils/clearSaleInvoiceLink";
+import { isAdminSession } from "../../../utils/erpAccess";
 import {
   getInvoiceFileRecords,
   INVOICE_FILE_SYNC_EVENT,
   listAvailableNetMeterInvoicesForWithoutGst,
   peekNextInvoiceSerial,
 } from "../../../utils/invoiceStorage";
-import {
-  clearedNetMeterInvoiceFields,
-  clearedSaleInvoiceFields,
-  deleteOldInvoiceCompletely,
-} from "../../../utils/tempInvoiceDelete";
-import { loadSaleCaseRows, saveSaleCaseRows } from "../../../utils/saleCaseStorage";
-import { SALE_CASE_SYNC_EVENT } from "../../../utils/saleCaseSync";
+import { deleteInvoiceCompletely } from "../../../utils/tempInvoiceDelete";
 import styles from "./InvoiceFileSheet.module.css";
 
 function formatMoney(n) {
@@ -25,32 +22,14 @@ function invoiceTypeLabel(row) {
   return "With GST";
 }
 
-function clearSaleRowsForInvoice(invoice) {
-  if (!invoice) return;
-  const rows = loadSaleCaseRows();
-  let changed = false;
-  const next = rows.map((row) => {
-    const isNet = invoice.invoiceKind === "net-meter";
-    const match = isNet
-      ? (invoice.id && row.netMeterInvoiceId === invoice.id) ||
-        (invoice.invoiceNo && row.netMeterInvoiceNo === invoice.invoiceNo)
-      : (invoice.id && row.invoiceId === invoice.id) ||
-        (invoice.invoiceNo && row.invoiceNo === invoice.invoiceNo);
-    if (!match) return row;
-    changed = true;
-    return isNet ? clearedNetMeterInvoiceFields(row) : clearedSaleInvoiceFields(row);
-  });
-  if (changed) {
-    saveSaleCaseRows(next);
-    window.dispatchEvent(new Event(SALE_CASE_SYNC_EVENT));
-  }
-}
-
 function InvoiceFileSheet() {
+  const session = getAuthSession();
+  const isAdmin = isAdminSession(session);
   const [records, setRecords] = useState(() => getInvoiceFileRecords());
   const [query, setQuery] = useState("");
   const [nextSerial, setNextSerial] = useState(() => peekNextInvoiceSerial());
   const [nmSearch, setNmSearch] = useState("");
+  const [clearBusy, setClearBusy] = useState(false);
 
   useEffect(() => {
     const refresh = () => {
@@ -85,15 +64,20 @@ function InvoiceFileSheet() {
   );
 
   const handleDelete = (row) => {
-    if (!TEMP_ALLOW_INVOICE_DELETE) return;
+    if (!isAdmin) {
+      window.alert("Invoice delete sirf Admin kar sakta hai.");
+      return;
+    }
     if (
       !window.confirm(
-        `TEMP: Invoice ${row.invoiceNo} (Sr. ${row.srNo}) delete karein?\nSale Sheet se bhi invoice clear ho jayegi.`,
+        `Invoice ${row.invoiceNo} (Sr. ${row.srNo}) delete karein?\n` +
+          `${row.customerName || ""} — ${invoiceTypeLabel(row)}\n\n` +
+          "Sale Sheet se ye invoice clear ho jayegi. Phir dubara Generate Invoice kar sakte ho.",
       )
     ) {
       return;
     }
-    const result = deleteOldInvoiceCompletely(row.id);
+    const result = deleteInvoiceCompletely(row.id);
     if (!result.ok) {
       window.alert(result.error || "Delete fail.");
       return;
@@ -101,6 +85,41 @@ function InvoiceFileSheet() {
     clearSaleRowsForInvoice(result.invoice);
     setRecords(getInvoiceFileRecords());
     setNextSerial(peekNextInvoiceSerial());
+    window.alert(`Invoice ${row.invoiceNo} delete ho gayi.`);
+  };
+
+  const handleDeleteAll = () => {
+    if (!isAdmin) {
+      window.alert("Sirf Admin saari invoices delete kar sakta hai.");
+      return;
+    }
+    if (!records.length) {
+      window.alert("Invoice File pehle se khali hai.");
+      return;
+    }
+    const ok = window.confirm(
+      `SAARI ${records.length} invoices DELETE karein?\n\n` +
+        "• Invoice File khali\n" +
+        "• Sale Sheet se invoice numbers clear\n" +
+        "• Sale invoice payments hatenge\n\n" +
+        "Ye undo nahi hoga. Continue?",
+    );
+    if (!ok) return;
+    if (!window.confirm("Last confirm: Saari purani invoices permanently delete?")) return;
+    setClearBusy(true);
+    try {
+      const result = clearAllInvoicesForFreshStart();
+      setRecords(getInvoiceFileRecords());
+      setNextSerial(peekNextInvoiceSerial());
+      window.alert(
+        `Done — ${result.invoiceCount} invoices delete.\n` +
+          `Ab Settings me series set karke naye invoices banao.`,
+      );
+    } catch (err) {
+      window.alert(err?.message || "Delete all fail.");
+    } finally {
+      setClearBusy(false);
+    }
   };
 
   return (
@@ -115,10 +134,10 @@ function InvoiceFileSheet() {
             <br />
             <strong>Without GST</strong> pe Net Meter wala number + date reuse hoti hai; used number
             dubara nahi katega.
-            {TEMP_ALLOW_INVOICE_DELETE ? (
+            {isAdmin ? (
               <>
                 {" "}
-                <em>(TEMP: Delete Invoice available — live pe hata denge.)</em>
+                <em>Admin: galat invoice pe Delete dabao — sirf wahi entry hategi.</em>
               </>
             ) : null}
           </p>
@@ -141,6 +160,16 @@ function InvoiceFileSheet() {
           >
             Refresh
           </button>
+          {isAdmin ? (
+            <button
+              type="button"
+              className={styles.deleteAllBtn}
+              disabled={clearBusy || records.length === 0}
+              onClick={handleDeleteAll}
+            >
+              {clearBusy ? "Deleting…" : "Delete All Invoices"}
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -195,7 +224,7 @@ function InvoiceFileSheet() {
                 <th>GST</th>
                 <th>Total Amount</th>
                 <th>Linked NM No.</th>
-                {TEMP_ALLOW_INVOICE_DELETE ? <th>Action</th> : null}
+                {isAdmin ? <th>Action</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -212,14 +241,14 @@ function InvoiceFileSheet() {
                   <td>{formatMoney(row.gstAmount)}</td>
                   <td className={styles.totalCell}>{formatMoney(row.totalAmount)}</td>
                   <td>{row.linkedNetMeterInvoiceNo || "—"}</td>
-                  {TEMP_ALLOW_INVOICE_DELETE ? (
+                  {isAdmin ? (
                     <td>
                       <button
                         type="button"
                         className={styles.deleteBtn}
                         onClick={() => handleDelete(row)}
                       >
-                        Delete (TEMP)
+                        Delete
                       </button>
                     </td>
                   ) : null}

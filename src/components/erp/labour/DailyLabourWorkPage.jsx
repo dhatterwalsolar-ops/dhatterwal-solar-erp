@@ -4,7 +4,6 @@ import {
   DAILY_TEAM_MEMBERS,
   INSTALLATION_STATUS_OPTIONS,
   TEAM_LEADER_OPTIONS,
-  TEAM_MAPPING_DEFAULT,
 } from "../../../constants/labourEmployees";
 import { calcWorkingHours } from "../../../constants/labourSheet";
 import { ROUTES } from "../../../constants/routes";
@@ -14,6 +13,10 @@ import { buildDailyLabourFieldsFromConsumer } from "../../../utils/labourDailyCo
 import { openLabourDailyWhatsAppToLeader } from "../../../utils/labourDailyWhatsApp";
 import { saveLabourEntry } from "../../../utils/labourEntryStorage";
 import { getLabourEmployees } from "../../../utils/labourEmployeeStorage";
+import {
+  LABOUR_TEAM_MAPPING_SYNC_EVENT,
+  loadTeamMappings,
+} from "../../../utils/labourTeamMappingStorage";
 import styles from "./DailyLabourWorkPage.module.css";
 
 function emptyForm() {
@@ -43,17 +46,34 @@ function DailyLabourWorkPage() {
   const photoRef = useRef(null);
   const consumerSyncTimer = useRef(null);
 
+  const [teamMappings, setTeamMappings] = useState(() => loadTeamMappings());
+
   const teamLeaderOptions = useMemo(() => {
     const fromDb = getLabourEmployees()
       .filter((e) => String(e.role).toLowerCase() === "team leader")
       .map((e) => e.name);
-    return [...new Set([...TEAM_LEADER_OPTIONS, ...fromDb])];
-  }, []);
+    const fromMap = teamMappings.map((m) => m.leader);
+    return [...new Set([...TEAM_LEADER_OPTIONS, ...fromDb, ...fromMap])];
+  }, [teamMappings]);
+
+  const memberOptions = useMemo(() => {
+    const fromEmp = getLabourEmployees()
+      .filter((e) => String(e.role).toLowerCase() === "helper")
+      .map((e) => e.name);
+    const fromMap = teamMappings.flatMap((m) => m.members || []);
+    return [...new Set([...DAILY_TEAM_MEMBERS, ...fromEmp, ...fromMap])];
+  }, [teamMappings]);
 
   const hours = useMemo(
     () => calcWorkingHours(form.startTime, form.endTime),
     [form.startTime, form.endTime],
   );
+
+  useEffect(() => {
+    const refresh = () => setTeamMappings(loadTeamMappings());
+    window.addEventListener(LABOUR_TEAM_MAPPING_SYNC_EVENT, refresh);
+    return () => window.removeEventListener(LABOUR_TEAM_MAPPING_SYNC_EVENT, refresh);
+  }, []);
 
   const summary = useMemo(
     () => ({
@@ -83,7 +103,9 @@ function DailyLabourWorkPage() {
       materialDone: patch.materialDone || f.materialDone,
     }));
     if (patch.teamLeader) {
-      const mapping = TEAM_MAPPING_DEFAULT.find((m) => m.leader === patch.teamLeader);
+      const mapping = loadTeamMappings().find(
+        (m) => m.leader.toLowerCase() === String(patch.teamLeader).toLowerCase(),
+      );
       if (mapping?.members?.length) {
         setSelectedMembers(new Set(mapping.members));
       }
@@ -262,7 +284,7 @@ function DailyLabourWorkPage() {
           <section className={styles.block}>
             <h3>Select Helper / Team Members</h3>
             <div className={styles.memberGrid}>
-              {DAILY_TEAM_MEMBERS.map((name) => (
+              {memberOptions.map((name) => (
                 <label key={name} className={styles.memberCheck}>
                   <input
                     type="checkbox"
@@ -361,15 +383,18 @@ function DailyLabourWorkPage() {
 
         <aside className={styles.sideCol}>
           <section className={styles.sideCard}>
-            <h3>TEAM MAPPING (DEFAULT)</h3>
+            <h3>TEAM MAPPING</h3>
             <ul>
-              {TEAM_MAPPING_DEFAULT.map((row) => (
+              {teamMappings.map((row) => (
                 <li key={row.leader}>
                   <strong>{row.leader}</strong>
-                  <span> → {row.members.join(", ")}</span>
+                  <span> → {row.members.join(", ") || "—"}</span>
                 </li>
               ))}
             </ul>
+            <p style={{ fontSize: "0.7rem", opacity: 0.8, marginTop: "0.5rem" }}>
+              Update: Labour Details → Update Team Detail
+            </p>
           </section>
 
           <section className={styles.sideCard}>

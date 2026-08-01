@@ -182,6 +182,15 @@ async function flushPush() {
   }
 }
 
+/** Delete / critical saves — pending push turant server pe bhejo (poll race avoid). */
+export function flushErpPushNow() {
+  if (pushTimer) {
+    clearTimeout(pushTimer);
+    pushTimer = null;
+  }
+  return flushPush();
+}
+
 export function erpGetItem(key) {
   if (memory.has(key)) return memory.get(key);
   try {
@@ -230,6 +239,8 @@ export function startPolling(intervalMs = 5000) {
       let changed = false;
       Object.entries(keys).forEach(([key, value]) => {
         if (typeof value !== "string") return;
+        /* Local pending write ko server ke purane data se overwrite mat karo */
+        if (pendingPush.has(key)) return;
         if (memory.get(key) === value) return;
         memory.set(key, value);
         try {

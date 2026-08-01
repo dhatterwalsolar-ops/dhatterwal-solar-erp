@@ -102,6 +102,22 @@
   background: #fff;
 }
 
+.deleteAllBtn {
+  border: 1px solid #b91c1c;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  background: #dc2626;
+  color: #fff;
+}
+
+.deleteAllBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .tableWrap {
   overflow-x: auto;
   padding: 0 0 1rem;

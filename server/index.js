@@ -11,6 +11,11 @@ import {
   getGoogleFormWebhookSecret,
 } from "./googleFormBom.js";
 import {
+  generateEwayBill,
+  generateGstEinvoice,
+  getGstStatus,
+} from "./gst/gstService.js";
+import {
   getAllKeys,
   getKey,
   getStoreBackendName,
@@ -45,6 +50,9 @@ app.get("/", (_req, res) => {
     dbTest: "/api/db/test",
     login: "POST /api/auth/login",
     googleFormBom: "POST /api/public/google-form-bom",
+    gstStatus: "GET /api/gst/status",
+    ewayGenerate: "POST /api/gst/eway/generate",
+    einvoiceGenerate: "POST /api/gst/einvoice/generate",
   });
 });
 
@@ -246,6 +254,31 @@ app.post("/api/admin/wipe-business", authMiddleware, async (req, res) => {
     res.json({ ok: true, ...result });
   } catch (err) {
     res.status(500).json({ ok: false, error: err?.message || "wipe failed" });
+  }
+});
+
+/** GST API status (demo / http GSP) — login required. */
+app.get("/api/gst/status", authMiddleware, (_req, res) => {
+  res.json(getGstStatus());
+});
+
+/** E-Way Bill generate — Sale Sheet se. */
+app.post("/api/gst/eway/generate", authMiddleware, async (req, res) => {
+  try {
+    const result = await generateEwayBill(req.body || {});
+    res.status(result.ok ? 200 : 400).json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err?.message || "E-Way generate fail" });
+  }
+});
+
+/** GST E-Invoice (IRN) — With GST invoice ke sath. */
+app.post("/api/gst/einvoice/generate", authMiddleware, async (req, res) => {
+  try {
+    const result = await generateGstEinvoice(req.body || {});
+    res.status(result.ok ? 200 : 400).json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err?.message || "E-Invoice generate fail" });
   }
 });
 

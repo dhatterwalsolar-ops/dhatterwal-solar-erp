@@ -7,6 +7,7 @@ import {
 } from "../../utils/invoiceFormatStorage";
 import { buildInvoiceFormatPreviewHtml } from "../../utils/saleInvoiceDocuments";
 import { appendActivityLog } from "../../utils/settingsStorage";
+import DocumentSeriesEditor from "./DocumentSeriesEditor";
 import styles from "./SettingsPage.module.css";
 
 function InvoiceFormatSettings({ session }) {
@@ -96,6 +97,8 @@ function InvoiceFormatSettings({ session }) {
 
   return (
     <>
+      <DocumentSeriesEditor kind="invoice" session={session} />
+
       <section className={styles.card}>
         <div className={styles.cardHead}>
           <h2>Invoice Format Editing</h2>
@@ -112,9 +115,9 @@ function InvoiceFormatSettings({ session }) {
           </div>
         </div>
         <p className={styles.cardHint}>
-          Yahan jo format save karoge wahi Sale Sheet → Generate Invoice / Download me dikhega.
-          Logo / digital sign upload, company details, bank, HSN, GST split (70% @ 5% + 30% @ 18%)
-          edit kar sakte ho.
+          Upar <strong>Invoice Series</strong> se number change karein. Neeche jo format save
+          karoge wahi Sale Sheet → Generate Invoice / Download me dikhega. Logo / digital sign,
+          company details, bank, HSN, GST split edit kar sakte ho.
         </p>
 
         <div className={styles.formatLayout}>

@@ -1,9 +1,6 @@
-import { SALE_TEAM_WORK_OPTIONS } from "../constants/saleCase";
-import {
-  getSaleTeamLeaderConfig,
-  SALE_TEAM_LEADER_MAP,
-} from "../constants/saleTeamMapping";
+import { getSaleTeamLeaderConfig } from "../constants/saleTeamMapping";
 import { getLabourEmployees } from "./labourEmployeeStorage";
+import { getSaleTeamWorkOptions } from "./labourTeamMappingStorage";
 import { loadSaleCaseRows } from "./saleCaseStorage";
 
 function normalizeConsumer(value) {
@@ -49,16 +46,10 @@ export function listQueryTeamLeaders(preferredTeamWork = "") {
     if (cfg) push(cfg.teamLabel || preferred, cfg, 0);
   }
 
-  SALE_TEAM_WORK_OPTIONS.forEach((team, index) => {
+  getSaleTeamWorkOptions().forEach((team, index) => {
     if (team.toUpperCase() === preferred) return;
     const cfg = getSaleTeamLeaderConfig(team);
     if (cfg) push(team, cfg, 1 + index);
-  });
-
-  Object.keys(SALE_TEAM_LEADER_MAP).forEach((team, index) => {
-    if (SALE_TEAM_WORK_OPTIONS.some((t) => t.toUpperCase() === team.toUpperCase())) return;
-    const cfg = getSaleTeamLeaderConfig(team);
-    if (cfg) push(team, cfg, 50 + index);
   });
 
   getLabourEmployees()

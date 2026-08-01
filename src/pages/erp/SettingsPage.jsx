@@ -36,6 +36,8 @@ import {
   getSiteOrderGoogleFormUrl,
   setSiteOrderGoogleFormUrl,
 } from "../../utils/siteOrderWhatsApp";
+import GstApiSettings from "./GstApiSettings";
+import InvoiceClearSettings from "./InvoiceClearSettings";
 import InvoiceFormatSettings from "./InvoiceFormatSettings";
 import LoanQuotationFormatSettings from "./LoanQuotationFormatSettings";
 import styles from "./SettingsPage.module.css";
@@ -43,10 +45,11 @@ import styles from "./SettingsPage.module.css";
 const TABS = [
   { id: "general", label: "General Settings", icon: "⚙" },
   { id: "users", label: "User Management", icon: "👤" },
-  { id: "invoice", label: "Invoice Series", icon: "🧾" },
-  { id: "invoiceFormat", label: "Invoice Format", icon: "🖨" },
+  { id: "invoice", label: "Invoice Series / Delete", icon: "🧾" },
+  { id: "invoiceFormat", label: "Invoice Format + Series", icon: "🖨" },
+  { id: "gstApi", label: "GST / E-Way API", icon: "🛡" },
   { id: "quotation", label: "Quotation Series", icon: "📄" },
-  { id: "loanQuotationFormat", label: "Loan Quotation Format", icon: "📝" },
+  { id: "loanQuotationFormat", label: "Quotation Format + Series", icon: "📝" },
   { id: "paymentTypes", label: "Payment Types", icon: "💳" },
   { id: "security", label: "Security", icon: "🔒" },
   { id: "whatsapp", label: "Office WhatsApp", icon: "💬" },
@@ -142,6 +145,8 @@ function SettingsPage() {
     const logins = loadLoginUsers();
     const user = logins.find((u) => u.userId === userId);
     if (!user) return;
+    const loginId = window.prompt("Login ID (username):", user.userId);
+    if (loginId === null) return;
     const name = window.prompt("Display name:", user.displayName);
     if (name === null) return;
     const pass = window.prompt("Naya password (blank = same rakho):", "");
@@ -156,18 +161,25 @@ function SettingsPage() {
     );
     if (profilePick === null) return;
     try {
-      const next = upsertLoginUser({
-        userId: user.userId,
-        displayName: name.trim() || user.displayName,
-        password: pass.trim() || user.password,
-        role,
-        accessProfile: String(profilePick).trim() || (role === "admin" ? "admin" : "staff"),
-      });
+      const nextId = String(loginId).trim() || user.userId;
+      const next = upsertLoginUser(
+        {
+          userId: nextId,
+          displayName: name.trim() || user.displayName,
+          password: pass.trim() || user.password,
+          role,
+          accessProfile: String(profilePick).trim() || (role === "admin" ? "admin" : "staff"),
+        },
+        { previousUserId: user.userId },
+      );
       refreshUsersFromLogins(next);
       appendActivityLog({
         user: session?.displayName ?? "Admin",
-        action: `User updated: ${user.userId}`,
+        action: `User updated: ${user.userId}${nextId !== user.userId ? ` → ${nextId}` : ""}`,
       });
+      window.alert(
+        `User update ho gaya.\nLogin ID: ${nextId}\nNaye password se login karein (purana session band karke).`,
+      );
     } catch (err) {
       window.alert(err?.message || "Update fail.");
     }
@@ -228,6 +240,8 @@ function SettingsPage() {
 
   const showPasswordBlock = activeTab === "general" || activeTab === "users";
   const showInvoice = activeTab === "general" || activeTab === "invoice";
+  /* Format tab me DocumentSeriesEditor ke andar pehle se delete card hai */
+  const showInvoiceDelete = activeTab === "invoice";
   const showQuotation = activeTab === "general" || activeTab === "quotation";
   const showPaymentTypes = activeTab === "general" || activeTab === "paymentTypes";
 
@@ -466,6 +480,7 @@ function SettingsPage() {
           )}
 
           {activeTab === "invoiceFormat" && <InvoiceFormatSettings session={session} />}
+          {activeTab === "gstApi" && <GstApiSettings />}
           {activeTab === "loanQuotationFormat" && (
             <LoanQuotationFormatSettings session={session} />
           )}
@@ -698,6 +713,8 @@ function SettingsPage() {
               </button>
             </section>
           )}
+
+          {showInvoiceDelete && <InvoiceClearSettings session={session} />}
 
           {showQuotation && (
             <section className={styles.card}>

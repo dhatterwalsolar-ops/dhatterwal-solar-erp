@@ -12,10 +12,8 @@ import {
 import { formatSetupDetail } from "../../../constants/bomRegistry";
 import { getBomMaterialsForConsumer } from "../../../utils/bomSheetStorage";
 import { lookupCustomer } from "../../../constants/customerRegistry";
-import {
-  SALE_TEAM_WORK_OPTIONS,
-  createEmptySaleRow,
-} from "../../../constants/saleCase";
+import { createEmptySaleRow } from "../../../constants/saleCase";
+import { getSaleTeamWorkOptions } from "../../../utils/labourTeamMappingStorage";
 import {
   loadSaleCaseRows,
   SALE_BOM_SYNC_EVENT,
@@ -37,6 +35,7 @@ import {
 } from "../../../utils/customerDocuments";
 import CustomerFolderModal from "./CustomerFolderModal";
 import {
+  attachEinvoiceToInvoice,
   attachEwayBillToInvoice,
   findInvoiceForSaleRow,
   findNetMeterInvoiceForSaleRow,
@@ -46,14 +45,16 @@ import {
   listAvailableNetMeterInvoicesForWithoutGst,
   peekNextInvoiceSerial,
 } from "../../../utils/invoiceStorage";
+import { apiGenerateGstEinvoice } from "../../../utils/gstApiClient";
+import { getInvoiceFormat } from "../../../utils/invoiceFormatStorage";
 import {
   clearedNetMeterInvoiceFields,
   clearedSaleInvoiceFields,
-  deleteOldInvoiceCompletely,
+  deleteInvoiceCompletely,
 } from "../../../utils/tempInvoiceDelete";
-import { TEMP_ALLOW_INVOICE_DELETE } from "../../../constants/tempInvoiceDelete";
 import { getAuthSession } from "../../../utils/authSession";
 import { consumerMatchesReference } from "../../../utils/consumerReference";
+import { flushErpPushNow } from "../../../utils/erpStorage";
 import {
   canChangeOrDelete,
   getSaleReferenceFilter,
@@ -71,6 +72,7 @@ import { resolveInvoiceItemDetails } from "../../../utils/saleInvoiceItems";
 import { callEwayGenerateApi } from "../../../utils/ewayBillApi";
 import {
   EWAY_ITEM_AMOUNT_LIMIT,
+  invoiceAllowsEwayBill,
   invoiceNeedsEwayBill,
 } from "../../../utils/ewayThreshold";
 import { resolveProductHsn } from "../../../utils/saleInvoiceCompute";
@@ -269,8 +271,9 @@ function SaleCaseSheet() {
   const filteredRows = useMemo(() => {
     let list = rows;
     if (saleRefFilter) {
+      /* Loan/Cash Reference se match — Sale row pe galat/empty reference ignore */
       list = list.filter((row) =>
-        consumerMatchesReference(row.consumerNo, saleRefFilter, row.reference),
+        consumerMatchesReference(row.consumerNo, saleRefFilter),
       );
     }
     if (!query.trim()) return list;
@@ -279,6 +282,23 @@ function SaleCaseSheet() {
       Object.values(row).some((value) => String(value).toLowerCase().includes(q)),
     );
   }, [query, rows, saleRefFilter]);
+
+  const closeSaleModals = () => {
+    setInvoiceRow(null);
+    setNetMeterRow(null);
+    setEwayContext(null);
+    setEwayResult(null);
+    setCompleteRow(null);
+    setFolderRow(null);
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") closeSaleModals();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const updateCell = (rowRef, key, value) => {
     setRows((prev) =>
@@ -341,7 +361,16 @@ function SaleCaseSheet() {
     if (row.isBackupEntry && row.entryId) {
       deleteBackupEntry(row.entryId);
     }
-    setRows((prev) => prev.filter((r) => !rowsMatch(r, row)));
+    setRows((prev) => {
+      const next = prev.filter((r) => !rowsMatch(r, row));
+      /* Turant save + server push — warna poll purani entry wapas la sakta hai */
+      saveSaleCaseRows(next.filter((r) => !r.isBackupEntry), {
+        syncBom: false,
+        syncCustomerDetail: true,
+      });
+      flushErpPushNow();
+      return next;
+    });
   };
 
   const handleTeamWorkChange = (row, teamWork) => {
@@ -493,9 +522,15 @@ function SaleCaseSheet() {
       window.alert(isNet ? "Pehle Net Meter Invoice generate karein." : "Pehle Generate Invoice karein.");
       return;
     }
-    if (!invoiceNeedsEwayBill(invoice)) {
+
+    const gstInvoice = {
+      ...invoice,
+      invoiceKind: isNet ? "net-meter" : invoice.invoiceKind || "sale",
+      withGst: isNet ? true : Boolean(invoice.withGst ?? row.invoiceWithGst),
+    };
+    if (!invoiceAllowsEwayBill(gstInvoice)) {
       window.alert(
-        `E-Way Bill tab jaruri hai jab item / invoice amount ₹${EWAY_ITEM_AMOUNT_LIMIT.toLocaleString("en-IN")} se jyada ho.`,
+        "E-Way Bill sirf With GST invoice pe banta hai.\nGenerate Invoice → “With GST + E-Way Bill” choose karein.",
       );
       return;
     }
@@ -511,7 +546,11 @@ function SaleCaseSheet() {
         : null,
     );
     setEwayDistance((isNet ? row.netMeterEwayDistanceKm : row.ewayDistanceKm) || "");
-    setEwayContext({ saleRow: row, invoice, kind: isNet ? "net-meter" : "sale" });
+    setEwayContext({
+      saleRow: row,
+      invoice: gstInvoice,
+      kind: isNet ? "net-meter" : "sale",
+    });
   };
 
   const openNetMeterModal = (row) => {
@@ -605,8 +644,8 @@ function SaleCaseSheet() {
   };
 
   const deleteRowInvoice = (row) => {
-    if (!TEMP_ALLOW_INVOICE_DELETE) {
-      window.alert("Invoice delete live site pe available nahi hoga.");
+    if (!canDelete) {
+      window.alert("Invoice delete sirf Admin kar sakta hai.");
       return;
     }
     const invoice = findInvoiceForSaleRow(row);
@@ -616,12 +655,12 @@ function SaleCaseSheet() {
     }
     if (
       !window.confirm(
-        `TEMP: Invoice ${invoice.invoiceNo} delete karein?\n\nInvoice File, payment, folder files hatenge. Phir dubara Generate Invoice kar sakte ho.`,
+        `Invoice ${invoice.invoiceNo} delete karein?\n\nInvoice File, payment, folder files hatenge. Phir dubara Generate Invoice kar sakte ho.`,
       )
     ) {
       return;
     }
-    const result = deleteOldInvoiceCompletely(invoice.id);
+    const result = deleteInvoiceCompletely(invoice.id);
     if (!result.ok) {
       window.alert(result.error || "Delete fail.");
       return;
@@ -670,7 +709,7 @@ function SaleCaseSheet() {
 
     setInvoiceBusy(true);
     try {
-      const invoice = issueSaleInvoice({
+      let invoice = issueSaleInvoice({
         consumerNo: invoiceRow.consumerNo,
         customerName: invoiceRow.customerName,
         fatherName: invoiceRow.fatherName,
@@ -688,6 +727,41 @@ function SaleCaseSheet() {
         saleRowId: saleRowKey(invoiceRow),
         linkedNetMeterInvoiceNo: withGst ? "" : invoiceForm.selectedNmNo,
       });
+
+      /* With GST → GST E-Invoice IRN API */
+      if (withGst && invoice.id) {
+        const format = getInvoiceFormat();
+        const irnRes = await apiGenerateGstEinvoice({
+          invoiceNo: invoice.invoiceNo,
+          invoiceId: invoice.id,
+          consumerNo: invoice.consumerNo,
+          customerName: invoice.customerName,
+          address: invoice.address,
+          mobile: invoice.mobile,
+          pinCode,
+          station,
+          vehicleNo,
+          setupKw: invoice.setupKw,
+          taxableAmount: invoice.taxableAmount,
+          gstAmount: invoice.gstAmount,
+          totalAmount: invoice.totalAmount,
+          sellerGstin: format.gstin,
+          placeOfSupply: format.placeOfSupply || invoice.placeOfSupply,
+          lines: invoice.lines,
+          date: invoice.date,
+        });
+        if (irnRes?.ok && irnRes.irn) {
+          attachEinvoiceToInvoice(invoice.id, irnRes);
+          invoice = getInvoiceById(invoice.id) || {
+            ...invoice,
+            irn: irnRes.irn,
+            ackNo: irnRes.ackNo,
+            ackDate: irnRes.ackDate,
+          };
+        } else if (irnRes && !irnRes.ok) {
+          console.warn("[GST E-Invoice]", irnRes.error);
+        }
+      }
 
       await saveInvoiceDocumentToFolder(invoice);
 
@@ -720,6 +794,7 @@ function SaleCaseSheet() {
                 invoiceInverterName: invoice.inverterName,
                 invoiceInverterSerial: invoice.inverterSerial,
                 vehicleNo: invoice.vehicleNo,
+                irn: invoice.irn || "",
               }
             : row,
         ),
@@ -739,10 +814,24 @@ function SaleCaseSheet() {
       setInvoiceRow(null);
       setEwayResult(null);
       setEwayDistance("");
-      if (invoiceNeedsEwayBill(invoice)) {
+      /* With GST → E-Way Bill modal auto (GST se linked) */
+      if (withGst) {
         setEwayContext({ saleRow: saleSnapshot, invoice, kind: "sale" });
+        const irnLine = invoice.irn ? `\nIRN: ${invoice.irn}` : "\n(IRN demo/API pending — Settings → GST API)";
+        if (!invoiceNeedsEwayBill(invoice)) {
+          window.alert(
+            `Invoice ${invoice.invoiceNo} (With GST) ban gayi.${irnLine}\n` +
+              `Ab E-Way Bill bana sakte ho (distance km bharo).\n` +
+              `Note: ₹${EWAY_ITEM_AMOUNT_LIMIT.toLocaleString("en-IN")} se upar amount pe E-Way zaroori hota hai.`,
+          );
+        } else if (invoice.irn) {
+          window.alert(`Invoice ${invoice.invoiceNo} + IRN ready.\nAb E-Way Bill (distance) complete karein.`);
+        }
       } else {
         setEwayContext(null);
+        window.alert(
+          `Invoice ${invoice.invoiceNo} (Without GST) ban gayi.\nE-Way Bill ke liye With GST invoice generate karein.`,
+        );
       }
     } catch (err) {
       window.alert(err?.message || "Invoice generate / folder save fail hua.");
@@ -856,8 +945,8 @@ function SaleCaseSheet() {
   };
 
   const deleteNetMeterInvoice = (row) => {
-    if (!TEMP_ALLOW_INVOICE_DELETE) {
-      window.alert("Invoice delete live site pe available nahi hoga.");
+    if (!canDelete) {
+      window.alert("Invoice delete sirf Admin kar sakta hai.");
       return;
     }
     const invoice = findNetMeterInvoiceForSaleRow(row);
@@ -867,12 +956,12 @@ function SaleCaseSheet() {
     }
     if (
       !window.confirm(
-        `TEMP: Net Meter Invoice ${invoice.invoiceNo} delete karein?\n\nPhir dubara Net Meter Invoice bana sakte ho.`,
+        `Net Meter Invoice ${invoice.invoiceNo} delete karein?\n\nPhir dubara Net Meter Invoice bana sakte ho.`,
       )
     ) {
       return;
     }
-    const result = deleteOldInvoiceCompletely(invoice.id);
+    const result = deleteInvoiceCompletely(invoice.id);
     if (!result.ok) {
       window.alert(result.error || "Delete fail.");
       return;
@@ -1210,7 +1299,7 @@ function SaleCaseSheet() {
                     onChange={(e) => handleTeamWorkChange(row, e.target.value)}
                   >
                     <option value="">Select team</option>
-                    {SALE_TEAM_WORK_OPTIONS.map((team) => (
+                    {getSaleTeamWorkOptions().map((team) => (
                       <option key={team} value={team}>
                         {team}
                       </option>
@@ -1303,28 +1392,41 @@ function SaleCaseSheet() {
                         {(() => {
                           const saleInv =
                             findInvoiceForSaleRow(row) || getInvoiceById(row.invoiceId);
+                          const gstInvoice = Boolean(
+                            saleInv?.withGst ?? row.invoiceWithGst,
+                          );
+                          if (!gstInvoice) {
+                            return (
+                              <span className={styles.siteFormMuted} title="E-Way sirf With GST">
+                                E-Way: With GST chahiye
+                              </span>
+                            );
+                          }
                           const needsEway = invoiceNeedsEwayBill(
                             saleInv || {
+                              withGst: true,
                               totalAmount: Number(row.amount) || 0,
                               taxableAmount: Number(row.amount) || 0,
                             },
                           );
-                          if (!needsEway) return null;
-                          return row.ewayBillNo ? (
-                            <button
-                              type="button"
-                              className={`${styles.actionBtn} ${styles.actionBtnGold}`}
-                              onClick={() => downloadRowEway(row, "sale")}
-                            >
-                              Download E-Way ({row.ewayBillNo})
-                            </button>
-                          ) : (
+                          if (row.ewayBillNo) {
+                            return (
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnGold}`}
+                                onClick={() => downloadRowEway(row, "sale")}
+                              >
+                                Download E-Way ({row.ewayBillNo})
+                              </button>
+                            );
+                          }
+                          return (
                             <button
                               type="button"
                               className={`${styles.actionBtn} ${styles.actionBtnGold}`}
                               onClick={() => openEwayModalForRow(row, "sale")}
                             >
-                              E-Way Bill (req.)
+                              {needsEway ? "E-Way Bill (GST req.)" : "E-Way Bill (GST)"}
                             </button>
                           );
                         })()}
@@ -1364,13 +1466,13 @@ function SaleCaseSheet() {
                                 </button>
                               );
                             })()}
-                            {TEMP_ALLOW_INVOICE_DELETE ? (
+                            {canDelete ? (
                               <button
                                 type="button"
                                 className={styles.deleteInvoiceBtn}
                                 onClick={() => deleteNetMeterInvoice(row)}
                               >
-                                Delete NM Inv. (TEMP)
+                                Delete NM Inv.
                               </button>
                             ) : null}
                           </>
@@ -1383,14 +1485,14 @@ function SaleCaseSheet() {
                             Net Meter Invoice
                           </button>
                         )}
-                        {TEMP_ALLOW_INVOICE_DELETE ? (
+                        {canDelete ? (
                           <button
                             type="button"
                             className={styles.deleteInvoiceBtn}
                             onClick={() => deleteRowInvoice(row)}
-                            title="Temporary — live pe hata denge"
+                            title="Galat invoice delete — Admin"
                           >
-                            Delete Invoice (TEMP)
+                            Delete Invoice
                           </button>
                         ) : null}
                       </>
@@ -1467,8 +1569,17 @@ function SaleCaseSheet() {
       </div>
 
       {invoiceRow && (
-        <div className={styles.modalBackdrop} role="presentation">
-          <div className={`${styles.modal} ${styles.modalInvoice}`} role="dialog" aria-modal="true">
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onClick={closeSaleModals}
+        >
+          <div
+            className={`${styles.modal} ${styles.modalInvoice}`}
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2>Generate Invoice</h2>
             <p className={styles.invoicePreviewNo}>
               Next Invoice No. (series): <strong>{invoiceForm.previewInvoiceNo}</strong>
@@ -1546,9 +1657,9 @@ function SaleCaseSheet() {
             </div>
 
             <p className={styles.modalHint}>
-              With GST: naya series number (Settings) allocate hoga — Invoice File auto update.
-              Without GST: pehle se kate hue Net Meter Invoice number search/select karein; wahi
-              number + wahi date lagegi (dobara use nahi hoga).
+              <strong>With GST</strong> choose karo → invoice GST ke sath banegi aur{" "}
+              <strong>E-Way Bill</strong> modal khulega (distance km). Series number Settings se.
+              Without GST: Net Meter number reuse — E-Way Bill nahi.
             </p>
             <div className={styles.nmPickBox}>
               <label className={`${styles.modalLabel} ${styles.modalLabelFull}`}>
@@ -1598,9 +1709,10 @@ function SaleCaseSheet() {
               </ul>
             </div>
             <p className={styles.modalHintSmall}>
-              With GST / Net Meter: next series <strong>{invoiceForm.previewInvoiceNo}</strong>
+              With GST next series: <strong>{invoiceForm.previewInvoiceNo}</strong>
               {" · "}
-              E-Way tabhi jab amount ₹{EWAY_ITEM_AMOUNT_LIMIT.toLocaleString("en-IN")} se jyada.
+              E-Way ₹{EWAY_ITEM_AMOUNT_LIMIT.toLocaleString("en-IN")}+ pe zaroori; GST invoice pe
+              hamesha bana sakte ho.
             </p>
             <p className={styles.modalHint}>Choose invoice type:</p>
             <div className={styles.modalActions}>
@@ -1610,7 +1722,7 @@ function SaleCaseSheet() {
                 disabled={invoiceBusy}
                 onClick={() => generateInvoice(true)}
               >
-                {invoiceBusy ? "Generating…" : "With GST (5% + 18%)"}
+                {invoiceBusy ? "Generating…" : "With GST + E-Way Bill"}
               </button>
               <button
                 type="button"
@@ -1634,8 +1746,17 @@ function SaleCaseSheet() {
       )}
 
       {netMeterRow && (
-        <div className={styles.modalBackdrop} role="presentation">
-          <div className={`${styles.modal} ${styles.modalInvoice}`} role="dialog" aria-modal="true">
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onClick={closeSaleModals}
+        >
+          <div
+            className={`${styles.modal} ${styles.modalInvoice}`}
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2>Net Meter Invoice</h2>
             <p className={styles.invoicePreviewNo}>
               Next Invoice No. (series): <strong>{netMeterForm.previewInvoiceNo}</strong>
@@ -1727,18 +1848,31 @@ function SaleCaseSheet() {
       )}
 
       {ewayContext && (
-        <div className={styles.modalBackdrop} role="presentation">
-          <div className={`${styles.modal} ${styles.modalInvoice}`} role="dialog" aria-modal="true">
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onClick={closeSaleModals}
+        >
+          <div
+            className={`${styles.modal} ${styles.modalInvoice}`}
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2>
               E-Way Bill
-              {ewayContext.kind === "net-meter" ? " (Net Meter)" : ""}
+              {ewayContext.kind === "net-meter" ? " (Net Meter GST)" : " (With GST Invoice)"}
             </h2>
             <p>
               Invoice <strong>{ewayContext.invoice?.invoiceNo}</strong> —{" "}
               {ewayContext.invoice?.customerName}
+              {" · "}
+              {ewayContext.invoice?.gstType || "With GST"}
             </p>
             <p className={styles.modalHintSmall}>
-              Required because amount &gt; ₹{EWAY_ITEM_AMOUNT_LIMIT.toLocaleString("en-IN")}
+              {invoiceNeedsEwayBill(ewayContext.invoice)
+                ? `Amount ₹${EWAY_ITEM_AMOUNT_LIMIT.toLocaleString("en-IN")} se jyada — E-Way Bill zaroori.`
+                : "GST invoice linked — distance (km) bhar ke E-Way Bill generate karein."}
             </p>
             <div className={styles.partyBox}>
               <div className={styles.partyGrid}>
@@ -1867,8 +2001,17 @@ function SaleCaseSheet() {
       )}
 
       {completeRow && (
-        <div className={styles.modalBackdrop} role="presentation">
-          <div className={`${styles.modal} ${styles.modalWide}`} role="dialog" aria-modal="true">
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onClick={closeSaleModals}
+        >
+          <div
+            className={`${styles.modal} ${styles.modalWide}`}
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2>Generate Complete File</h2>
             <p>
               <strong>{completeRow.consumerNo}</strong> — {completeRow.customerName} (

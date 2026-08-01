@@ -1,6 +1,7 @@
 import { formatSetupDetail } from "../constants/bomRegistry";
 import { lookupCustomer } from "../constants/customerRegistry";
 import { getBomMaterialsForConsumer } from "./bomSheetStorage";
+import { getConsumerReference } from "./consumerReference";
 import { loadSaleCaseRows, saveSaleCaseRows } from "./saleCaseStorage";
 
 /** Fired when sale rows in storage were refreshed from Loan/Cash Case data. */
@@ -16,7 +17,10 @@ export function mergeSaleRowWithCaseSheets(row) {
   if (!trimmed) return row;
 
   const customer = lookupCustomer(trimmed);
-  if (!customer) return row;
+  const ref = getConsumerReference(trimmed) || String(row.reference || "").trim();
+  if (!customer) {
+    return ref && ref !== String(row.reference || "").trim() ? { ...row, reference: ref } : row;
+  }
 
   const bom = getBomMaterialsForConsumer(trimmed);
   return {
@@ -28,6 +32,7 @@ export function mergeSaleRowWithCaseSheets(row) {
     mobile: customer.mobile || row.mobile,
     setupKw: customer.setupKw,
     setupDetail: formatSetupDetail(bom),
+    reference: ref,
   };
 }
 

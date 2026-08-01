@@ -370,8 +370,19 @@ export function attachEwayBillToInvoice(invoiceId, eway) {
   });
 }
 
+/** GST E-Invoice IRN attach (API se). */
+export function attachEinvoiceToInvoice(invoiceId, einv) {
+  return updateInvoiceRecord(invoiceId, {
+    irn: einv.irn || "",
+    ackNo: einv.ackNo || "",
+    ackDate: einv.ackDate || "",
+    einvoiceProvider: einv.provider || "",
+    einvoiceGeneratedAt: new Date().toLocaleString("en-IN"),
+  });
+}
+
 /**
- * TEMP (pre-live): delete invoice record + renumber Sr. No.
+ * Delete invoice record + renumber Sr. No.
  * Returns deleted invoice or null.
  */
 export function deleteInvoiceRecord(invoiceId) {
@@ -383,6 +394,13 @@ export function deleteInvoiceRecord(invoiceId) {
   const renumbered = list.map((inv, i) => ({ ...inv, srNo: i + 1, bookNo: inv.bookNo || i + 1 }));
   writeInvoiceFile(renumbered);
   return removed;
+}
+
+/** Invoice File bilkul khali — naya series se start. */
+export function clearAllInvoiceFileRecords() {
+  const previous = readInvoiceFile();
+  writeInvoiceFile([]);
+  return { count: previous.length, invoices: previous };
 }
 
 export function findInvoiceForSaleRow(row) {

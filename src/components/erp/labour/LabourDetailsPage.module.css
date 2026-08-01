@@ -54,6 +54,10 @@
   background: #7c3aed;
 }
 
+.btnTeam {
+  background: #0f766e;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;

@@ -55,34 +55,49 @@ function safeParse(raw, fallback) {
 
 function mergeSeededUsers(list) {
   const next = [...list];
+  let changed = false;
   for (const seed of SEEDED_USERS) {
     const idx = next.findIndex(
       (u) => u.userId.toLowerCase() === seed.userId.toLowerCase(),
     );
     if (idx < 0) {
       next.push(normalizeLoginUser(seed));
+      changed = true;
       continue;
     }
-    // Seed users: role/profile/password always sync (login fail fix)
-    next[idx] = normalizeLoginUser({
-      ...next[idx],
-      role: seed.role,
-      accessProfile: seed.accessProfile,
-      displayName: next[idx].displayName || seed.displayName,
-      password: seed.password,
+    /* Password Settings se change ho — seed se overwrite mat karo */
+    const cur = next[idx];
+    const lockedProfile =
+      seed.userId.toLowerCase() === "ajaynain" ? "ajay_nain" : "";
+    const patched = normalizeLoginUser({
+      ...cur,
+      password: cur.password || seed.password,
+      accessProfile: lockedProfile || cur.accessProfile || seed.accessProfile,
+      role: cur.role || seed.role,
+      displayName: cur.displayName || seed.displayName,
     });
+    if (
+      patched.password !== cur.password ||
+      patched.accessProfile !== cur.accessProfile ||
+      patched.role !== cur.role
+    ) {
+      next[idx] = patched;
+      changed = true;
+    }
   }
-  return next;
+  return { list: next, changed };
 }
 
 export function loadLoginUsers() {
   const list = safeParse(erpGetItem(LOGIN_USERS_KEY), null);
   if (Array.isArray(list) && list.length > 0) {
-    const normalized = mergeSeededUsers(list.map(normalizeLoginUser).filter(Boolean));
-    saveLoginUsers(normalized);
+    const { list: normalized, changed } = mergeSeededUsers(
+      list.map(normalizeLoginUser).filter(Boolean),
+    );
+    if (changed) saveLoginUsers(normalized);
     return normalized;
   }
-  const seeded = mergeSeededUsers(DEFAULT_LOGINS.map((u) => ({ ...u })));
+  const { list: seeded } = mergeSeededUsers(DEFAULT_LOGINS.map((u) => ({ ...u })));
   saveLoginUsers(seeded);
   return seeded.map((u) => ({ ...u }));
 }
@@ -139,11 +154,24 @@ export function settingsUsersFromLogins(logins) {
   }));
 }
 
-export function upsertLoginUser(patch) {
+export function upsertLoginUser(patch, options = {}) {
   const list = loadLoginUsers();
   const next = normalizeLoginUser(patch);
   if (!next) throw new Error("Login ID zaroori hai.");
   if (!next.password) throw new Error("Password zaroori hai.");
+  const previousId = String(options.previousUserId || "").trim().toLowerCase();
+  if (previousId && previousId !== next.userId.toLowerCase()) {
+    const clash = list.some(
+      (u) =>
+        u.userId.toLowerCase() === next.userId.toLowerCase() &&
+        u.userId.toLowerCase() !== previousId,
+    );
+    if (clash) throw new Error("Ye Login ID pehle se hai — dusra choose karein.");
+    const idxOld = list.findIndex((u) => u.userId.toLowerCase() === previousId);
+    if (idxOld < 0) throw new Error("User nahi mila.");
+    list[idxOld] = next;
+    return saveLoginUsers(list);
+  }
   const idx = list.findIndex((u) => u.userId.toLowerCase() === next.userId.toLowerCase());
   if (idx >= 0) list[idx] = next;
   else list.push(next);

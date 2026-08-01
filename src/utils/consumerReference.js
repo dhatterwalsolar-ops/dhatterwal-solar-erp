@@ -135,8 +135,11 @@ export function syncReferencesFromCaseRows(rows, source) {
 export function consumerMatchesReference(consumerNo, referenceFilter, storedReference = "") {
   const want = norm(referenceFilter);
   if (!want) return true;
-  const ref = norm(storedReference || getConsumerReference(consumerNo));
-  return ref === want;
+  /* Hamesha Loan/Cash live reference check — Sale pe stale/empty reference se miss na ho */
+  const fromSheets = norm(getConsumerReference(consumerNo));
+  if (fromSheets && fromSheets === want) return true;
+  const stored = norm(storedReference);
+  return Boolean(stored && stored === want);
 }
 
 /** Reference text se match — exact ya partial (search). */

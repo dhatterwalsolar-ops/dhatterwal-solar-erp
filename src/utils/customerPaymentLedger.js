@@ -86,6 +86,18 @@ export function removePaymentBySourceRef(sourceRef) {
   writeAll(list);
 }
 
+/** Sale / Net Meter invoice payments hatao (sourceRef sale- / sale-nm-). */
+export function removeAllSaleInvoicePayments() {
+  const before = readAll();
+  const next = before.filter((p) => {
+    const ref = String(p.sourceRef || "");
+    if (ref.startsWith("sale-") || ref.startsWith("sale-nm-")) return false;
+    return true;
+  });
+  writeAll(next);
+  return before.length - next.length;
+}
+
 export function sumPaymentsByCategory(consumerNo, category) {
   return listCustomerPayments(consumerNo)
     .filter((p) => p.category === category)

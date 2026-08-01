@@ -12,6 +12,9 @@
   flex-direction: column;
   min-height: 100vh;
   padding: 1rem 0.75rem;
+  /* Sale modals (z-index 300) ke upar — dusri sheet open kar sakein */
+  position: relative;
+  z-index: 400;
 }
 
 .logoBlock {
