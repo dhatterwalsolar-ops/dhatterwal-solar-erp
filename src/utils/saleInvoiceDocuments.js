@@ -573,8 +573,25 @@ export function findEwayDocument(consumerNo, ewayBillNo) {
   );
 }
 
-export function downloadInvoiceDoc(doc) {
-  if (doc) downloadStoredDocument(doc);
+/** Invoice HTML folder doc → PDF download. */
+export async function downloadInvoiceDoc(doc) {
+  if (!doc) return;
+  const { downloadDocumentAsPdf } = await import("./htmlToPdfDownload");
+  const base = String(doc.fileName || "Invoice").replace(/\.html?$/i, "");
+  await downloadDocumentAsPdf(doc, `${base}.pdf`);
+}
+
+/** Fresh invoice object → PDF download (generate ke turant baad). */
+export async function downloadInvoicePdfFromInvoice(invoice) {
+  const withEway = {
+    ...invoice,
+    ewayBillNo: invoice.ewayBillNo || "",
+  };
+  const html = buildSaleInvoiceHtml(withEway);
+  const { downloadHtmlAsPdf } = await import("./htmlToPdfDownload");
+  const safeNo = String(invoice.invoiceNo || "INV").replace(/[^\w/-]+/g, "_");
+  const kind = invoiceFileKindTag(invoice);
+  await downloadHtmlAsPdf(html, `Invoice-${safeNo}-${kind}.pdf`);
 }
 
 export function openHtmlDocument(doc) {

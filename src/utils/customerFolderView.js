@@ -13,6 +13,8 @@ const CATEGORY_LABELS = {
   "sale-invoice": "Sale Invoice",
   "eway-bill": "E-Way Bill",
   "vendor-agreement": "Vendor Agreement (PDF)",
+  "bom-sheet": "BOM Sheet (PDF / HTML)",
+  "bom-sheet-image": "BOM Sheet (JPG)",
 };
 
 const SOURCE_LABELS = {
@@ -29,6 +31,8 @@ const CATEGORY_ORDER = [
   "safety-dhatterwal",
   "sale-invoice",
   "eway-bill",
+  "bom-sheet",
+  "bom-sheet-image",
   "site-gps-photo",
   "earthing-photo",
   "complete-package",

@@ -66,6 +66,16 @@ export function packSiteOrderForUrl(order) {
     panelCount: order.panelCount || 4,
     defaultMembers: order.defaultMembers || [],
     status: order.status || "pending",
+    /* Stock names for TL phone form selects */
+    stockCatalog: order.stockCatalog || {
+      panels: [],
+      inverters: [],
+      acBoxes: [],
+      dcBoxes: [],
+      wires: [],
+      laItems: [],
+      earthingItems: [],
+    },
   };
   try {
     return encodeURIComponent(JSON.stringify(payload));

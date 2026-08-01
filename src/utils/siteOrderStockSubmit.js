@@ -1,4 +1,5 @@
 import { applySiteOrderFormToBom } from "./bomSheetStorage";
+import { saveBomSheetDocumentToFolder } from "./bomSheetDocuments";
 import {
   addCustomerDocument,
   readFileAsDataUrl,
@@ -7,7 +8,6 @@ import { findProductByName } from "./productStorage";
 import { applyBomToSaleSetupDetail, SALE_BOM_SYNC_EVENT } from "./saleCaseStorage";
 import { SALE_CASE_SYNC_EVENT } from "./saleCaseSync";
 import { applyStockOut, notifyStockSync } from "./stockStorage";
-import { serialExistsInStock } from "./stockSerialInventory";
 import { markSiteOrderSubmitted } from "./siteOrderStorage";
 
 function lineWithProductId(line) {
@@ -62,70 +62,50 @@ export async function submitSiteInstallationForm(order, form) {
     );
   }
 
-  const inverterName =
-    String(form.inverterName || "").trim() ||
-    `Inverter (${form.inverterKw || "02 KW"})`;
+  const inverterName = String(form.inverterName || "").trim();
   const inverterSerial = String(form.inverterSerial || "").trim();
+  if (!inverterName) errors.push("Inverter name (stock) zaroori hai.");
 
-  if (inverterSerial) {
-    if (!serialExistsInStock(inverterSerial, { category: "INVERTER" })) {
-      lines.push(
-        lineWithProductId({
-          itemName: inverterName,
-          category: "INVERTER",
-          qty: 1,
-          unit: "NOS",
-          serialNumbers: inverterSerial,
-        }),
-      );
-    } else {
-      lines.push(
-        lineWithProductId({
-          itemName: inverterName,
-          category: "INVERTER",
-          qty: 1,
-          unit: "NOS",
-          serialNumbers: inverterSerial,
-        }),
-      );
-    }
-  } else {
+  if (inverterName) {
     lines.push(
       lineWithProductId({
         itemName: inverterName,
         category: "INVERTER",
         qty: 1,
         unit: "NOS",
+        ...(inverterSerial ? { serialNumbers: inverterSerial } : {}),
       }),
     );
   }
 
-  const wireDefs = [
-    { key: "dcWireMtr", itemName: "DC Wire", category: "WIRE" },
-    { key: "copperWireMtr", itemName: "Copper Wire", category: "WIRE" },
-    { key: "mainWireMtr", itemName: "Main Wire", category: "WIRE" },
+  const namedWires = [
+    { nameKey: "dcWireName", mtrKey: "dcWireMtr", fallback: "DC Wire" },
+    { nameKey: "copperWireName", mtrKey: "copperWireMtr", fallback: "Copper Wire" },
+    { nameKey: "mainWireName", mtrKey: "mainWireMtr", fallback: "Main Wire" },
   ];
-  for (const def of wireDefs) {
-    const qty = parseQty(form[def.key]);
-    if (qty <= 0) continue;
+  for (const def of namedWires) {
+    const qty = parseQty(form[def.mtrKey]);
+    const itemName = String(form[def.nameKey] || "").trim();
+    if (qty <= 0 || !itemName) continue;
     lines.push(
       lineWithProductId({
-        itemName: def.itemName,
-        category: def.category,
+        itemName,
+        category: "WIRE",
         qty,
         unit: "MTR",
       }),
     );
   }
 
-  /* Legacy wireLines support */
+  /* wireLines from form (stock-selected names) */
   for (const wire of form.wireLines || []) {
     const qty = parseQty(wire.qtyMtr);
-    if (qty <= 0) continue;
+    const itemName = String(wire.itemName || "").trim();
+    if (qty <= 0 || !itemName) continue;
     lines.push(
       lineWithProductId({
         productId: wire.productId || "",
-        itemName: wire.itemName,
+        itemName,
         category: wire.category || "WIRE",
         qty,
         unit: "MTR",
@@ -133,26 +113,54 @@ export async function submitSiteInstallationForm(order, form) {
     );
   }
 
-  const countDefs = [
-    { key: "acBoxQty", itemName: "AC Box", category: "AC BOX", unit: "NOS" },
-    { key: "dcBoxQty", itemName: "DC Box", category: "DC BOX", unit: "NOS" },
-    { key: "laQty", itemName: "LA", category: "GENERAL", unit: "NOS" },
-    {
-      key: "earthingRodQty",
-      itemName: "Earthing Rod",
-      category: "GENERAL",
-      unit: "NOS",
-    },
-  ];
-  for (const def of countDefs) {
-    const qty = parseQty(form[def.key]);
-    if (qty <= 0) continue;
+  const acName = String(form.acBoxName || "").trim();
+  const acQty = parseQty(form.acBoxQty);
+  if (acName && acQty > 0) {
     lines.push(
       lineWithProductId({
-        itemName: def.itemName,
-        category: def.category,
-        qty,
-        unit: def.unit,
+        itemName: acName,
+        category: "AC BOX",
+        qty: acQty,
+        unit: "NOS",
+      }),
+    );
+  }
+
+  const dcName = String(form.dcBoxName || "").trim();
+  const dcQty = parseQty(form.dcBoxQty);
+  if (dcName && dcQty > 0) {
+    lines.push(
+      lineWithProductId({
+        itemName: dcName,
+        category: "DC BOX",
+        qty: dcQty,
+        unit: "NOS",
+      }),
+    );
+  }
+
+  const laName = String(form.laName || "").trim();
+  const laQty = parseQty(form.laQty);
+  if (laName && laQty > 0) {
+    lines.push(
+      lineWithProductId({
+        itemName: laName,
+        category: "GENERAL",
+        qty: laQty,
+        unit: "NOS",
+      }),
+    );
+  }
+
+  const earthingName = String(form.earthingName || "").trim();
+  const earthingQty = parseQty(form.earthingRodQty);
+  if (earthingName && earthingQty > 0) {
+    lines.push(
+      lineWithProductId({
+        itemName: earthingName,
+        category: "GENERAL",
+        qty: earthingQty,
+        unit: "NOS",
       }),
     );
   }
@@ -217,15 +225,23 @@ export async function submitSiteInstallationForm(order, form) {
     inverterKw: form.inverterKw || "",
     inverterName,
     inverterSerial,
+    acBoxName: form.acBoxName || "",
     acBoxQty: form.acBoxQty || "",
+    dcBoxName: form.dcBoxName || "",
     dcBoxQty: form.dcBoxQty || "",
     standKw,
     standOther: form.standOther || "",
     standPaymentType: standKw,
+    dcWireName: form.dcWireName || "",
     dcWireMtr: form.dcWireMtr || "",
+    copperWireName: form.copperWireName || "",
     copperWireMtr: form.copperWireMtr || "",
+    mainWireName: form.mainWireName || "",
     mainWireMtr: form.mainWireMtr || "",
+    wireLines: form.wireLines || [],
+    laName: form.laName || "",
     laQty: form.laQty || "",
+    earthingName: form.earthingName || "",
     earthingRodQty: form.earthingRodQty || "",
     siteGpsDocId: gpsDoc?.id || "",
     earthingDocId: earthDoc?.id || "",
@@ -252,6 +268,7 @@ export async function submitSiteInstallationForm(order, form) {
   markSiteOrderSubmitted(order.id, formPayload);
 
   const bomResult = applySiteOrderFormToBom(order, formPayload);
+  let bomFolderSaved = false;
   if (bomResult.ok) {
     applyBomToSaleSetupDetail(order.consumerNo);
     try {
@@ -260,12 +277,19 @@ export async function submitSiteInstallationForm(order, form) {
     } catch {
       /* ignore */
     }
+    try {
+      const folder = await saveBomSheetDocumentToFolder(order.consumerNo);
+      bomFolderSaved = Boolean(folder?.ok);
+    } catch (err) {
+      console.warn("[site BOM folder]", err?.message || err);
+    }
   }
 
   return {
     ok: true,
     issuedLines,
     bomUpdated: Boolean(bomResult.ok),
+    bomFolderSaved,
     stockOk: Boolean(stockResult.ok),
     stockMessage: stockResult.ok ? "" : stockResult.message || "",
   };

@@ -1,6 +1,38 @@
 import { panelCountFromSetupKw } from "./panelCountFromKw";
 import { getSaleTeamLeaderConfig } from "../constants/saleTeamMapping";
 import { erpGetItem, erpRemoveItem, erpSetItem } from "./erpStorage";
+import { buildSiteStockCatalog, stockCatalogNames } from "./siteStockCatalog";
+
+function attachStockCatalog(order) {
+  try {
+    const cat = buildSiteStockCatalog();
+    return {
+      ...order,
+      stockCatalog: {
+        panels: stockCatalogNames(cat.panels),
+        inverters: stockCatalogNames(cat.inverters),
+        acBoxes: stockCatalogNames(cat.acBoxes),
+        dcBoxes: stockCatalogNames(cat.dcBoxes),
+        wires: stockCatalogNames(cat.wires),
+        laItems: stockCatalogNames(cat.laItems),
+        earthingItems: stockCatalogNames(cat.earthingItems),
+      },
+    };
+  } catch {
+    return {
+      ...order,
+      stockCatalog: order.stockCatalog || {
+        panels: [],
+        inverters: [],
+        acBoxes: [],
+        dcBoxes: [],
+        wires: [],
+        laItems: [],
+        earthingItems: [],
+      },
+    };
+  }
+}
 
 const ORDERS_KEY = "dhatterwal_site_orders";
 export const SITE_ORDER_SYNC_EVENT = "dhatterwal-site-order-sync";
@@ -51,7 +83,7 @@ export function buildSiteOrderFromSaleRow(row) {
   const team = getSaleTeamLeaderConfig(row.teamWork);
   const today = new Date().toLocaleDateString("en-GB");
   const panelCount = panelCountFromSetupKw(row.setupKw);
-  return {
+  return attachStockCatalog({
     id: `site-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     consumerNo: row.consumerNo || "",
     customerName: row.customerName || "",
@@ -69,7 +101,7 @@ export function buildSiteOrderFromSaleRow(row) {
     createdAt: new Date().toISOString(),
     submittedAt: "",
     formPayload: null,
-  };
+  });
 }
 
 export function upsertSiteOrderForSaleRow(row) {
@@ -85,7 +117,7 @@ export function upsertSiteOrderForSaleRow(row) {
   );
 
   if (existing) {
-    existing = {
+    existing = attachStockCatalog({
       ...existing,
       customerName: row.customerName || existing.customerName,
       fatherName: row.fatherName || existing.fatherName,
@@ -98,7 +130,7 @@ export function upsertSiteOrderForSaleRow(row) {
       defaultMembers: getSaleTeamLeaderConfig(row.teamWork)?.defaultMembers ?? existing.defaultMembers,
       panelCount: panelCountFromSetupKw(row.setupKw || existing.setupKw),
       updatedAt: new Date().toISOString(),
-    };
+    });
     const next = list.map((o) => (o.id === existing.id ? existing : o));
     writeOrders(next);
     return existing;

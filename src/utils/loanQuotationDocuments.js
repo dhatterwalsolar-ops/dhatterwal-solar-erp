@@ -528,9 +528,20 @@ export function findLoanQuotationDocument(consumerNo, quotationNo) {
   );
 }
 
-export function downloadLoanQuotationDoc(doc) {
+/** Quotation HTML folder doc → PDF download. */
+export async function downloadLoanQuotationDoc(doc) {
   if (!doc) return;
-  downloadStoredDocument(doc);
+  const { downloadDocumentAsPdf } = await import("./htmlToPdfDownload");
+  const base = String(doc.fileName || "Quotation").replace(/\.html?$/i, "");
+  await downloadDocumentAsPdf(doc, `${base}.pdf`);
+}
+
+/** Fresh quotation HTML → PDF download. */
+export async function downloadLoanQuotationPdfFromHtml(html, quotationNo) {
+  if (!html) return;
+  const { downloadHtmlAsPdf } = await import("./htmlToPdfDownload");
+  const safe = String(quotationNo || "Quotation").replace(/[^\w/-]+/g, "_");
+  await downloadHtmlAsPdf(html, `Quotation-${safe}.pdf`);
 }
 
 export function openLoanQuotationHtml(html) {
@@ -543,6 +554,7 @@ export function openLoanQuotationHtml(html) {
   w.document.close();
 }
 
-export function openLoanQuotationDoc(doc) {
-  if (doc) downloadStoredDocument(doc);
+export async function openLoanQuotationDoc(doc) {
+  if (!doc) return;
+  await downloadLoanQuotationDoc(doc);
 }

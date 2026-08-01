@@ -17,6 +17,7 @@ import {
   updateBomFileItems,
   updateBomStandPaymentType,
 } from "../../../utils/bomSheetStorage";
+import { scheduleBomSheetFolderSave } from "../../../utils/bomSheetDocuments";
 import {
   loadSaleCaseRows,
   SALE_BOM_SYNC_EVENT,
@@ -117,21 +118,25 @@ function BomSheet() {
     });
     updateBomFileItems(consumerNo, nextItems);
     setFiles(loadBomSheetFiles());
+    scheduleBomSheetFolderSave(consumerNo);
   };
 
   const changeStandType = (consumerNo, type) => {
     updateBomStandPaymentType(consumerNo, type);
     setFiles(loadBomSheetFiles());
+    scheduleBomSheetFolderSave(consumerNo);
   };
 
   const changeCharge = (consumerNo, key, value) => {
     updateBomCharges(consumerNo, { [key]: value });
     setFiles(loadBomSheetFiles());
+    scheduleBomSheetFolderSave(consumerNo);
   };
 
   const changeReferencePayment = (consumerNo, value) => {
     updateBomCharges(consumerNo, { referencePayment: value });
     setFiles(loadBomSheetFiles());
+    scheduleBomSheetFolderSave(consumerNo);
   };
 
   const pullFromSale = () => {

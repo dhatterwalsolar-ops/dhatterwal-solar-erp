@@ -40,6 +40,7 @@ import {
 } from "../../../utils/generateCaseFiles";
 import {
   downloadLoanQuotationDoc,
+  downloadLoanQuotationPdfFromHtml,
   findLoanQuotationDocument,
   generateAndSaveLoanQuotation,
   openLoanQuotationHtml,
@@ -469,11 +470,19 @@ function CaseSheetTable({
       );
       setDocRefresh((n) => n + 1);
       openLoanQuotationHtml(result.html);
+      try {
+        await downloadLoanQuotationPdfFromHtml(result.html, result.quotationNo);
+      } catch (pdfErr) {
+        console.warn(pdfErr);
+        window.alert(
+          `Quotation generate ho gayi, lekin PDF download fail: ${pdfErr?.message || "error"}\nDownload button se dubara try karein.`,
+        );
+      }
       setQuotationForm(null);
       window.alert(
         quotationForm.isRegenerate
-          ? `Quotation re-generate ho gayi — number same: ${result.quotationNo}`
-          : `Quotation ${result.quotationNo} generate ho gayi (folder + download).`,
+          ? `Quotation re-generate ho gayi — number same: ${result.quotationNo}\nPDF download ho rahi hai.`
+          : `Quotation ${result.quotationNo} generate ho gayi (folder + PDF download).`,
       );
     } catch (err) {
       window.alert(err?.message || "Quotation generate fail hua.");
@@ -482,13 +491,17 @@ function CaseSheetTable({
     }
   };
 
-  const downloadRowQuotation = (row) => {
+  const downloadRowQuotation = async (row) => {
     const doc = findLoanQuotationDocument(row.consumerNo, row.quotationNo);
     if (!doc) {
       window.alert("Quotation file folder me nahi mili. Dubara Generate karein.");
       return;
     }
-    downloadLoanQuotationDoc(doc);
+    try {
+      await downloadLoanQuotationDoc(doc);
+    } catch (err) {
+      window.alert(err?.message || "Quotation PDF download fail.");
+    }
   };
 
   const openGenerateFilesForm = (row) => {

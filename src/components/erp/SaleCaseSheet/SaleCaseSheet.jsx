@@ -74,6 +74,7 @@ import {
 } from "../../../utils/erpAccess";
 import {
   downloadInvoiceDoc,
+  downloadInvoicePdfFromInvoice,
   findEwayDocument,
   findInvoiceDocument,
   openHtmlDocument,
@@ -102,6 +103,7 @@ import {
 } from "../../../utils/siteOrderStorage";
 import { openWhatsAppSiteOrder, buildSiteOrderFormUrl } from "../../../utils/siteOrderWhatsApp";
 import { billBomFromSaleRow } from "../../../utils/bomBillFromSale";
+import { saveBomSheetDocumentToFolder } from "../../../utils/bomSheetDocuments";
 import {
   getPublicAppBaseUrl,
   getSavedPublicAppBaseUrl,
@@ -488,17 +490,11 @@ function SaleCaseSheet() {
       window.alert("Pehle Consumer No. bharein, phir Team Work select karein.");
       return;
     }
-    if (!getSaleTeamLeaderConfig(teamWork)?.mobile) {
-      window.alert("Is team ka leader mobile Labour Details me set karein.");
-      return;
-    }
-    if (
-      createdOrder &&
-      window.confirm(
-        `Team "${teamWork}" set.\n\nOffice WhatsApp se *${createdOrder.teamLeaderName}* (${teamWork}) ko site form bhejein?\n\nConsumer: ${row.customerName || "—"} (${row.consumerNo})`,
-      )
-    ) {
-      void openWhatsAppSiteOrder(createdOrder, { skipConfirm: true });
+    /* WhatsApp site form optional — sirf button se bhejein, auto prompt nahi */
+    if (createdOrder && !getSaleTeamLeaderConfig(teamWork)?.mobile) {
+      window.alert(
+        "Team set. Leader mobile Labour Details me nahi mila — WhatsApp optional; baad me set karke bhej sakte ho.",
+      );
     }
   };
 
@@ -560,12 +556,21 @@ function SaleCaseSheet() {
       window.alert(result.message || "Bill BOM fail.");
       return;
     }
+    void saveBomSheetDocumentToFolder(row.consumerNo)
+      .then((folder) => {
+        setDocRefresh((n) => n + 1);
+        if (!folder?.ok) {
+          console.warn("[Bill BOM folder]", folder?.message);
+        }
+      })
+      .catch((err) => console.warn("[Bill BOM folder]", err?.message || err));
     setRows(reloadSaleRowsFromStorage());
     setDocRefresh((n) => n + 1);
     const bits = [];
     if (result.issuedLines) bits.push(`Stock: ${result.issuedLines} line(s) kam`);
     if (result.stockMessage) bits.push(result.stockMessage);
     bits.push(`Total Kharch: ₹${Number(result.totalKharch || 0).toLocaleString("en-IN")}`);
+    bits.push("BOM PDF/JPG customer folder me auto-save.");
     window.alert(`BOM OK / Bill ho gaya.\n\n${bits.join("\n")}`);
   };
 
@@ -751,8 +756,13 @@ function SaleCaseSheet() {
           ...inv,
           ewayBillNo: inv.ewayBillNo || row.ewayBillNo || "",
         });
-      } catch {
-        /* ignore — fall through to existing file */
+        await downloadInvoicePdfFromInvoice({
+          ...inv,
+          ewayBillNo: inv.ewayBillNo || row.ewayBillNo || "",
+        });
+        return;
+      } catch (err) {
+        console.warn(err);
       }
     }
     const doc = findInvoiceDocument(
@@ -764,7 +774,11 @@ function SaleCaseSheet() {
       window.alert("Invoice file folder me nahi mili. Open folder check karein.");
       return;
     }
-    downloadInvoiceDoc(doc);
+    try {
+      await downloadInvoiceDoc(doc);
+    } catch (err) {
+      window.alert(err?.message || "Invoice PDF download fail.");
+    }
   };
 
   const downloadNetMeterInvoice = async (row) => {
@@ -776,8 +790,13 @@ function SaleCaseSheet() {
           ...inv,
           ewayBillNo: inv.ewayBillNo || row.netMeterEwayBillNo || "",
         });
-      } catch {
-        /* ignore */
+        await downloadInvoicePdfFromInvoice({
+          ...inv,
+          ewayBillNo: inv.ewayBillNo || row.netMeterEwayBillNo || "",
+        });
+        return;
+      } catch (err) {
+        console.warn(err);
       }
     }
     const doc = findInvoiceDocument(row.consumerNo, row.netMeterInvoiceNo, "net-meter");
@@ -785,17 +804,25 @@ function SaleCaseSheet() {
       window.alert("Net Meter Invoice file folder me nahi mili.");
       return;
     }
-    downloadInvoiceDoc(doc);
+    try {
+      await downloadInvoiceDoc(doc);
+    } catch (err) {
+      window.alert(err?.message || "Net Meter Invoice PDF download fail.");
+    }
   };
 
-  const downloadRowEway = (row, kind = "sale") => {
+  const downloadRowEway = async (row, kind = "sale") => {
     const ewayNo = kind === "net-meter" ? row.netMeterEwayBillNo : row.ewayBillNo;
     const doc = findEwayDocument(row.consumerNo, ewayNo);
     if (!doc) {
       window.alert("E-Way Bill file folder me nahi mili.");
       return;
     }
-    downloadInvoiceDoc(doc);
+    try {
+      await downloadInvoiceDoc(doc);
+    } catch (err) {
+      window.alert(err?.message || "E-Way Bill PDF download fail.");
+    }
   };
 
   const deleteRowInvoice = (row) => {
@@ -924,6 +951,11 @@ function SaleCaseSheet() {
       }
 
       await saveInvoiceDocumentToFolder(invoice);
+      try {
+        await downloadInvoicePdfFromInvoice(invoice);
+      } catch (pdfErr) {
+        console.warn("[Invoice PDF]", pdfErr);
+      }
 
       addCustomerPayment({
         sourceRef: `sale-${invoice.id}`,
@@ -1075,6 +1107,11 @@ function SaleCaseSheet() {
       });
 
       await saveInvoiceDocumentToFolder(invoice);
+      try {
+        await downloadInvoicePdfFromInvoice(invoice);
+      } catch (pdfErr) {
+        console.warn("[Net Meter Invoice PDF]", pdfErr);
+      }
 
       addCustomerPayment({
         sourceRef: `sale-nm-${invoice.id}`,
@@ -1318,7 +1355,7 @@ function SaleCaseSheet() {
           <p>
             {saleRefFilter
               ? `Sirf Reference "${saleRefFilter}" wale customers dikhenge (Loan/Cash Reference).`
-              : "Team Work select → Office WhatsApp se team leader ko site form jayega. Form submit ke baad stock / BOM / Setup Detail update."}
+              : "Team Work optional. WhatsApp Site Form bhi optional — button se bhejein. Form pe Panel/Inverter/AC-DC/Wire stock se select — submit ke baad stock / BOM update."}
           </p>
         </div>
         <div className={styles.toolbarActions}>
@@ -1512,7 +1549,7 @@ function SaleCaseSheet() {
                         className={styles.waBtn}
                         onClick={() => sendSiteFormWhatsApp(row)}
                       >
-                        WhatsApp Team Leader
+                        WhatsApp Team Leader (optional)
                       </button>
                       {row.siteOrderId ? (
                         <a
@@ -1526,10 +1563,12 @@ function SaleCaseSheet() {
                       ) : null}
                       {row.siteOrderStatus === "submitted" ? (
                         <span className={styles.siteDone}>Stock updated</span>
-                      ) : null}
+                      ) : (
+                        <span className={styles.siteFormMuted}>Optional — zarurat pe bhejein</span>
+                      )}
                     </div>
                   ) : (
-                    <span className={styles.siteFormMuted}>Optional</span>
+                    <span className={styles.siteFormMuted}>Team / form optional</span>
                   )}
                 </td>
                 <td>

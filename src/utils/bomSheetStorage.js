@@ -9,8 +9,12 @@ const ITEM_DEFS = [
   { key: "panel", itemName: "Solar Panel", materialKey: "panelDetail" },
   { key: "inverter", itemName: "Inverter", materialKey: "inverterDetail" },
   { key: "inverterSerial", itemName: "Inverter Serial", materialKey: "inverterSerial" },
+  { key: "acBox", itemName: "AC Box", materialKey: "acBoxDetail" },
+  { key: "dcBox", itemName: "DC Box", materialKey: "dcBoxDetail" },
   { key: "copperWire", itemName: "Copper Wire", materialKey: "copperWire" },
   { key: "mainWire", itemName: "Main Wire", materialKey: "mainWire" },
+  { key: "la", itemName: "LA", materialKey: "laDetail" },
+  { key: "earthing", itemName: "Earthing", materialKey: "earthingDetail" },
   { key: "stand", itemName: "Structure Stand", materialKey: "stand" },
 ];
 
@@ -44,7 +48,10 @@ function safeParse(raw, fallback) {
 }
 
 function parseQtyUnit(detail) {
-  const text = String(detail || "");
+  const text = String(detail || "").trim();
+  if (!text || text === "—" || text === "-") {
+    return { qty: 0, unit: "NOS" };
+  }
   const nosMatch = text.match(/×\s*([\d.]+)\s*Nos/i) || text.match(/([\d.]+)\s*Nos/i);
   if (nosMatch) {
     return { qty: Number(nosMatch[1]) || 1, unit: "NOS" };
@@ -299,15 +306,24 @@ export function materialsFromSiteOrderForm(order, form) {
   const dcMtr = Number(form?.dcWireMtr) || 0;
   const copperMtr = Number(form?.copperWireMtr) || 0;
   const mainMtr = Number(form?.mainWireMtr) || 0;
+  const dcWireLabel = String(form?.dcWireName || "DC Wire").trim() || "DC Wire";
+  const copperLabel = String(form?.copperWireName || "Copper Wire").trim() || "Copper Wire";
+  const mainLabel = String(form?.mainWireName || "Main Wire").trim() || "Main Wire";
 
   let copperWire = "—";
   let mainWire = "—";
-  if (copperMtr > 0) copperWire = `Copper Wire — ${copperMtr} m`;
-  if (mainMtr > 0) mainWire = `Main Wire — ${mainMtr} m`;
-  if (dcMtr > 0 && copperWire === "—") {
-    copperWire = `DC Wire — ${dcMtr} m`;
-  } else if (dcMtr > 0) {
-    copperWire = `${copperWire}; DC Wire — ${dcMtr} m`;
+  if (copperMtr > 0 && form?.copperWireName) {
+    copperWire = `${copperLabel} — ${copperMtr} m`;
+  }
+  if (mainMtr > 0 && form?.mainWireName) {
+    mainWire = `${mainLabel} — ${mainMtr} m`;
+  }
+  if (dcMtr > 0 && form?.dcWireName) {
+    if (copperWire === "—") {
+      copperWire = `${dcWireLabel} — ${dcMtr} m`;
+    } else {
+      copperWire = `${copperWire}; ${dcWireLabel} — ${dcMtr} m`;
+    }
   }
 
   /* Legacy wireLines */
@@ -332,19 +348,48 @@ export function materialsFromSiteOrderForm(order, form) {
   ).trim();
   const stand = standDetailFromForm(form, order);
 
+  const acName = String(form?.acBoxName || "").trim();
+  const acQty = Number(form?.acBoxQty) || 0;
+  const acBoxDetail =
+    acName && acQty > 0 ? `${acName} × ${acQty} Nos` : "—";
+
+  const dcName = String(form?.dcBoxName || "").trim();
+  const dcQty = Number(form?.dcBoxQty) || 0;
+  const dcBoxDetail =
+    dcName && dcQty > 0 ? `${dcName} × ${dcQty} Nos` : "—";
+
+  const laName = String(form?.laName || "").trim();
+  const laQty = Number(form?.laQty) || 0;
+  const laDetail = laName && laQty > 0 ? `${laName} × ${laQty} Nos` : "—";
+
+  const earthingName = String(form?.earthingName || "").trim();
+  const earthingQty = Number(form?.earthingRodQty) || 0;
+  const earthingDetail =
+    earthingName && earthingQty > 0
+      ? `${earthingName} × ${earthingQty} Nos`
+      : "—";
+
   return {
     labourDate: order?.siteDate || todayLabourDate(),
     panelDetail,
     inverterDetail,
     inverterSerial,
+    acBoxDetail,
+    dcBoxDetail,
     copperWire,
     mainWire,
+    laDetail,
+    earthingDetail,
     stand,
     standPaymentType,
     dcWireMtr: form?.dcWireMtr || "",
+    acBoxName: acName,
     acBoxQty: form?.acBoxQty || "",
+    dcBoxName: dcName,
     dcBoxQty: form?.dcBoxQty || "",
+    laName,
     laQty: form?.laQty || "",
+    earthingName,
     earthingRodQty: form?.earthingRodQty || "",
   };
 }
