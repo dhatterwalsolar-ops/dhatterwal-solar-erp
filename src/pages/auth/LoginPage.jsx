@@ -86,9 +86,10 @@ function LoginPage() {
       });
       navigate(ROUTES.DASHBOARD, { replace: true });
     } catch (err) {
+      const msg = String(err?.message || "");
       setError(
-        err?.message ||
-          "Login fail. Pehle shared ERP API chalao: npm run server",
+        msg ||
+          "Login fail. Pehle shared ERP API chalao: npm run server (ya Render pe API Resume).",
       );
     } finally {
       setBusy(false);

@@ -120,8 +120,32 @@ async function apiFetch(path, options = {}) {
   };
   const token = getApiToken();
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${base}${path}`, { ...options, headers });
-  const data = await res.json().catch(() => ({}));
+
+  let res;
+  try {
+    res = await fetch(`${base}${path}`, { ...options, headers });
+  } catch {
+    throw new Error(
+      "Server connect nahi ho raha. Internet check karein ya Render API resume karein.",
+    );
+  }
+
+  const text = await res.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    const lower = String(text || "").toLowerCase();
+    if (lower.includes("suspended") || res.status === 503) {
+      throw new Error(
+        "ERP API (Render) suspended hai — Render dashboard se service Resume karein, phir login try karein.",
+      );
+    }
+    throw new Error(
+      `API response invalid (${res.status}). Server restart / Render status check karein.`,
+    );
+  }
+
   if (!res.ok) {
     throw new Error(data.error || `API error ${res.status}`);
   }
