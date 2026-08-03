@@ -1,4 +1,3 @@
-import { DEFAULT_PRODUCT_ITEMS } from "../constants/productSheet";
 import { loadProducts } from "./productStorage";
 import { listStockSheetRows } from "./stockStorage";
 
@@ -25,7 +24,6 @@ function matchCategory(rowCat, want) {
   return false;
 }
 
-/** Category blank / galat ho to item name se andaza. */
 function inferCategoryFromName(name) {
   const n = String(name || "").toUpperCase();
   if (!n) return "";
@@ -71,26 +69,29 @@ function isEarthingProduct(name) {
   return /earth/i.test(String(name || ""));
 }
 
-function defaultNames(category, nameFilter) {
-  return DEFAULT_PRODUCT_ITEMS.filter((p) => productMatchesCategory(p, category))
-    .map((p) => String(p.itemName || "").trim())
-    .filter((name) => (nameFilter ? nameFilter(name) : Boolean(name)));
-}
-
 /**
- * Site form dropdowns — Product Sheet (primary) + Stock + defaults.
- * Team Leader phone pe bhi packed URL / defaults se options milte hain.
+ * Site BOM form dropdowns.
+ * Panel / Inverter / Wire — sirf Stock Sheet (balance > 0).
+ * AC/DC/LA/Earthing — Product Sheet + stock.
  */
 export function buildSiteStockCatalog() {
   const stockRows = listStockSheetRows();
   const products = loadProducts().filter((p) => p.status !== "Inactive");
 
-  const stockNames = (category, { allowZero = true, nameFilter } = {}) => {
+  const stockNames = (category, { allowZero = false, nameFilter } = {}) => {
     const list = stockRows
-      .filter((r) => matchCategory(r.category, category) || matchCategory(inferCategoryFromName(r.itemName), category))
+      .filter(
+        (r) =>
+          matchCategory(r.category, category) ||
+          matchCategory(inferCategoryFromName(r.itemName), category),
+      )
       .filter((r) => (allowZero ? true : Number(r.balance) > 0))
       .map((r) => String(r.itemName || "").trim())
-      .filter((name) => (nameFilter ? nameFilter(name) : true));
+      .filter((name) => (nameFilter ? nameFilter(name) : Boolean(name)));
+    /* Balance wale khali — zero balance stock names fallback (phir bhi stock sheet se) */
+    if (!list.length && !allowZero) {
+      return stockNames(category, { allowZero: true, nameFilter });
+    }
     return list;
   };
 
@@ -100,46 +101,37 @@ export function buildSiteStockCatalog() {
       .map((p) => String(p.itemName || "").trim())
       .filter((name) => (nameFilter ? nameFilter(name) : Boolean(name)));
 
-  /** Product Sheet → defaults → stock (zero balance bhi) */
-  const merge = (category, nameFilter) =>
+  /** Stock only — Product Sheet / defaults nahi */
+  const stockOnly = (category) =>
+    uniqueNames(stockNames(category, { allowZero: false })).map((itemName) => ({
+      itemName,
+      category,
+    }));
+
+  /** Product + stock (AC/DC/LA) */
+  const productAndStock = (category) =>
     uniqueNames([
-      ...productNames(category, nameFilter),
-      ...defaultNames(category, nameFilter),
-      ...stockNames(category, { allowZero: true, nameFilter }),
-    ]);
+      ...productNames(category),
+      ...stockNames(category, { allowZero: true }),
+    ]).map((itemName) => ({ itemName, category }));
 
   const laFromGeneral = uniqueNames([
     ...productNames("GENERAL", isLaProduct),
-    ...defaultNames("GENERAL", isLaProduct),
-    ...stockNames("GENERAL", { nameFilter: isLaProduct }),
-    ...products
-      .map((p) => String(p.itemName || "").trim())
-      .filter(isLaProduct),
+    ...stockNames("GENERAL", { allowZero: true, nameFilter: isLaProduct }),
+    ...products.map((p) => String(p.itemName || "").trim()).filter(isLaProduct),
   ]);
   const earthingFromGeneral = uniqueNames([
     ...productNames("GENERAL", isEarthingProduct),
-    ...defaultNames("GENERAL", isEarthingProduct),
-    ...stockNames("GENERAL", { nameFilter: isEarthingProduct }),
-    ...products
-      .map((p) => String(p.itemName || "").trim())
-      .filter(isEarthingProduct),
+    ...stockNames("GENERAL", { allowZero: true, nameFilter: isEarthingProduct }),
+    ...products.map((p) => String(p.itemName || "").trim()).filter(isEarthingProduct),
   ]);
 
   return {
-    panels: merge("PANEL").map((itemName) => ({ itemName, category: "PANEL" })),
-    inverters: merge("INVERTER").map((itemName) => ({
-      itemName,
-      category: "INVERTER",
-    })),
-    acBoxes: merge("AC BOX").map((itemName) => ({
-      itemName,
-      category: "AC BOX",
-    })),
-    dcBoxes: merge("DC BOX").map((itemName) => ({
-      itemName,
-      category: "DC BOX",
-    })),
-    wires: merge("WIRE").map((itemName) => ({ itemName, category: "WIRE" })),
+    panels: stockOnly("PANEL"),
+    inverters: stockOnly("INVERTER"),
+    wires: stockOnly("WIRE"),
+    acBoxes: productAndStock("AC BOX"),
+    dcBoxes: productAndStock("DC BOX"),
     laItems: laFromGeneral.map((itemName) => ({
       itemName,
       category: "GENERAL",
@@ -155,7 +147,6 @@ export function stockCatalogNames(list) {
   return (list || []).map((r) => (typeof r === "string" ? r : r.itemName)).filter(Boolean);
 }
 
-/** Compact names map for WhatsApp URL / form merge. */
 export function buildSiteCatalogNameMap() {
   const cat = buildSiteStockCatalog();
   return {

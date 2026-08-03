@@ -48,43 +48,98 @@ function findSiteOrderForConsumer(consumerNo) {
   );
 }
 
-/** Team Leader form product names first, then BOM Sheet. */
+/** "LUMINOUS DCR PANEL" / "LUMINOUS 03 KW ONGRID × 1" → LUMINOUS */
+export function extractBrandFirstName(itemName) {
+  const raw = String(itemName || "")
+    .replace(/×.*$/i, "")
+    .replace(/—.*$/i, "")
+    .trim();
+  if (!raw) return "";
+  const first = raw.split(/\s+/).find((w) => w && !/^\d+$/.test(w)) || "";
+  return first.toUpperCase();
+}
+
+/** Setup KW normalize → "02 KW" / "03 KW" / "05 KW" */
+export function formatSetupKwLabel(setupKw) {
+  const s = String(setupKw || "").replace(/\s/g, "").toUpperCase();
+  if (s.includes("05")) return "05 KW";
+  if (s.includes("03")) return "03 KW";
+  if (s.includes("02")) return "02 KW";
+  const t = String(setupKw || "").trim();
+  return t || "—";
+}
+
+/**
+ * Certificate names:
+ * Module = panel ka first name (LUMINOUS DCR PANEL → LUMINOUS)
+ * Inverter = brand + Setup KW (LUMINOUS 03 KW ONGRID + setup 05 KW → LUMINOUS 05 KW)
+ */
+export function formatCertificateProductNames({ panelRaw, inverterRaw, setupKw }) {
+  const kw = formatSetupKwLabel(setupKw);
+  const panelBrand = extractBrandFirstName(panelRaw) || "—";
+  const inverterBrand = extractBrandFirstName(inverterRaw) || panelBrand;
+  const inverterName =
+    inverterBrand && inverterBrand !== "—"
+      ? `${inverterBrand} ${kw === "—" ? "" : kw}`.trim()
+      : kw;
+  return {
+    panelName: panelBrand,
+    inverterName,
+    setupKw: kw,
+  };
+}
+
+/** Team Leader form product names first, then BOM Sheet — certificate format applied. */
 export function resolveCaseFileProducts(consumerNo, setupKw) {
   const bom = getBomMaterialsForConsumer(consumerNo) || {};
   const site = findSiteOrderForConsumer(consumerNo);
   const payload = site?.formPayload || {};
 
-  const panelName =
-    String(payload.panelProductName || bom.panelDetail || "Solar Panel").trim() ||
-    "Solar Panel";
-  const inverterName =
-    String(payload.inverterName || bom.inverterDetail || "Inverter").trim() || "Inverter";
+  const panelRaw = String(
+    payload.panelName || payload.panelProductName || bom.panelDetail || "",
+  ).trim();
+  const inverterRaw = String(
+    payload.inverterName || bom.inverterDetail || "",
+  ).trim();
+  const formatted = formatCertificateProductNames({
+    panelRaw,
+    inverterRaw,
+    setupKw: setupKw || site?.setupKw || "",
+  });
+
   const inverterSerial = String(
     payload.inverterSerial || bom.inverterSerial || "",
   ).trim();
   const dcWire =
+    String(payload.dcWireName || "").trim() ||
     payload.wireLines?.find((w) => /dc/i.test(String(w?.itemName || "")))?.itemName ||
     bom.copperWire ||
     "—";
   const acWire =
+    String(payload.mainWireName || "").trim() ||
     payload.wireLines?.find((w) => /ac|main/i.test(String(w?.itemName || "")))?.itemName ||
     bom.mainWire ||
     "—";
 
   const moduleCount =
-    Array.isArray(payload.panelSerials) && payload.panelSerials.filter(Boolean).length
-      ? payload.panelSerials.filter(Boolean).length
-      : "";
+    Number(payload.panelQty) > 0
+      ? String(payload.panelQty)
+      : Array.isArray(payload.panelSerials) &&
+          payload.panelSerials.filter(Boolean).length
+        ? String(payload.panelSerials.filter(Boolean).length)
+        : "";
 
   return {
-    panelName,
-    inverterName,
+    panelName: formatted.panelName,
+    inverterName: formatted.inverterName,
     inverterSerial,
     dcWire,
     acWire,
     moduleCount: moduleCount || "—",
-    setupKw: setupKw || "",
-    source: payload.panelProductName || payload.inverterName ? "team-leader" : "bom",
+    setupKw: formatted.setupKw,
+    panelRaw,
+    inverterRaw,
+    source: payload.panelName || payload.inverterName ? "team-leader" : "bom",
     siteOrderId: site?.id || null,
   };
 }
@@ -428,7 +483,21 @@ export function buildGenerateCaseContext(row, { discom, subdivision }) {
   };
 }
 
+const FILE_BUILDERS = {
+  wcr: buildWorkCompletionPdf,
+  vendorCert: buildVendorCompletionPdf,
+  safety: buildSafetyPdf,
+};
+
 export function generateAllCaseFiles(row, options) {
+  return generateSelectedCaseFiles(row, options, ["wcr", "vendorCert", "safety"]);
+}
+
+/**
+ * Selected certificates only (Sale Sheet: Safety + Work Completion).
+ * @param {string[]} keys — "wcr" | "safety" | "vendorCert"
+ */
+export function generateSelectedCaseFiles(row, options, keys = []) {
   const ctx = buildGenerateCaseContext(row, options);
   if (!ctx.consumerNo) throw new Error("Consumer No. zaroori hai.");
   if (!ctx.partyName) throw new Error("Customer Name zaroori hai.");
@@ -439,14 +508,15 @@ export function generateAllCaseFiles(row, options) {
     throw new Error("Discom select karein (UHBVN / DHBVN).");
   }
 
-  const builders = {
-    wcr: buildWorkCompletionPdf,
-    vendorCert: buildVendorCompletionPdf,
-    safety: buildSafetyPdf,
-  };
+  const want = new Set((keys || []).filter(Boolean));
+  if (!want.size) {
+    throw new Error("Kam se kam 1 certificate select karein.");
+  }
 
-  const files = GENERATE_FILE_TABS.filter((t) => t.key).map((tab) => {
-    const pdfDoc = builders[tab.key](ctx);
+  const files = GENERATE_FILE_TABS.filter((t) => t.key && want.has(t.key)).map((tab) => {
+    const builder = FILE_BUILDERS[tab.key];
+    if (!builder) throw new Error(`Unknown file type: ${tab.key}`);
+    const pdfDoc = builder(ctx);
     const file = pdfToFile(pdfDoc, tab.filePrefix, ctx.consumerNo);
     return { ...file, tabId: tab.id, category: tab.category, label: tab.label };
   });
@@ -469,16 +539,13 @@ export async function saveCaseFilesToFolder(result, source = "loan") {
   if (!result?.ctx?.consumerNo || !result?.files?.length) return [];
   const consumerNo = result.ctx.consumerNo;
   const subfolder = "GenerateFiles";
+  const categories = result.files.map((f) => f.category);
 
   const existing = listCustomerDocuments(consumerNo, { source: "loan" })
     .concat(listCustomerDocuments(consumerNo, { source: "cash" }))
     .concat(listCustomerDocuments(consumerNo, { source: "sale" }));
   existing
-    .filter((d) =>
-      ["work-completion-report", "work-complete-by-vendor", "safety-dhatterwal"].includes(
-        d.category,
-      ),
-    )
+    .filter((d) => categories.includes(d.category))
     .forEach((d) => removeCustomerDocument(d.id));
 
   const saved = [];

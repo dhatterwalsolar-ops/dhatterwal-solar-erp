@@ -46,7 +46,7 @@ function PublicQueryPage() {
     setError("");
     setBusy(true);
     try {
-      const base = getApiBase();
+      const base = getApiBase() || "https://dhatterwal-solar-erp.onrender.com";
       if (!base) {
         throw new Error("Server URL missing. Baad me try karein ya office ko call karein.");
       }

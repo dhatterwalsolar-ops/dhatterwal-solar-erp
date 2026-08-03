@@ -42,6 +42,9 @@ export function normalizeQuery(row = {}) {
     detail: String(row.detail || "").trim(),
     status: resolved ? QUERY_STATUS.RESOLVED : QUERY_STATUS.PENDING,
     source: row.source === "public" ? "public" : "erp",
+    kind: String(row.kind || "").trim().toLowerCase() === "consultation"
+      ? "consultation"
+      : "query",
     createdBy: String(row.createdBy || "").trim(),
     createdAt: row.createdAt || new Date().toISOString(),
     assignedTeamWork: String(row.assignedTeamWork || "").trim(),

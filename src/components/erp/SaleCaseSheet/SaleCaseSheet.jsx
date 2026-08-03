@@ -34,7 +34,16 @@ import {
 } from "../../../utils/saleCaseSync";
 import { LOAN_CASE_SYNC_EVENT } from "../../../utils/loanCaseStorage";
 import { CASH_CASE_SYNC_EVENT } from "../../../utils/cashCaseStorage";
-import { generateCompleteFilePackage } from "../../../utils/completeFileGenerator";
+import {
+  GENERATE_FILE_DISCOMS,
+  GENERATE_FILE_SUBDIVISIONS,
+} from "../../../constants/generateCaseFiles";
+import {
+  downloadCaseFile,
+  generateSelectedCaseFiles,
+  resolveCaseFileProducts,
+  saveCaseFilesToFolder,
+} from "../../../utils/generateCaseFiles";
 import {
   customerFolderPath,
   getCustomerDocumentCountMap,
@@ -246,7 +255,8 @@ function SaleCaseSheet() {
   const [ewayDistance, setEwayDistance] = useState("");
   const [ewayBusy, setEwayBusy] = useState(false);
   const [ewayResult, setEwayResult] = useState(null);
-  const [completeRow, setCompleteRow] = useState(null);
+  const [filesForm, setFilesForm] = useState(null);
+  const [filesBusy, setFilesBusy] = useState(false);
   const [folderRow, setFolderRow] = useState(null);
   const [docRefresh, setDocRefresh] = useState(0);
   const [lanUrlDraft, setLanUrlDraft] = useState(() => getSavedPublicAppBaseUrl());
@@ -379,11 +389,12 @@ function SaleCaseSheet() {
   }, []);
 
   const closeSaleModals = () => {
+    if (filesBusy) return;
     setInvoiceRow(null);
     setNetMeterRow(null);
     setEwayContext(null);
     setEwayResult(null);
-    setCompleteRow(null);
+    setFilesForm(null);
     setFolderRow(null);
   };
 
@@ -632,7 +643,85 @@ function SaleCaseSheet() {
 
   const openCompleteModal = (row) => {
     if (!requireConsumerRow(row)) return;
-    setCompleteRow(row);
+    const products = resolveCaseFileProducts(row.consumerNo, row.setupKw);
+    setFilesForm({
+      row,
+      discom: row.discom || "UHBVN",
+      subdivision: row.subdivision || "",
+      wantSafety: true,
+      wantWorkCompletion: true,
+      products,
+    });
+  };
+
+  const patchFilesForm = (key, value) => {
+    setFilesForm((prev) => (prev ? { ...prev, [key]: value } : prev));
+  };
+
+  const runSaleGenerateFiles = async () => {
+    if (!filesForm?.row) return;
+    const keys = [];
+    if (filesForm.wantSafety) keys.push("safety");
+    if (filesForm.wantWorkCompletion) keys.push("wcr");
+    if (!keys.length) {
+      window.alert("Safety Certificate ya Work Completion — kam se kam 1 select karein.");
+      return;
+    }
+    const discom = String(filesForm.discom || "").trim();
+    const subdivision = String(filesForm.subdivision || "").trim();
+    if (!discom) {
+      window.alert("Discom select karein (UHBVN / DHBVN).");
+      return;
+    }
+    if (!subdivision) {
+      window.alert("Sub Division Name bharna zaroori hai.");
+      return;
+    }
+
+    setFilesBusy(true);
+    try {
+      const result = generateSelectedCaseFiles(
+        filesForm.row,
+        { discom, subdivision },
+        keys,
+      );
+      await saveCaseFilesToFolder(result, "sale");
+      setRows((prev) =>
+        prev.map((r) => {
+          if (
+            String(r.consumerNo || "")
+              .trim()
+              .toUpperCase() !==
+            String(filesForm.row.consumerNo || "")
+              .trim()
+              .toUpperCase()
+          ) {
+            return r;
+          }
+          return {
+            ...r,
+            discom,
+            subdivision,
+            generateFilesReady: true,
+            generateFilesAt: new Date().toLocaleString("en-IN"),
+          };
+        }),
+      );
+      setDocRefresh((n) => n + 1);
+      result.files.forEach((f) => downloadCaseFile(f));
+      setFilesForm(null);
+      window.alert(
+        `${result.files.length} PDF generate ho gayi.\n` +
+          `Setup: ${result.ctx.products.setupKw}\n` +
+          `Module: ${result.ctx.products.panelName}\n` +
+          `Inverter: ${result.ctx.products.inverterName}\n` +
+          `Discom: ${discom} / ${subdivision}`,
+      );
+    } catch (err) {
+      window.alert(err?.message || "Generate Files fail.");
+    } finally {
+      setFilesBusy(false);
+    }
   };
 
   const openFolderModal = (row) => {
@@ -1290,31 +1379,6 @@ function SaleCaseSheet() {
     }
   };
 
-  const runCompleteFile = async () => {
-    if (!completeRow) return;
-    const bom = getBomMaterialsForConsumer(completeRow.consumerNo);
-    try {
-      const { packageFolder, included } = await generateCompleteFilePackage({
-        customer: {
-          consumerNo: completeRow.consumerNo,
-          customerName: completeRow.customerName,
-          fatherName: completeRow.fatherName,
-          address: completeRow.address,
-        },
-        bom,
-        setupKw: completeRow.setupKw,
-        date: completeRow.date || new Date().toLocaleDateString("en-GB"),
-      });
-      setDocRefresh((n) => n + 1);
-      window.alert(
-        `Complete file package created (${included.length} items).\nSaved under:\n${packageFolder}\n\nManifest downloaded to your PC.`,
-      );
-      setCompleteRow(null);
-    } catch (err) {
-      window.alert(err.message || "Could not generate complete file.");
-    }
-  };
-
   const folderDocs = useMemo(() => {
     void docRefresh;
     if (!folderRow?.consumerNo) return [];
@@ -1355,7 +1419,7 @@ function SaleCaseSheet() {
           <p>
             {saleRefFilter
               ? `Sirf Reference "${saleRefFilter}" wale customers dikhenge (Loan/Cash Reference).`
-              : "Team Work optional. WhatsApp Site Form bhi optional — button se bhejein. Form pe Panel/Inverter/AC-DC/Wire stock se select — submit ke baad stock / BOM update."}
+              : "BOM / Site Form optional. WhatsApp sirf zarurat pe. Form pe Panel + Inverter stock se select; Inverter Sr. No. manual; Wire optional (name select + meter)."}
           </p>
         </div>
         <div className={styles.toolbarActions}>
@@ -1428,7 +1492,7 @@ function SaleCaseSheet() {
               <th>WhatsApp Site Form</th>
               <th>Setup Detail (from BOM)</th>
               <th>8. Generate Invoice</th>
-              <th>9. Generate Complete File</th>
+              <th>9. Generate Files</th>
               <th>Customer Folder</th>
               <th>Delete</th>
             </tr>
@@ -1846,8 +1910,9 @@ function SaleCaseSheet() {
                       type="button"
                       className={`${styles.actionBtn} ${styles.actionBtnGold}`}
                       onClick={() => openCompleteModal(row)}
+                      title="Safety Certificate + Work Completion"
                     >
-                      Generate Complete File
+                      Generate Files
                     </button>
                   ) : (
                     <span className={styles.siteFormMuted}>—</span>
@@ -2317,7 +2382,7 @@ function SaleCaseSheet() {
         </div>
       )}
 
-      {completeRow && (
+      {filesForm?.row && (
         <div
           className={styles.modalBackdrop}
           role="presentation"
@@ -2329,29 +2394,89 @@ function SaleCaseSheet() {
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2>Generate Complete File</h2>
+            <h2>Generate Files</h2>
             <p>
-              <strong>{completeRow.consumerNo}</strong> — {completeRow.customerName} (
-              {completeRow.setupKw})
+              <strong>{filesForm.row.consumerNo}</strong> — {filesForm.row.customerName} (
+              {filesForm.products?.setupKw || filesForm.row.setupKw || "—"})
             </p>
+            <p className={styles.modalHintSmall}>
+              Module name = panel ka first name (jaise LUMINOUS DCR PANEL → LUMINOUS). Inverter =
+              brand + Setup KW (jaise LUMINOUS 03 KW ONGRID → LUMINOUS {filesForm.products?.setupKw || "KW"}).
+            </p>
+            <div className={styles.modalFormGrid}>
+              <label className={styles.modalLabel}>
+                Discom *
+                <select
+                  value={filesForm.discom}
+                  onChange={(e) => patchFilesForm("discom", e.target.value)}
+                >
+                  {GENERATE_FILE_DISCOMS.map((d) => (
+                    <option key={d.value} value={d.value}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={`${styles.modalLabel} ${styles.modalLabelFull}`}>
+                Sub Division *
+                <input
+                  list="sale-generate-subdivisions"
+                  value={filesForm.subdivision}
+                  onChange={(e) => patchFilesForm("subdivision", e.target.value)}
+                  placeholder="e.g. X55 - KALAYAT"
+                />
+                <datalist id="sale-generate-subdivisions">
+                  {GENERATE_FILE_SUBDIVISIONS.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+              </label>
+            </div>
             <ul className={styles.checklist}>
-              <li>Work OS Safety Certificate (proforma — auto by setup + BOM)</li>
-              <li>Annexure: panel, inverter, wire, stand (from BOM / labour form)</li>
-              <li>All documents uploaded in Loan Case &amp; Cash Case for this consumer</li>
+              <li>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(filesForm.wantSafety)}
+                    onChange={(e) => patchFilesForm("wantSafety", e.target.checked)}
+                  />{" "}
+                  Safety Certificate
+                </label>
+              </li>
+              <li>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(filesForm.wantWorkCompletion)}
+                    onChange={(e) => patchFilesForm("wantWorkCompletion", e.target.checked)}
+                  />{" "}
+                  Work Completion Certificate
+                </label>
+              </li>
             </ul>
             <p className={styles.modalHintSmall}>
-              Files save under: {customerFolderPath(completeRow.consumerNo)}/CompleteFile-…
+              Preview — Module: <strong>{filesForm.products?.panelName || "—"}</strong> · Inverter:{" "}
+              <strong>{filesForm.products?.inverterName || "—"}</strong> · Setup:{" "}
+              <strong>{filesForm.products?.setupKw || "—"}</strong>
+            </p>
+            <p className={styles.modalHintSmall}>
+              PDF download + customer folder: {customerFolderPath(filesForm.row.consumerNo)}
+              /GenerateFiles
             </p>
             <div className={styles.modalActions}>
-              <button type="button" className={styles.btnGold} onClick={runCompleteFile}>
-                Generate &amp; Save to Folder
+              <button
+                type="button"
+                className={styles.btnGold}
+                disabled={filesBusy}
+                onClick={() => void runSaleGenerateFiles()}
+              >
+                {filesBusy ? "Generating…" : "Generate & Download"}
               </button>
               <button
                 type="button"
                 className={styles.btnCancel}
-                onClick={() => {
-                  setCompleteRow(null);
-                }}
+                disabled={filesBusy}
+                onClick={() => setFilesForm(null)}
               >
                 Cancel
               </button>

@@ -344,9 +344,17 @@ app.post("/api/public/query", async (req, res) => {
     const body = req.body || {};
     const customerName = String(body.customerName || "").trim();
     const mobile = String(body.mobile || "").replace(/\D/g, "").slice(-10);
-    const address = String(body.address || "").trim();
+    const kind = String(body.kind || "").trim().toLowerCase();
+    const isConsultation = kind === "consultation";
+    let address = String(body.address || "").trim();
+    if (!address && isConsultation) {
+      address = "Website consultation — address call pe confirm";
+    }
     const queryAbout = String(body.queryAbout || "").trim();
-    const detail = String(body.detail || "").trim();
+    let detail = String(body.detail || "").trim();
+    if (!detail && isConsultation && queryAbout) {
+      detail = `Free consultation from main website.\nRequirement: ${queryAbout}`;
+    }
     const consumerNo = String(body.consumerNo || "").trim();
     let customerPhotoData = String(body.customerPhotoData || "").trim();
     const customerPhotoName = String(body.customerPhotoName || "").trim();
@@ -392,7 +400,8 @@ app.post("/api/public/query", async (req, res) => {
       detail,
       status: "Pending",
       source: "public",
-      createdBy: "Website",
+      createdBy: isConsultation ? "Website Consultation" : "Website",
+      kind: isConsultation ? "consultation" : "query",
       createdAt: now.toISOString(),
       assignedTeamWork: "",
       assignedLeaderName: "",
@@ -419,19 +428,23 @@ app.post("/api/public/query", async (req, res) => {
     let whatsappAlert = { attempted: false };
     try {
       const alertText = [
-        "*Dhatterwal Solar — New Website Query*",
+        isConsultation
+          ? "*Dhatterwal Solar — Website Consultation*"
+          : "*Dhatterwal Solar — New Website Query*",
         "",
         `*Customer:* ${customerName}`,
         `*Mobile:* ${mobile}`,
         `*Address:* ${address}`,
         consumerNo ? `*Consumer No.:* ${consumerNo}` : null,
         "",
-        `*Query about:* ${queryAbout}`,
+        `*${isConsultation ? "Requirement" : "Query about"}:* ${queryAbout}`,
         `*Detail:*`,
         detail,
-        customerPhotoData ? "📷 Customer ne site/inverter photo upload ki — ERP Query Sheet me dekhein." : null,
+        customerPhotoData
+          ? "📷 Customer ne site/inverter photo upload ki — ERP Query Sheet me dekhein."
+          : null,
         "",
-        "ERP → Query Sheet → Team Leader transfer karein.",
+        "ERP → Query Sheet me dikhega — Team Leader transfer karein.",
       ]
         .filter((x) => x !== null)
         .join("\n");

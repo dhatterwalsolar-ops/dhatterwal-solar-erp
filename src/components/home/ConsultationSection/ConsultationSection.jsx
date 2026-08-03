@@ -1,26 +1,82 @@
 import { useState } from "react";
 import { CONTACT } from "../../../constants/contact";
+import { getApiBase } from "../../../utils/erpStorage";
 import styles from "./ConsultationSection.module.css";
+
+const FALLBACK_API = "https://dhatterwal-solar-erp.onrender.com";
 
 const INITIAL_FORM = {
   name: "",
   mobile: "",
   email: "",
+  address: "",
   requirement: "",
 };
 
 function ConsultationSection() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    setSubmitted(true);
+    setError("");
+    setBusy(true);
+    try {
+      const base = getApiBase() || FALLBACK_API;
+      const mobile = String(form.mobile || "").replace(/\D/g, "").slice(-10);
+      const name = String(form.name || "").trim();
+      const requirement = String(form.requirement || "").trim();
+      const email = String(form.email || "").trim();
+      const address =
+        String(form.address || "").trim() ||
+        "Website consultation — address call pe confirm";
+
+      if (!name) throw new Error("Apna naam likhein.");
+      if (mobile.length !== 10) throw new Error("Sahi 10 digit mobile likhein.");
+      if (!requirement) throw new Error("Requirement select karein.");
+
+      const detail = [
+        "Free consultation request from main website.",
+        email ? `Email: ${email}` : null,
+        `Requirement: ${requirement}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const res = await fetch(`${base}/api/public/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: name,
+          mobile,
+          address,
+          consumerNo: "",
+          queryAbout: requirement,
+          detail,
+          kind: "consultation",
+          customerPhotoData: "",
+          customerPhotoName: "",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Submit fail. Dubara try karein.");
+      }
+
+      setSubmitted(true);
+      setForm(INITIAL_FORM);
+    } catch (err) {
+      setError(err?.message || "Submit fail. Internet check karein.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -32,7 +88,8 @@ function ConsultationSection() {
             <form className={styles.form} onSubmit={handleSubmit}>
               {submitted ? (
                 <p className={styles.success} role="status">
-                  Thank you! We will call you on {form.mobile || "your number"} soon.
+                  Thank you! Your request is saved in our office Query Sheet. We will call you
+                  soon.
                 </p>
               ) : (
                 <>
@@ -59,6 +116,13 @@ function ConsultationSection() {
                     onChange={handleChange}
                     placeholder="Email Address"
                   />
+                  <input
+                    type="text"
+                    name="address"
+                    value={form.address}
+                    onChange={handleChange}
+                    placeholder="City / Address (optional)"
+                  />
                   <select
                     name="requirement"
                     value={form.requirement}
@@ -72,8 +136,13 @@ function ConsultationSection() {
                     <option>Net Metering</option>
                     <option>AMC / Service</option>
                   </select>
-                  <button type="submit" className={styles.submitBtn}>
-                    SUBMIT NOW →
+                  {error ? (
+                    <p className={styles.error} role="alert">
+                      {error}
+                    </p>
+                  ) : null}
+                  <button type="submit" className={styles.submitBtn} disabled={busy}>
+                    {busy ? "Submitting…" : "SUBMIT NOW →"}
                   </button>
                 </>
               )}

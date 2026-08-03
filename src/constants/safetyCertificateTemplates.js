@@ -16,12 +16,35 @@ const SETUP_NOTES = {
   "05": "05 kW rooftop solar — multi-string layout; additional fall-protection measures.",
 };
 
+function firstBrand(name) {
+  const raw = String(name || "")
+    .replace(/×.*$/i, "")
+    .replace(/—.*$/i, "")
+    .trim();
+  const first = raw.split(/\s+/).find((w) => w && !/^\d+$/.test(w)) || "";
+  return first.toUpperCase();
+}
+
+function setupKwLabel(setupKw) {
+  const s = String(setupKw || "").replace(/\s/g, "").toUpperCase();
+  if (s.includes("05")) return "05 KW";
+  if (s.includes("03")) return "03 KW";
+  if (s.includes("02")) return "02 KW";
+  return String(setupKw || "").trim() || "—";
+}
+
 export function buildSafetyCertificateHtml({ customer, bom, setupKw, date }) {
   const k = kwKey(setupKw);
   const note = SETUP_NOTES[k] || SETUP_NOTES["02"];
   const labourDate = bom?.labourDate || "—";
-  const panel = bom?.panelDetail || "As per BOM Sheet";
-  const inverter = bom?.inverterDetail || "As per BOM Sheet";
+  const kwLabel = setupKwLabel(setupKw);
+  const panelBrand = firstBrand(bom?.panelDetail) || "—";
+  const invBrand = firstBrand(bom?.inverterDetail) || panelBrand;
+  const panel = panelBrand;
+  const inverter =
+    invBrand && invBrand !== "—"
+      ? `${invBrand} ${kwLabel === "—" ? "" : kwLabel}`.trim()
+      : kwLabel;
   const serial = bom?.inverterSerial || "—";
 
   return `<!DOCTYPE html>
@@ -47,7 +70,7 @@ export function buildSafetyCertificateHtml({ customer, bom, setupKw, date }) {
     <p><strong>Consumer Name:</strong> ${customer?.customerName || "—"}</p>
     <p><strong>Father Name:</strong> ${customer?.fatherName || "—"}</p>
     <p><strong>Address:</strong> ${customer?.address || "—"}</p>
-    <p><strong>Setup:</strong> ${setupKw || "—"}</p>
+    <p><strong>Setup:</strong> ${kwLabel}</p>
     <p><strong>Setup guideline:</strong> ${note}</p>
   </div>
   <table>

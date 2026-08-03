@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
-import { DEFAULT_PRODUCT_ITEMS } from "../../constants/productSheet";
 import { ensureSiteOrderInStorage } from "../../utils/siteOrderStorage";
 import {
   buildSiteCatalogNameMap,
@@ -16,34 +15,7 @@ import styles from "./SiteOrderFormPage.module.css";
 const INVERTER_KW_OPTIONS = ["02 KW", "03 KW", "05 KW"];
 const STAND_OPTIONS = ["02 KW", "03 KW", "05 KW", "OTHER"];
 
-function defaultsCatalogMap() {
-  const buckets = {
-    panels: [],
-    inverters: [],
-    acBoxes: [],
-    dcBoxes: [],
-    wires: [],
-    laItems: [],
-    earthingItems: [],
-  };
-  for (const p of DEFAULT_PRODUCT_ITEMS) {
-    const name = String(p.itemName || "").trim();
-    const cat = String(p.category || "").toUpperCase();
-    if (!name) continue;
-    if (cat === "PANEL") buckets.panels.push(name);
-    else if (cat === "INVERTER") buckets.inverters.push(name);
-    else if (cat === "AC BOX") buckets.acBoxes.push(name);
-    else if (cat === "DC BOX") buckets.dcBoxes.push(name);
-    else if (cat === "WIRE") buckets.wires.push(name);
-    else if (cat === "GENERAL" && /earth/i.test(name)) buckets.earthingItems.push(name);
-    else if (cat === "GENERAL" && /\bla\b|lightning|arrester/i.test(name)) {
-      buckets.laItems.push(name);
-    }
-  }
-  return buckets;
-}
-
-/** Packed URL + live Product Sheet + defaults — kabhi empty “stock nahi” na dikhe. */
+/** Packed WhatsApp catalog + live Stock Sheet — Panel/Inverter/Wire stock se. */
 function catalogFromOrder(order) {
   let live = {};
   try {
@@ -51,7 +23,7 @@ function catalogFromOrder(order) {
   } catch {
     live = {};
   }
-  return mergeCatalogNameMaps(order?.stockCatalog || {}, live, defaultsCatalogMap());
+  return mergeCatalogNameMaps(order?.stockCatalog || {}, live);
 }
 
 function StockSelect({ id, label, value, onChange, options, required, hint }) {
@@ -61,7 +33,7 @@ function StockSelect({ id, label, value, onChange, options, required, hint }) {
       <label htmlFor={id}>{label}</label>
       {list.length > 0 ? (
         <select id={id} value={value} onChange={onChange} required={required}>
-          <option value="">{required ? "Select…" : "Optional — select…"}</option>
+          <option value="">{required ? "Stock se select…" : "Optional — stock se select…"}</option>
           {list.map((name) => (
             <option key={name} value={name}>
               {name}
@@ -70,20 +42,54 @@ function StockSelect({ id, label, value, onChange, options, required, hint }) {
         </select>
       ) : (
         <>
-          <input
-            id={id}
-            type="text"
-            value={value}
-            onChange={onChange}
-            placeholder={required ? "Item name likhein" : "Optional"}
-            required={required}
-          />
+          <select id={id} value="" disabled required={required}>
+            <option value="">Stock me item nahi</option>
+          </select>
           <p className={styles.hint}>
             {hint ||
-              "List empty — naya WhatsApp form bhejein (Product Sheet sync ke baad)."}
+              "Stock Sheet me balance nahi — office pe stock check / naya WhatsApp form bhejein."}
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+function WireMeterRow({
+  nameId,
+  mtrId,
+  label,
+  name,
+  setName,
+  mtr,
+  setMtr,
+  wireOptions,
+}) {
+  return (
+    <div className={styles.grid2}>
+      <StockSelect
+        id={nameId}
+        label={`${label} name (optional)`}
+        value={name}
+        onChange={(e) => {
+          setName(e.target.value);
+          if (!e.target.value) setMtr("");
+        }}
+        options={wireOptions}
+      />
+      <div className={styles.field}>
+        <label htmlFor={mtrId}>{label} meter</label>
+        <input
+          id={mtrId}
+          type="number"
+          min="0"
+          step="0.1"
+          value={mtr}
+          onChange={(e) => setMtr(e.target.value)}
+          placeholder="Meter fill karein"
+          disabled={!name}
+        />
+      </div>
     </div>
   );
 }
@@ -198,7 +204,7 @@ function SiteOrderFormPage() {
       return;
     }
     if (!String(panelName || "").trim()) {
-      setError("Panel name Product Sheet list se select karein.");
+      setError("Panel name Stock Sheet se select karein.");
       return;
     }
     if (!(Number(panelQty) > 0)) {
@@ -206,7 +212,7 @@ function SiteOrderFormPage() {
       return;
     }
     if (!String(inverterName || "").trim()) {
-      setError("Inverter name Product Sheet list se select karein.");
+      setError("Inverter name Stock Sheet se select karein.");
       return;
     }
     if (!siteGpsPhoto) {
@@ -336,11 +342,12 @@ function SiteOrderFormPage() {
             Site date: {order.siteDate}
           </p>
           <span className={`${styles.badge} ${done ? styles.badgeDone : ""}`}>
-            {done ? "Submitted" : "Pending — Product Sheet se select karke bharein"}
+            {done ? "Submitted" : "Pending — Panel / Inverter stock se select"}
           </span>
           <p className={styles.hint}>
-            Panel / Inverter / AC-DC / Wire / LA / Earthing — Product Sheet ke items select karein.
-            Saath kaam karne wale employees bhi tick karein.
+            Panel name + Inverter name sirf Stock me jo available hain. Inverter Sr. No. manually
+            bharein. Wire optional — name select, sirf meter fill. Yeh form Sale Sheet se optional
+            hai.
           </p>
         </header>
 
@@ -431,11 +438,11 @@ function SiteOrderFormPage() {
             </section>
 
             <section className={styles.section}>
-              <h2>Panel (Product Sheet)</h2>
+              <h2>Panel (Stock se select)</h2>
               <div className={styles.grid2}>
                 <StockSelect
                   id="panel-name"
-                  label="Panel name *"
+                  label="Panel name * (stock)"
                   value={panelName}
                   onChange={(e) => setPanelName(e.target.value)}
                   options={stock.panels}
@@ -458,7 +465,7 @@ function SiteOrderFormPage() {
             </section>
 
             <section className={styles.section}>
-              <h2>Inverter (Product Sheet)</h2>
+              <h2>Inverter (Stock se select)</h2>
               <div className={styles.grid2}>
                 <div className={styles.field}>
                   <label htmlFor="inv-kw">Inverter KW</label>
@@ -476,7 +483,7 @@ function SiteOrderFormPage() {
                 </div>
                 <StockSelect
                   id="inv-name"
-                  label="Inverter name *"
+                  label="Inverter name * (stock)"
                   value={inverterName}
                   onChange={(e) => setInverterName(e.target.value)}
                   options={stock.inverters}
@@ -484,13 +491,13 @@ function SiteOrderFormPage() {
                 />
               </div>
               <div className={styles.field}>
-                <label htmlFor="inv-serial">Inverter Sr. No. (optional)</label>
+                <label htmlFor="inv-serial">Inverter Sr. No. (manually bharein)</label>
                 <input
                   id="inv-serial"
                   type="text"
                   value={inverterSerial}
                   onChange={(e) => setInverterSerial(e.target.value)}
-                  placeholder="Inverter serial number"
+                  placeholder="Serial number type karein"
                 />
               </div>
             </section>
@@ -578,70 +585,40 @@ function SiteOrderFormPage() {
             </section>
 
             <section className={styles.section}>
-              <h2>Wire (optional — stock name + meter)</h2>
+              <h2>Wire (optional)</h2>
               <p className={styles.hint}>
-                Wire optional hai. Agar meter bharein to pehle stock se wire name select karein.
+                Wire optional. Pehle stock se wire name select, phir sirf meter fill karein.
               </p>
-              <StockSelect
-                id="dc-wire-name"
-                label="DC Wire name (optional)"
-                value={dcWireName}
-                onChange={(e) => setDcWireName(e.target.value)}
-                options={stock.wires}
+              <WireMeterRow
+                nameId="dc-wire-name"
+                mtrId="dc-wire"
+                label="DC Wire"
+                name={dcWireName}
+                setName={setDcWireName}
+                mtr={dcWireMtr}
+                setMtr={setDcWireMtr}
+                wireOptions={stock.wires}
               />
-              <div className={styles.field}>
-                <label htmlFor="dc-wire">DC Wire (mtr)</label>
-                <input
-                  id="dc-wire"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={dcWireMtr}
-                  onChange={(e) => setDcWireMtr(e.target.value)}
-                  placeholder="Meter"
-                  disabled={!dcWireName}
-                />
-              </div>
-              <StockSelect
-                id="copper-wire-name"
-                label="Copper Wire name (optional)"
-                value={copperWireName}
-                onChange={(e) => setCopperWireName(e.target.value)}
-                options={stock.wires}
+              <WireMeterRow
+                nameId="copper-wire-name"
+                mtrId="copper-wire"
+                label="Copper Wire"
+                name={copperWireName}
+                setName={setCopperWireName}
+                mtr={copperWireMtr}
+                setMtr={setCopperWireMtr}
+                wireOptions={stock.wires}
               />
-              <div className={styles.field}>
-                <label htmlFor="copper-wire">Copper Wire (mtr)</label>
-                <input
-                  id="copper-wire"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={copperWireMtr}
-                  onChange={(e) => setCopperWireMtr(e.target.value)}
-                  placeholder="Meter"
-                  disabled={!copperWireName}
-                />
-              </div>
-              <StockSelect
-                id="main-wire-name"
-                label="Main Wire name (optional)"
-                value={mainWireName}
-                onChange={(e) => setMainWireName(e.target.value)}
-                options={stock.wires}
+              <WireMeterRow
+                nameId="main-wire-name"
+                mtrId="main-wire"
+                label="Main Wire"
+                name={mainWireName}
+                setName={setMainWireName}
+                mtr={mainWireMtr}
+                setMtr={setMainWireMtr}
+                wireOptions={stock.wires}
               />
-              <div className={styles.field}>
-                <label htmlFor="main-wire">Main Wire (mtr)</label>
-                <input
-                  id="main-wire"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={mainWireMtr}
-                  onChange={(e) => setMainWireMtr(e.target.value)}
-                  placeholder="Meter"
-                  disabled={!mainWireName}
-                />
-              </div>
             </section>
 
             <section className={styles.section}>

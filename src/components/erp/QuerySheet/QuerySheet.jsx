@@ -304,7 +304,11 @@ function QuerySheet() {
                     <td>{row.date || "—"}</td>
                     <td>
                       <span className={row.source === "public" ? styles.tagWeb : styles.tagErp}>
-                        {row.source === "public" ? "Website" : "ERP"}
+                        {row.source === "public"
+                          ? row.kind === "consultation"
+                            ? "Website Consultation"
+                            : "Website Query"
+                          : "ERP"}
                       </span>
                       <div className={styles.by}>{row.createdBy || "—"}</div>
                     </td>
