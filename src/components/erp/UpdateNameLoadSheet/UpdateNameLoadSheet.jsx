@@ -28,11 +28,32 @@ import {
 } from "../../../utils/updateNameLoadStorage";
 import styles from "./UpdateNameLoadSheet.module.css";
 
+function parseEnGbDate(value) {
+  const parts = String(value || "")
+    .trim()
+    .split(/[/-]/);
+  if (parts.length !== 3) return null;
+  const [dd, mm, yyyy] = parts.map((p) => Number(p));
+  if (!dd || !mm || !yyyy) return null;
+  const d = new Date(yyyy, mm - 1, dd);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Loan/Cash jaisa — nayi entry upar. */
+function sortNameLoadNewestFirst(list) {
+  return [...(list || [])].sort((a, b) => {
+    const da = parseEnGbDate(a?.date)?.getTime() ?? 0;
+    const db = parseEnGbDate(b?.date)?.getTime() ?? 0;
+    if (db !== da) return db - da;
+    return String(b?.id || "").localeCompare(String(a?.id || ""));
+  });
+}
+
 function UpdateNameLoadSheet() {
   const canDelete = canChangeOrDelete(getAuthSession());
   const [rows, setRows] = useState(() => {
     const stored = loadUpdateNameLoadRows();
-    if (stored.length) return stored;
+    if (stored.length) return sortNameLoadNewestFirst(stored);
     return [createEmptyUpdateNameLoadRow()];
   });
   const [query, setQuery] = useState("");
@@ -51,12 +72,16 @@ function UpdateNameLoadSheet() {
   }, []);
 
   const filteredRows = useMemo(() => {
-    if (!query.trim()) return rows;
+    const list = sortNameLoadNewestFirst(rows);
+    if (!query.trim()) return list;
     const q = query.toLowerCase();
-    return rows.filter((row) =>
+    return list.filter((row) =>
       [
         row.consumerNo,
         row.customerName,
+        row.fatherName,
+        row.address,
+        row.mobile,
         row.subject,
         row.applicationNo,
         row.reference,
@@ -67,28 +92,30 @@ function UpdateNameLoadSheet() {
 
   const patchRow = (rowRef, patch) => {
     setRows((prev) =>
-      prev.map((row) => (row === rowRef ? { ...row, ...patch } : row)),
+      prev.map((row) => (row === rowRef || row.id === rowRef.id ? { ...row, ...patch } : row)),
     );
   };
 
+  const addEntry = () => {
+    const empty = createEmptyUpdateNameLoadRow();
+    empty.date = new Date().toLocaleDateString("en-GB");
+    setRows((prev) => sortNameLoadNewestFirst([empty, ...prev]));
+  };
+
+  /** Loan/Cash jaisa: Consumer No. pe auto-fill; naya consumer ho to manually fill. */
   const syncConsumer = (rowRef, consumerNo) => {
-    const customer = lookupCustomer(consumerNo);
+    const typed = String(consumerNo || "").trim();
+    const customer = lookupCustomer(typed);
     if (!customer) {
-      patchRow(rowRef, {
-        consumerNo,
-        customerName: "",
-        fatherName: "",
-        address: "",
-        mobile: "",
-      });
+      patchRow(rowRef, { consumerNo: typed.toUpperCase() });
       return;
     }
     patchRow(rowRef, {
       consumerNo: customer.consumerNo,
-      customerName: customer.customerName,
-      fatherName: customer.fatherName,
-      address: customer.address,
-      mobile: customer.mobile || "",
+      customerName: customer.customerName || rowRef.customerName || "",
+      fatherName: customer.fatherName || rowRef.fatherName || "",
+      address: customer.address || rowRef.address || "",
+      mobile: customer.mobile || rowRef.mobile || "",
     });
   };
 
@@ -97,8 +124,16 @@ function UpdateNameLoadSheet() {
       window.alert("Consumer Number zaroori hai.");
       return;
     }
+    if (!row.customerName?.trim()) {
+      window.alert("Consumer Name zaroori hai — Loan/Cash ki tarah fill karein.");
+      return;
+    }
     if (!row.subject) {
       window.alert("Subject select karein — Name Change ya Load Update.");
+      return;
+    }
+    if (row.subject === "Load Update" && !String(row.newLoadKw || "").trim()) {
+      window.alert("Load Update ke liye New load (kW) select karein.");
       return;
     }
 
@@ -117,8 +152,8 @@ function UpdateNameLoadSheet() {
     const saved = upsertUpdateNameLoadRow({ ...row, totalFees, paymentAccount: debitAccount });
 
     const base = getBaseCustomer(row.consumerNo);
-    if (row.subject === "Name Change" && row.customerName?.trim() && base) {
-      if (row.customerName.trim() !== base.customerName) {
+    if (row.subject === "Name Change" && row.customerName?.trim()) {
+      if (!base || row.customerName.trim() !== base.customerName) {
         saveNameLoadOverride(row.consumerNo, { customerName: row.customerName.trim() });
       }
     }
@@ -200,9 +235,10 @@ function UpdateNameLoadSheet() {
         <div>
           <h1>Update Name / Load</h1>
           <p>
-            Fees + Affidavit Fee save par <strong>Payment Debit Account</strong> se Payment Given
-            me debit hoga. Save ke baad Fees / Affidavit / Payment Account <strong>lock</strong> —
-            dobara fill ya update nahi. Delete sirf Admin.
+            Loan / Cash Case jaisi entry: <strong>+ Add Entry</strong> → Date, Consumer No., Name,
+            Father, Address, Mobile fill karein. Consumer Loan/Cash me ho to auto-fill; naya
+            consumer ho to manually likhein. Save par fees Payment Debit Account se debit + lock.
+            Delete sirf Admin.
           </p>
         </div>
         <div className={styles.toolbarActions}>
@@ -210,15 +246,11 @@ function UpdateNameLoadSheet() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search..."
+            placeholder="Search consumer / name..."
             className={styles.search}
           />
-          <button
-            type="button"
-            className={styles.btnAdd}
-            onClick={() => setRows((prev) => [createEmptyUpdateNameLoadRow(), ...prev])}
-          >
-            + Add Row
+          <button type="button" className={styles.btnAdd} onClick={addEntry}>
+            + Add Entry
           </button>
         </div>
       </header>
@@ -247,13 +279,13 @@ function UpdateNameLoadSheet() {
           <tbody>
             {filteredRows.map((row, index) => {
               const totalFees = calcTotalFees(row.fees, row.affidavitFee);
-              const nameEditable = row.subject === "Name Change";
               const payLocked = isNameLoadPaymentLocked(row);
+              const srNo = filteredRows.length - index;
 
               return (
                 <tr key={row.id} className={payLocked ? styles.rowLocked : undefined}>
                   <td>
-                    {index + 1}
+                    {srNo}
                     {payLocked ? (
                       <span className={styles.lockedBadge} title="Payment locked after save">
                         Locked
@@ -279,24 +311,35 @@ function UpdateNameLoadSheet() {
                   </td>
                   <td>
                     <input
-                      className={nameEditable ? styles.cellInput : styles.readOnly}
+                      className={styles.cellInput}
                       value={row.customerName}
                       onChange={(e) => patchRow(row, { customerName: e.target.value })}
-                      readOnly={!nameEditable}
-                      title={nameEditable ? "Name Change ke liye edit karein" : "Auto from case"}
+                      placeholder="Customer name"
+                      title="Loan/Cash jaisa — manually fill ya Consumer No. se auto"
                     />
                   </td>
                   <td>
-                    <input className={styles.readOnly} value={row.fatherName} readOnly />
+                    <input
+                      className={styles.cellInput}
+                      value={row.fatherName}
+                      onChange={(e) => patchRow(row, { fatherName: e.target.value })}
+                      placeholder="Father / Husband"
+                    />
                   </td>
                   <td>
-                    <input className={styles.readOnly} value={row.address} readOnly />
+                    <input
+                      className={styles.cellInput}
+                      value={row.address}
+                      onChange={(e) => patchRow(row, { address: e.target.value })}
+                      placeholder="Address"
+                    />
                   </td>
                   <td>
                     <input
                       className={styles.cellInput}
                       value={row.mobile}
                       onChange={(e) => patchRow(row, { mobile: e.target.value })}
+                      placeholder="Mobile"
                     />
                   </td>
                   <td>

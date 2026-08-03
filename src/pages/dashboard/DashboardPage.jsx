@@ -20,6 +20,7 @@ const ALL_QUICK_ACTIONS = [
   { label: "+ New Customer", to: ROUTES.CUSTOMER_DETAIL, tone: "green" },
   { label: "New Loan Case", to: ROUTES.LOAN_CASE, tone: "dark" },
   { label: "New Cash Sale", to: ROUTES.CASH_CASE, tone: "gold" },
+  { label: "New Name/Load", to: ROUTES.UPDATE_NAME_LOAD, tone: "blue" },
   { label: "Stock Entry", to: ROUTES.STOCK_SHEET, tone: "blue" },
   { label: "Purchase Entry", to: ROUTES.PURCHASE_NEW, tone: "orange" },
   { label: "Payment Entry", to: ROUTES.PAYMENT_SHEET, tone: "purple" },
@@ -72,9 +73,13 @@ function DashboardPage() {
 
   const quickActions = isStaff
     ? ALL_QUICK_ACTIONS.filter((a) =>
-        [ROUTES.LOAN_CASE, ROUTES.CASH_CASE, ROUTES.SALE_SHEET, ROUTES.LABOUR_SHEET].includes(
-          a.to,
-        ),
+        [
+          ROUTES.LOAN_CASE,
+          ROUTES.CASH_CASE,
+          ROUTES.UPDATE_NAME_LOAD,
+          ROUTES.SALE_SHEET,
+          ROUTES.LABOUR_SHEET,
+        ].includes(a.to),
       )
     : ALL_QUICK_ACTIONS;
 
