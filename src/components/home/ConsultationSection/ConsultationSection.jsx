@@ -3,8 +3,6 @@ import { CONTACT } from "../../../constants/contact";
 import { getApiBase } from "../../../utils/erpStorage";
 import styles from "./ConsultationSection.module.css";
 
-const FALLBACK_API = "https://dhatterwal-solar-erp.onrender.com";
-
 const INITIAL_FORM = {
   name: "",
   mobile: "",
@@ -29,7 +27,8 @@ function ConsultationSection() {
     setError("");
     setBusy(true);
     try {
-      const base = getApiBase() || FALLBACK_API;
+      const base = getApiBase();
+      if (!base) throw new Error("API URL missing. VITE_API_URL set karein.");
       const mobile = String(form.mobile || "").replace(/\D/g, "").slice(-10);
       const name = String(form.name || "").trim();
       const requirement = String(form.requirement || "").trim();

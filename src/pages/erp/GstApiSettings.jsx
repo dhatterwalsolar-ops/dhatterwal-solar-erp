@@ -28,7 +28,7 @@ function GstApiSettings() {
           <p className={styles.cardHint}>
             Sale → With GST invoice pe <strong>E-Invoice IRN</strong> API call hoti hai; E-Way Bill
             modal se <strong>E-Way generate</strong> API. Abhi default <strong>demo</strong> mode
-            hai — live NIC/GSP ke liye Render env set karein.
+            hai — live NIC/GSP ke liye Railway env set karein.
           </p>
         </div>
         <button type="button" className={styles.btnOutline} disabled={busy} onClick={load}>
@@ -60,7 +60,7 @@ function GstApiSettings() {
       )}
 
       <h3 className={styles.subHead} style={{ marginTop: "1rem" }}>
-        Render / server/.env (live GSP)
+        Railway / server/.env (live GSP)
       </h3>
       <ol className={styles.cardHint} style={{ paddingLeft: "1.2rem", lineHeight: 1.55 }}>
         <li>
@@ -81,7 +81,7 @@ function GstApiSettings() {
         <li>
           Paths (optional): <code>GST_EWAY_PATH</code>, <code>GST_EINVOICE_PATH</code>
         </li>
-        <li>Save → Render redeploy</li>
+        <li>Save → Railway redeploy</li>
       </ol>
       <p className={styles.cardHint}>
         API endpoints: <code>POST /api/gst/eway/generate</code> ·{" "}

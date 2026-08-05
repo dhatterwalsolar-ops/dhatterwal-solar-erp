@@ -89,7 +89,7 @@ function LoginPage() {
       const msg = String(err?.message || "");
       setError(
         msg ||
-          "Login fail. Pehle shared ERP API chalao: npm run server (ya Render pe API Resume).",
+          "Login fail. Pehle shared ERP API chalao: npm run server (ya Railway pe API deploy).",
       );
     } finally {
       setBusy(false);

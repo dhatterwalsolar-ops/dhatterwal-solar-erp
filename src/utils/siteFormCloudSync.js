@@ -1,9 +1,7 @@
 import { getApiBase } from "./erpStorage";
 
-const FALLBACK_API = "https://dhatterwal-solar-erp.onrender.com";
-
 export function getPublicApiBase() {
-  return getApiBase() || FALLBACK_API;
+  return getApiBase();
 }
 
 /**

@@ -81,7 +81,9 @@ npm --prefix server run db:push
 
 Frontend sync API same hai (`/api/sync`) — storage Prisma → Postgres.
 
-## Production hosting (Neon + Render + Vercel)
+## Production hosting (Neon + Railway + Hostinger)
+
+Render free API suspended hai — production API **Railway** pe chalao. Neon DB same rehti hai.
 
 ### Check (local)
 ```bash
@@ -89,28 +91,25 @@ npm --prefix server run db:test
 ```
 Neon OK hona chahiye (`"provider":"neon"`).
 
-### A) API — Render
+### A) API — Railway
 1. Code GitHub pe push karo (`dhatterwal-solar-erp`)
-2. https://dashboard.render.com → **New** → **Web Service** → GitHub repo select
+2. https://railway.app → **New Project** → **Deploy from GitHub** → repo select
 3. Settings:
    - **Root Directory:** `server`
-   - **Build:** `npm install && npx prisma generate && npx prisma db push`
-   - **Start:** `node index.js`
-4. Environment:
+   - Config: [`server/railway.toml`](server/railway.toml) (build/start/healthcheck)
+4. Variables:
    - `DATABASE_URL` = Neon connection string (`sslmode=require&pgbouncer=true`)
    - `USE_PGLITE` = `false`
    - `PGSSL` = `true`
-   - `ERP_JWT_SECRET` = strong random string
-5. Deploy → URL milegi jaise `https://dhatterwal-erp-api.onrender.com`
+   - `ERP_JWT_SECRET` = strong random string (purana secret same rakhoge to existing JWTs valid rehte hain)
+5. Generate domain → URL milegi jaise `https://dhatterwal-erp-api.up.railway.app`
+6. Verify: `https://YOUR-URL/health`
 
-### B) Frontend — Vercel
-1. https://vercel.com → Import same GitHub repo
-2. Framework: Vite
-3. Env:
-   - `VITE_API_URL` = Render API URL (bina trailing slash)
-4. Deploy → site URL milegi
-
-`render.yaml` repo me hai — Render Blueprint se bhi API bana sakte ho.
+### B) Frontend — Hostinger
+1. Root `.env.production`:
+   - `VITE_API_URL` = Railway API URL (bina trailing slash)
+2. `npm run build` → `dist/` Hostinger pe upload / redeploy
+3. Purane Render URL (`*.onrender.com`) mat use karo
 
 ## Important
 

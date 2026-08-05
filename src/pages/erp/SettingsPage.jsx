@@ -78,7 +78,7 @@ function SettingsPage() {
   const [showAddUser, setShowAddUser] = useState(false);
   const [officeWaMobile, setOfficeWaMobile] = useState(() => getOfficeWhatsAppMobile());
   const [googleFormUrl, setGoogleFormUrl] = useState(() => getSiteOrderGoogleFormUrl());
-  const webhookApiUrl = `${(getApiBase() || "https://dhatterwal-solar-erp.onrender.com").replace(/\/$/, "")}/api/public/google-form-bom`;
+  const webhookApiUrl = `${(getApiBase() || "").replace(/\/$/, "")}/api/public/google-form-bom`;
 
   const invoicePreview = useMemo(
     () => buildSeriesPreview(state.invoiceSeries),
@@ -432,7 +432,7 @@ function SettingsPage() {
                   <code style={{ wordBreak: "break-all" }}>{webhookApiUrl}</code>
                 </li>
                 <li>
-                  Script + Render <code>GOOGLE_FORM_WEBHOOK_SECRET</code> same secret rakho
+                  Script + Railway <code>GOOGLE_FORM_WEBHOOK_SECRET</code> same secret rakho
                 </li>
                 <li>
                   Trigger: <strong>onFormSubmit</strong> → From spreadsheet → On form submit
@@ -440,7 +440,7 @@ function SettingsPage() {
                 <li>Test: Apps Script me <code>testPingErp</code> Run</li>
               </ol>
               <p className={styles.cardHint}>
-                Render env: <code>GOOGLE_FORM_WEBHOOK_SECRET=your-secret</code> — phir redeploy.
+                Railway env: <code>GOOGLE_FORM_WEBHOOK_SECRET=your-secret</code> — phir redeploy.
               </p>
             </section>
           )}

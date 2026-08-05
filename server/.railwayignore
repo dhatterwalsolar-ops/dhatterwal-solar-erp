@@ -1,0 +1,8 @@
+﻿.env
+.env.*
+!.env.example
+data/pglite/
+data/erp-store.json
+data/erp-store.json.tmp
+*.log
+node_modules/
