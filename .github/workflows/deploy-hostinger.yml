@@ -1,0 +1,65 @@
+# Push to main (frontend paths) → build Vite → FTP upload to Hostinger public_html
+# Required GitHub secrets:
+#   VITE_API_URL   — e.g. https://api-production-02c2.up.railway.app
+#   FTP_SERVER     — Hostinger FTP host
+#   FTP_USERNAME   — FTP user
+#   FTP_PASSWORD   — FTP password
+# Optional:
+#   FTP_SERVER_DIR — default public_html/
+
+name: Deploy frontend to Hostinger
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "index.html"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.*"
+      - ".github/workflows/deploy-hostinger.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hostinger
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        # Skip postinstall (server npm install) — frontend-only deploy
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        run: |
+          if [ -z "$VITE_API_URL" ]; then
+            echo "Missing secret VITE_API_URL"
+            exit 1
+          fi
+          npm run build
+
+      - name: FTP deploy to Hostinger
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./dist/
+          # Override path: set secret FTP_SERVER_DIR (must end with /)
+          server-dir: ${{ secrets.FTP_SERVER_DIR || 'public_html/' }}
+          dangerous-clean-slate: false

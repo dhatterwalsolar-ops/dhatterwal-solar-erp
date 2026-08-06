@@ -105,11 +105,26 @@ Neon OK hona chahiye (`"provider":"neon"`).
 5. Generate domain → URL milegi jaise `https://dhatterwal-erp-api.up.railway.app`
 6. Verify: `https://YOUR-URL/health`
 
-### B) Frontend — Hostinger
-1. Root `.env.production`:
-   - `VITE_API_URL` = Railway API URL (bina trailing slash)
-2. `npm run build` → `dist/` Hostinger pe upload / redeploy
-3. Purane Render URL (`*.onrender.com`) mat use karo
+### B) Frontend — Hostinger (GitHub Actions auto-deploy)
+Har `main` push (frontend files) pe workflow `Deploy frontend to Hostinger` chalega:
+[`.github/workflows/deploy-hostinger.yml`](.github/workflows/deploy-hostinger.yml)
+
+GitHub → repo → **Settings** → **Secrets and variables** → **Actions** me set karo:
+
+| Secret | Example |
+|--------|---------|
+| `VITE_API_URL` | `https://api-production-02c2.up.railway.app` |
+| `FTP_SERVER` | Hostinger FTP hostname (hPanel → FTP Accounts) |
+| `FTP_USERNAME` | FTP username |
+| `FTP_PASSWORD` | FTP password |
+| `FTP_SERVER_DIR` | `public_html/` (optional; default yahi) |
+
+Manual bhi chal sakta hai: Actions → **Deploy frontend to Hostinger** → **Run workflow**.
+
+Local fallback: `.env.production` me `VITE_API_URL` → `npm run build` → `dist/` upload.
+
+### C) API — Railway GitHub auto-deploy
+Railway service `api` GitHub repo `dhatterwalsolar-ops/dhatterwal-solar-erp` + root `/server` se connected hai. `main` pe `server/` changes → auto redeploy.
 
 ## Important
 
