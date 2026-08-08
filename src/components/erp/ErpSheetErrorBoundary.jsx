@@ -17,10 +17,16 @@ export class ErpSheetErrorBoundary extends Component {
 
   render() {
     if (this.state.error) {
+      const raw = String(this.state.error?.message || this.state.error || "");
+      const isLoop =
+        /#301\b/i.test(raw) || /too many re-renders/i.test(raw);
+      const msg = isLoop
+        ? "Page reload loop detect hua (React #301). Try again dabayein. Agar Generate Files pe aaye to Subdivision bhar ke dubara try karein — phir bhi aaye to hard refresh (Ctrl+F5)."
+        : raw;
       return (
         <div className={styles.wrap} role="alert">
           <h2>Sheet could not open</h2>
-          <p className={styles.msg}>{this.state.error.message}</p>
+          <p className={styles.msg}>{msg}</p>
           <button
             type="button"
             className={styles.btn}

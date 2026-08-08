@@ -261,10 +261,20 @@ function SaleCaseSheet() {
   const [docRefresh, setDocRefresh] = useState(0);
   const [lanUrlDraft, setLanUrlDraft] = useState(() => getSavedPublicAppBaseUrl());
   const [linkBaseTick, setLinkBaseTick] = useState(0);
+  const [teamTick, setTeamTick] = useState(0);
   const consumerSyncTimers = useRef(new Map());
   const suppressReloadRef = useRef(false);
   const saveTimerRef = useRef(null);
   const heavySaveTimerRef = useRef(null);
+  const rowsSnapshotRef = useRef("");
+
+  useEffect(() => {
+    try {
+      rowsSnapshotRef.current = JSON.stringify(rows);
+    } catch {
+      /* ignore */
+    }
+  }, [rows]);
 
   /* Debounced save: typing pe BOM/Customer Detail sync mat chalao (lag ka main cause). */
   useEffect(() => {
@@ -294,14 +304,21 @@ function SaleCaseSheet() {
   }, [rows]);
 
   useEffect(() => {
-    const reloadFromCaseSheets = () => {
+    const applyReload = () => {
       if (suppressReloadRef.current) return;
-      setRows(reloadSaleRowsFromStorage());
+      const next = reloadSaleRowsFromStorage();
+      let snap = "";
+      try {
+        snap = JSON.stringify(next);
+      } catch {
+        snap = String(next?.length || 0);
+      }
+      if (snap && snap === rowsSnapshotRef.current) return;
+      rowsSnapshotRef.current = snap;
+      setRows(next);
     };
-    const refreshBackups = () => {
-      if (suppressReloadRef.current) return;
-      setRows(reloadSaleRowsFromStorage());
-    };
+    const reloadFromCaseSheets = () => applyReload();
+    const refreshBackups = () => applyReload();
     /* SALE_BOM_SYNC pe full reload mat — khud ke save se loop + lag */
     window.addEventListener(SALE_CASE_SYNC_EVENT, reloadFromCaseSheets);
     window.addEventListener(SALE_SETUP_DETAIL_SYNC_EVENT, reloadFromCaseSheets);
@@ -360,7 +377,6 @@ function SaleCaseSheet() {
     return map;
   }, [rows]);
 
-  const [teamTick, setTeamTick] = useState(0);
   const invoiceMaps = useMemo(() => getInvoiceLookupMaps(), [rows, docRefresh]);
   const teamWorkOptions = useMemo(() => {
     void teamTick;
@@ -643,15 +659,19 @@ function SaleCaseSheet() {
 
   const openCompleteModal = (row) => {
     if (!requireConsumerRow(row)) return;
-    const products = resolveCaseFileProducts(row.consumerNo, row.setupKw);
-    setFilesForm({
-      row,
-      discom: row.discom || "UHBVN",
-      subdivision: row.subdivision || "",
-      wantSafety: true,
-      wantWorkCompletion: true,
-      products,
-    });
+    try {
+      const products = resolveCaseFileProducts(row.consumerNo, row.setupKw);
+      setFilesForm({
+        row,
+        discom: row.discom || "UHBVN",
+        subdivision: row.subdivision || "",
+        wantSafety: true,
+        wantWorkCompletion: true,
+        products,
+      });
+    } catch (err) {
+      window.alert(err?.message || "Generate Files form open nahi hua.");
+    }
   };
 
   const patchFilesForm = (key, value) => {
@@ -679,6 +699,7 @@ function SaleCaseSheet() {
     }
 
     setFilesBusy(true);
+    suppressReloadRef.current = true;
     try {
       const result = generateSelectedCaseFiles(
         filesForm.row,
@@ -686,16 +707,12 @@ function SaleCaseSheet() {
         keys,
       );
       await saveCaseFilesToFolder(result, "sale");
-      setRows((prev) =>
-        prev.map((r) => {
-          if (
-            String(r.consumerNo || "")
-              .trim()
-              .toUpperCase() !==
-            String(filesForm.row.consumerNo || "")
-              .trim()
-              .toUpperCase()
-          ) {
+      const consumerKey = String(filesForm.row.consumerNo || "")
+        .trim()
+        .toUpperCase();
+      setRows((prev) => {
+        const next = prev.map((r) => {
+          if (String(r.consumerNo || "").trim().toUpperCase() !== consumerKey) {
             return r;
           }
           return {
@@ -705,11 +722,17 @@ function SaleCaseSheet() {
             generateFilesReady: true,
             generateFilesAt: new Date().toLocaleString("en-IN"),
           };
-        }),
-      );
+        });
+        try {
+          rowsSnapshotRef.current = JSON.stringify(next);
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
       setDocRefresh((n) => n + 1);
-      result.files.forEach((f) => downloadCaseFile(f));
       setFilesForm(null);
+      result.files.forEach((f) => downloadCaseFile(f));
       window.alert(
         `${result.files.length} PDF generate ho gayi.\n` +
           `Setup: ${result.ctx.products.setupKw}\n` +
@@ -721,6 +744,9 @@ function SaleCaseSheet() {
       window.alert(err?.message || "Generate Files fail.");
     } finally {
       setFilesBusy(false);
+      window.setTimeout(() => {
+        suppressReloadRef.current = false;
+      }, 800);
     }
   };
 

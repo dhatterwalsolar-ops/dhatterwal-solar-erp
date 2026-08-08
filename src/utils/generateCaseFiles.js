@@ -110,14 +110,15 @@ export function resolveCaseFileProducts(consumerNo, setupKw) {
   const inverterSerial = String(
     payload.inverterSerial || bom.inverterSerial || "",
   ).trim();
+  const wireLines = Array.isArray(payload.wireLines) ? payload.wireLines : [];
   const dcWire =
     String(payload.dcWireName || "").trim() ||
-    payload.wireLines?.find((w) => /dc/i.test(String(w?.itemName || "")))?.itemName ||
+    wireLines.find((w) => /dc/i.test(String(w?.itemName || "")))?.itemName ||
     bom.copperWire ||
     "—";
   const acWire =
     String(payload.mainWireName || "").trim() ||
-    payload.wireLines?.find((w) => /ac|main/i.test(String(w?.itemName || "")))?.itemName ||
+    wireLines.find((w) => /ac|main/i.test(String(w?.itemName || "")))?.itemName ||
     bom.mainWire ||
     "—";
 
