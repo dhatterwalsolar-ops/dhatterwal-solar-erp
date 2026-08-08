@@ -457,3 +457,114 @@ export function applyStockOut({
   notifyStockSync();
   return { ok: true, updatedLines };
 }
+
+/** Product Sheet — current balance + last rate preview. */
+export function getProductStockPreview({ productId = "", itemName = "" } = {}) {
+  const pid = String(productId || "").trim();
+  const name = String(itemName || "").trim();
+  const stockKey = pid
+    ? `pid:${pid}`
+    : name
+      ? `name:${name.toLowerCase()}`
+      : null;
+  if (!stockKey) {
+    return { balance: 0, lastRate: 0, qtyIn: 0, qtyOut: 0 };
+  }
+  const nameKey = name ? `name:${name.toLowerCase()}` : null;
+  const balances = readBalances();
+  const byPid = pid ? balances.find((b) => b.stockKey === `pid:${pid}`) : null;
+  const byName = nameKey ? balances.find((b) => b.stockKey === nameKey) : null;
+  const merged = mergeBalanceRecords(byPid, byName);
+  return {
+    balance: Number(merged?.balance) || 0,
+    lastRate: Number(merged?.lastRate) || 0,
+    qtyIn: Number(merged?.qtyIn) || 0,
+    qtyOut: Number(merged?.qtyOut) || 0,
+  };
+}
+
+/**
+ * Product Sheet se aaj ka stock add (opening / manual in).
+ * qty > 0 pe balance + qtyIn badhega; rate lastRate pe set.
+ */
+export function applyManualStockIn({
+  productId = "",
+  itemName = "",
+  category = "",
+  hsn = "",
+  qty = 0,
+  rate = 0,
+  unit = "",
+  note = "Product Sheet",
+} = {}) {
+  const qtyNum = Number(qty) || 0;
+  if (qtyNum <= 0) {
+    return { ok: true, skipped: true, updatedLines: 0, balance: 0 };
+  }
+  const name = String(itemName || "").trim();
+  if (!name && !productId) {
+    return { ok: false, reason: "missing_item", updatedLines: 0 };
+  }
+
+  const matched = productId
+    ? loadProducts().find((p) => p.id === productId) || findProductByName(name)
+    : findProductByName(name);
+  const stockKey = matched?.id
+    ? `pid:${matched.id}`
+    : productId
+      ? `pid:${productId}`
+      : `name:${name.toLowerCase()}`;
+
+  const map = new Map(readBalances().map((b) => [b.stockKey, { ...b }]));
+  const prev =
+    map.get(stockKey) ||
+    {
+      stockKey,
+      productId: matched?.id || productId || "",
+      itemName: name || matched?.itemName || "",
+      category: category || matched?.category || "",
+      hsn: hsn || matched?.hsn || "",
+      unit: unit || defaultUnitForCategory(category || matched?.category),
+      warehouse: DEFAULT_WAREHOUSE,
+      qtyIn: 0,
+      qtyOut: 0,
+      balance: 0,
+      lastRate: 0,
+    };
+
+  prev.qtyIn = (Number(prev.qtyIn) || 0) + qtyNum;
+  prev.balance = (Number(prev.balance) || 0) + qtyNum;
+  if (Number(rate) > 0) prev.lastRate = Number(rate);
+  prev.itemName = name || prev.itemName;
+  prev.category = category || prev.category;
+  prev.hsn = hsn || prev.hsn;
+  prev.productId = matched?.id || productId || prev.productId;
+  prev.unit = unit || prev.unit || defaultUnitForCategory(prev.category);
+  prev.updatedAt = new Date().toISOString();
+  map.set(stockKey, prev);
+
+  const ledger = readLedger();
+  ledger.unshift({
+    id: `stkman-${Date.now()}`,
+    type: "manual-in",
+    note: String(note || "Product Sheet").trim(),
+    productId: prev.productId,
+    itemName: prev.itemName,
+    category: prev.category,
+    hsn: prev.hsn,
+    qty: qtyNum,
+    unit: prev.unit,
+    rate: Number(rate) || 0,
+    createdAt: new Date().toISOString(),
+  });
+
+  writeBalances([...map.values()]);
+  writeLedger(ledger);
+  notifyStockSync();
+  return {
+    ok: true,
+    updatedLines: 1,
+    balance: Number(prev.balance) || 0,
+    stockKey,
+  };
+}

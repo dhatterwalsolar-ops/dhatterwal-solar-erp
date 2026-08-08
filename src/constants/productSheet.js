@@ -30,6 +30,8 @@ export function createDraftProductRow() {
     itemName: "",
     category: "",
     hsn: "",
+    stockQty: "",
+    rate: "",
     isDraft: true,
   };
 }

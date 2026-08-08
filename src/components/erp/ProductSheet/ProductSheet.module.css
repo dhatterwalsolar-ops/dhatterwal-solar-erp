@@ -113,6 +113,34 @@
   font: inherit;
 }
 
+.numInput {
+  width: 5.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  font: inherit;
+}
+
+.numCell {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--color-green-dark);
+}
+
+.readonly {
+  background: #f3f4f6;
+  color: var(--color-green-dark);
+  font-weight: 700;
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+  margin: 0 0 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
 .modalBackdrop {
   position: fixed;
   inset: 0;
@@ -127,7 +155,7 @@
   background: #fff;
   border-radius: 14px;
   padding: 1.25rem;
-  width: min(420px, 100%);
+  width: min(460px, 100%);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
 }
 

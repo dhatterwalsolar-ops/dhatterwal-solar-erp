@@ -28,6 +28,7 @@ export function upsertProduct(product) {
   const idx = list.findIndex((p) => p.id === product.id);
   const next = {
     ...product,
+    rate: Number(product.rate) || 0,
     status: product.status || "Active",
     updatedAt: new Date().toISOString(),
   };
@@ -87,6 +88,7 @@ export function ensureProductItem({ itemName, category = "GENERAL", hsn = "" }) 
     itemName: name,
     category,
     hsn,
+    rate: 0,
     status: "Active",
   });
 }
