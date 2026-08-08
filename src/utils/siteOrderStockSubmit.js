@@ -289,12 +289,21 @@ export async function submitSiteInstallationForm(order, form) {
   /* TL phone pe local BOM office ko nahi dikhta — server sync zaroori */
   const cloud = await syncSiteFormToCloud(order, formPayload);
   if (cloud.ok) {
+    const serverStockOk = cloud.stockOk !== false;
     markSiteOrderSubmitted(order.id, {
       ...formPayload,
       cloudSyncedAt: new Date().toISOString(),
+      ...(serverStockOk && (cloud.stockIssuedLines > 0 || cloud.stockSkipped)
+        ? { stockBilledAt: new Date().toISOString() }
+        : {}),
+      stockServerMessage: cloud.stockMessage || "",
     });
+    if (cloud.stockIssuedLines > 0) {
+      issuedLines = Number(cloud.stockIssuedLines) || issuedLines;
+    }
   }
 
+  const stockOkFinal = Boolean(stockResult.ok) || Boolean(cloud.ok && cloud.stockOk);
   return {
     ok: true,
     issuedLines,
@@ -302,8 +311,10 @@ export async function submitSiteInstallationForm(order, form) {
     bomFolderSaved,
     cloudSynced: Boolean(cloud.ok),
     cloudMessage: cloud.ok ? "" : cloud.message || "",
-    stockOk: Boolean(stockResult.ok),
-    stockMessage: stockResult.ok ? "" : stockResult.message || "",
+    stockOk: stockOkFinal,
+    stockMessage: stockOkFinal
+      ? cloud.stockMessage || ""
+      : stockResult.message || cloud.stockMessage || "Stock server pe deduct nahi hua — office OK/Bill BOM try karein.",
   };
 }
 

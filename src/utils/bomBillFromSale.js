@@ -39,8 +39,8 @@ export function billBomFromSaleRow(saleRow) {
   let issuedLines = 0;
   let stockMessage = "";
 
-  const already =
-    Boolean(order.formPayload?.stockBilledAt) || hasSiteStockOut(stockRef);
+  /* Sirf ledger proof — client stockBilledAt galat ho sakta hai (TL phone local) */
+  const already = hasSiteStockOut(stockRef);
 
   if (lines.length && !already) {
     const stockResult = applyStockOut({

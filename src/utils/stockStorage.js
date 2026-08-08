@@ -406,23 +406,43 @@ export function applyStockOut({
   siteOrderId = "",
   lines = [],
 }) {
+  if (hasSiteStockOut(reference)) {
+    return { ok: true, skipped: true, updatedLines: 0 };
+  }
+
   const map = new Map(readBalances().map((b) => [b.stockKey, { ...b }]));
   const ledger = readLedger();
   let updatedLines = 0;
+  const shortages = [];
 
   for (const line of lines) {
     const stockKey = resolvePurchaseLineStockKey(line);
     const qty = Number(line.qty) || 0;
     if (!stockKey || qty <= 0) continue;
 
-    const prev = map.get(stockKey);
+    const nameNorm = String(line.itemName || "")
+      .trim()
+      .toLowerCase();
+    const nameKey = nameNorm ? `name:${nameNorm}` : null;
+    let prev = map.get(stockKey);
+    if (!prev && nameKey && nameKey !== stockKey) {
+      prev = map.get(nameKey);
+      if (prev) {
+        map.delete(nameKey);
+        prev = {
+          ...prev,
+          stockKey,
+          productId: line.productId || prev.productId || "",
+        };
+      }
+    }
+
     const balance = Number(prev?.balance) || 0;
     if (!prev || balance < qty) {
-      return {
-        ok: false,
-        reason: "insufficient",
-        message: `Stock kam hai: ${line.itemName || stockKey} (balance ${balance}, chahiye ${qty})`,
-      };
+      shortages.push(
+        `${line.itemName || stockKey} (balance ${balance}, chahiye ${qty})`,
+      );
+      continue;
     }
 
     prev.qtyOut = (Number(prev.qtyOut) || 0) + qty;
@@ -449,13 +469,24 @@ export function applyStockOut({
   }
 
   if (updatedLines === 0) {
-    return { ok: false, reason: "no_lines", message: "Stock lines invalid." };
+    return {
+      ok: false,
+      reason: shortages.length ? "insufficient" : "no_lines",
+      message: shortages.length
+        ? `Stock kam hai:\n${shortages.join("\n")}`
+        : "Stock lines invalid.",
+    };
   }
 
   writeBalances([...map.values()]);
   writeLedger(ledger);
   notifyStockSync();
-  return { ok: true, updatedLines };
+  return {
+    ok: true,
+    updatedLines,
+    partial: shortages.length > 0,
+    message: shortages.length ? `Partial out. Shortage:\n${shortages.join("\n")}` : "",
+  };
 }
 
 /** Product Sheet — current balance + last rate preview. */

@@ -145,6 +145,10 @@ export function getPageTitleByPath(pathname) {
     if (pathname === ROUTES.PURCHASE_LIST) return "Purchase List";
     return "New Purchase Entry";
   }
+  if (pathname === ROUTES.BOM_SHEET || pathname.startsWith(`${ROUTES.BOM_SHEET}/`)) {
+    if (pathname === ROUTES.BOM_MONTHLY_PROFIT) return "BOM Monthly Profit";
+    return "BOM Sheet";
+  }
   const item = ERP_MENU.find((entry) => entry.path === pathname);
   return item?.label ?? "Dashboard";
 }

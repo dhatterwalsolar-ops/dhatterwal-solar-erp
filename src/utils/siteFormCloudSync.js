@@ -32,6 +32,8 @@ export async function syncSiteFormToCloud(order, formPayload) {
   delete form.siteGpsPhoto;
   delete form.earthingPhoto;
   delete form.completeFile;
+  /* Server stock OUT authoritative — TL phone ka stockBilledAt mat bhejo */
+  delete form.stockBilledAt;
 
   try {
     const res = await fetch(`${base}/api/public/site-form-submit`, {

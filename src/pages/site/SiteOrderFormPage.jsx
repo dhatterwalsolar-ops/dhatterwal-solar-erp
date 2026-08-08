@@ -284,7 +284,11 @@ function SiteOrderFormPage() {
       setDone(true);
       const bits = [];
       if (result.issuedLines) {
-        bits.push(`Stock: ${result.issuedLines} line(s) less`);
+        bits.push(`Stock OUT: ${result.issuedLines} line(s) office stock se kam.`);
+      } else if (result.stockMessage) {
+        bits.push(`Stock: ${result.stockMessage}`);
+      } else if (!result.stockOk) {
+        bits.push("Stock OUT fail — office Sale Sheet pe OK/Bill BOM se retry karein.");
       }
       if (result.cloudSynced) {
         bits.push("Office BOM Sheet me sync ho gaya.");

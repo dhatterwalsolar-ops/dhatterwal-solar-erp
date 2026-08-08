@@ -18,6 +18,7 @@ export const ROUTES = {
   PAYMENT_CREDIT: "/payment-sheet/credit",
   STOCK_SHEET: "/stock-sheet",
   BOM_SHEET: "/bom-sheet",
+  BOM_MONTHLY_PROFIT: "/bom-sheet/monthly-profit",
   LABOUR_SHEET: "/labour-sheet",
   LABOUR_DETAILS: "/labour-sheet/details",
   LABOUR_DAILY: "/labour-sheet/daily",

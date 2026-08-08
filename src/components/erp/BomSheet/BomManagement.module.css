@@ -1,0 +1,173 @@
+.bomWrap {
+  display: grid;
+  gap: 1rem;
+}
+
+.subNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.45rem;
+}
+
+.subNav a {
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text-soft);
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+}
+
+.subNav a.active,
+.active {
+  background: var(--color-green) !important;
+  color: #fff !important;
+}
+
+.breadcrumb {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+}
+
+.breadcrumb strong {
+  color: var(--color-green-dark);
+}
+
+.pageHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.pageHead h1 {
+  font-size: 1.25rem;
+  color: var(--color-green-dark);
+}
+
+.pageHead p {
+  font-size: 0.8125rem;
+  color: var(--color-text-soft);
+  margin-top: 0.25rem;
+  max-width: 40rem;
+}
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+}
+
+.filterBar label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-soft);
+}
+
+.filterBar select {
+  font: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  min-width: 8rem;
+}
+
+.summaryStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.65rem;
+}
+
+.summaryCard {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+}
+
+.summaryCard span {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.summaryCard strong {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 1.05rem;
+  color: var(--color-green-dark);
+}
+
+.summaryCard.profit strong {
+  color: #15803d;
+}
+
+.summaryCard.loss strong {
+  color: #b91c1c;
+}
+
+.tableWrap {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+}
+
+.table th {
+  background: #f8faf9;
+  font-weight: 700;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-soft);
+}
+
+.btnPrint {
+  border: 1px solid var(--color-border);
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+  margin-top: 0.5rem;
+}

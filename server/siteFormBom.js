@@ -1,4 +1,5 @@
 import { getKey, setMany } from "./store.js";
+import { applySiteFormStockOutOnServer } from "./siteStockOut.js";
 
 const BOM_KEY = "dhatterwal_bom_sheet_files";
 const SALE_KEY = "dhatterwal_sale_case_rows";
@@ -257,6 +258,16 @@ export async function applySiteFormToServer({ order = {}, form = {} } = {}) {
   const ordersRaw = await getKey(SITE_ORDERS_KEY);
   const orders = safeParse(ordersRaw, []);
   const orderList = Array.isArray(orders) ? orders : [];
+  const siteOrderId = order.id || `site-${Date.now()}`;
+  const stockLines = Array.isArray(form.stockLines) ? form.stockLines : [];
+
+  /* Server stock OUT — office Stock Sheet (TL phone local deduct pe depend mat karo) */
+  const stockResult = await applySiteFormStockOutOnServer({
+    siteOrderId,
+    consumerNo: key,
+    stockLines,
+  });
+
   const formPayload = {
     ...form,
     /* Photos local only — server BOM ke liye materials kaafi */
@@ -264,12 +275,19 @@ export async function applySiteFormToServer({ order = {}, form = {} } = {}) {
     earthingPhoto: undefined,
     completeFile: undefined,
     cloudSyncedAt: new Date().toISOString(),
+    stockLines,
+    ...(stockResult.ok && !stockResult.skipped
+      ? { stockBilledAt: new Date().toISOString() }
+      : stockResult.skipped
+        ? { stockBilledAt: form.stockBilledAt || new Date().toISOString() }
+        : {}),
+    stockServerMessage: stockResult.message || "",
   };
   const orderIdx = orderList.findIndex((o) => o.id && o.id === order.id);
   const nextOrder = {
     ...(orderIdx >= 0 ? orderList[orderIdx] : {}),
     ...order,
-    id: order.id || `site-${Date.now()}`,
+    id: siteOrderId,
     consumerNo: key,
     status: "submitted",
     submittedAt: new Date().toISOString(),
@@ -297,6 +315,10 @@ export async function applySiteFormToServer({ order = {}, form = {} } = {}) {
     bomUpdated: true,
     saleUpdated: saleChanged,
     siteOrderId: nextOrder.id,
+    stockOk: Boolean(stockResult.ok),
+    stockSkipped: Boolean(stockResult.skipped),
+    stockIssuedLines: Number(stockResult.updatedLines) || 0,
+    stockMessage: stockResult.message || "",
     materials,
     setupDetail,
   };

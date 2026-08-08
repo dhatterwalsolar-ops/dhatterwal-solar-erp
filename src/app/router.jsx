@@ -23,6 +23,9 @@ import MonthlySaleReportPage from "../components/erp/reports/MonthlySaleReportPa
 import MonthlyPurchaseReportPage from "../components/erp/reports/MonthlyPurchaseReportPage";
 import MonthlyStockReportPage from "../components/erp/reports/MonthlyStockReportPage";
 import MonthlyGstReportPage from "../components/erp/reports/MonthlyGstReportPage";
+import BomManagementLayout from "../components/erp/BomSheet/BomManagementLayout";
+import BomSheet from "../components/erp/BomSheet/BomSheet";
+import BomMonthlyProfitPage from "../components/erp/BomSheet/BomMonthlyProfitPage";
 import HomePage from "../pages/home/HomePage";
 import PublicQueryPage from "../pages/public/PublicQueryPage";
 import SiteOrderFormPage from "../pages/site/SiteOrderFormPage";
@@ -45,10 +48,15 @@ function AppRouter() {
             item.key !== "labour" &&
             item.key !== "reports" &&
             item.key !== "payment" &&
-            item.key !== "purchase",
+            item.key !== "purchase" &&
+            item.key !== "bom",
         ).map((item) => (
           <Route key={item.key} path={item.path} element={<ErpSheetPage />} />
         ))}
+        <Route path={ROUTES.BOM_SHEET} element={<BomManagementLayout />}>
+          <Route index element={<BomSheet />} />
+          <Route path="monthly-profit" element={<BomMonthlyProfitPage />} />
+        </Route>
         <Route path={ROUTES.PAYMENT_SHEET} element={<PaymentManagementLayout />}>
           <Route index element={<Navigate to={ROUTES.PAYMENT_RECEIVED} replace />} />
           <Route path="received" element={<PaymentReceivedPage />} />
