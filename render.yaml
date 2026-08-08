@@ -1,4 +1,2 @@
-# DEPRECATED — Render free plan ended; API ab Railway pe host hota hai.
-# See README "Production hosting (Neon + Railway + Hostinger)" and server/railway.toml.
-# Kept only so old Blueprint links do not confuse; do not deploy from this file.
+# DEPRECATED — do not deploy. Production is Hostinger VPS only.
 services: []

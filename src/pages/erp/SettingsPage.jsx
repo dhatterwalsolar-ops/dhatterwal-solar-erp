@@ -432,7 +432,7 @@ function SettingsPage() {
                   <code style={{ wordBreak: "break-all" }}>{webhookApiUrl}</code>
                 </li>
                 <li>
-                  Script + Railway <code>GOOGLE_FORM_WEBHOOK_SECRET</code> same secret rakho
+                  Script + VPS <code>GOOGLE_FORM_WEBHOOK_SECRET</code> same secret rakho
                 </li>
                 <li>
                   Trigger: <strong>onFormSubmit</strong> → From spreadsheet → On form submit
@@ -440,7 +440,8 @@ function SettingsPage() {
                 <li>Test: Apps Script me <code>testPingErp</code> Run</li>
               </ol>
               <p className={styles.cardHint}>
-                Railway env: <code>GOOGLE_FORM_WEBHOOK_SECRET=your-secret</code> — phir redeploy.
+                VPS <code>server/.env</code>: <code>GOOGLE_FORM_WEBHOOK_SECRET=your-secret</code> —
+                phir <code>pm2 restart dhatterwal-erp-api</code>.
               </p>
             </section>
           )}

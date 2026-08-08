@@ -1,5 +1,5 @@
 /**
- * GST E-Invoice + E-Way Bill API config (Railway / server/.env).
+ * GST E-Invoice + E-Way Bill API config (server/.env on Hostinger VPS).
  *
  * GST_API_PROVIDER=
  *   demo  — local test IRN / EWB numbers (default)

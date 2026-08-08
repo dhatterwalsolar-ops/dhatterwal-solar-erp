@@ -17,11 +17,13 @@ export function getApiBase() {
   const fromEnv = String(import.meta.env.VITE_API_URL || "").trim().replace(/\/$/, "");
   if (fromEnv) return fromEnv;
   if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
+    const { protocol, hostname, origin } = window.location;
     /* Dev: Vite on 5173, API on 8787 */
     if (hostname === "localhost" || hostname === "127.0.0.1") {
       return `${protocol}//${hostname}:8787`;
     }
+    /* Production (Hostinger VPS): same-origin Nginx → /api proxy */
+    return String(origin || "").replace(/\/$/, "");
   }
   return "";
 }
@@ -126,7 +128,7 @@ async function apiFetch(path, options = {}) {
     res = await fetch(`${base}${path}`, { ...options, headers });
   } catch {
     throw new Error(
-      "Server connect nahi ho raha. Internet check karein ya Railway API status check karein.",
+      "Server connect nahi ho raha. Internet check karein ya Hostinger VPS / API status check karein.",
     );
   }
 
@@ -138,11 +140,11 @@ async function apiFetch(path, options = {}) {
     const lower = String(text || "").toLowerCase();
     if (lower.includes("suspended") || res.status === 503) {
       throw new Error(
-        "ERP API unreachable / suspended hai — Railway pe API deploy/status check karein, phir login try karein.",
+        "ERP API unreachable hai — Hostinger VPS pe PM2/API status check karein, phir login try karein.",
       );
     }
     throw new Error(
-      `API response invalid (${res.status}). Server restart / Railway status check karein.`,
+      `API response invalid (${res.status}). VPS pe server restart / PM2 status check karein.`,
     );
   }
 

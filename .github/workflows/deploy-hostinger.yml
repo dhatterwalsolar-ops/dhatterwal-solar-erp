@@ -1,29 +1,19 @@
-# Push to main (frontend paths) → build Vite → FTP upload to Hostinger public_html
+# Push to main → build frontend + rsync to Hostinger VPS + pm2 reload API
 # Required GitHub secrets:
-#   VITE_API_URL   — e.g. https://api-production-02c2.up.railway.app
-#   FTP_SERVER     — Hostinger FTP host
-#   FTP_USERNAME   — FTP user
-#   FTP_PASSWORD   — FTP password
-# Optional:
-#   FTP_SERVER_DIR — default public_html/
+#   VPS_HOST          — e.g. 187.77.129.179
+#   VPS_USER          — root
+#   VPS_SSH_KEY       — private key (full PEM)
+#   VITE_API_URL      — MUST be empty (same-origin Nginx /api on Hostinger VPS)
 
-name: Deploy frontend to Hostinger
+name: Deploy to Hostinger VPS
 
 on:
   push:
     branches: [main]
-    paths:
-      - "src/**"
-      - "public/**"
-      - "index.html"
-      - "package.json"
-      - "package-lock.json"
-      - "vite.config.*"
-      - ".github/workflows/deploy-hostinger.yml"
   workflow_dispatch:
 
 concurrency:
-  group: deploy-hostinger
+  group: deploy-hostinger-vps
   cancel-in-progress: true
 
 jobs:
@@ -39,27 +29,36 @@ jobs:
           node-version: "20"
           cache: npm
 
-      - name: Install dependencies
-        # Skip postinstall (server npm install) — frontend-only deploy
-        run: npm ci --ignore-scripts
-
-      - name: Build
+      - name: Install + build frontend
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
-          if [ -z "$VITE_API_URL" ]; then
-            echo "Missing secret VITE_API_URL"
-            exit 1
-          fi
+          npm ci --ignore-scripts
           npm run build
 
-      - name: FTP deploy to Hostinger
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./dist/
-          # Override path: set secret FTP_SERVER_DIR (must end with /)
-          server-dir: ${{ secrets.FTP_SERVER_DIR || 'public_html/' }}
-          dangerous-clean-slate: false
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Rsync frontend + server + deploy configs
+        run: |
+          rsync -az --delete ./dist/ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/dhatterwal/dist/"
+          rsync -az --exclude node_modules --exclude data/pglite --exclude .env \
+            ./server/ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/dhatterwal/server/"
+          rsync -az ./deploy/ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/dhatterwal/deploy/"
+
+      - name: Install server deps + reload PM2
+        run: |
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" <<'EOF'
+          set -e
+          cd /var/www/dhatterwal/server
+          npm ci --omit=dev
+          npx prisma generate
+          npx prisma db push
+          cd /var/www/dhatterwal
+          pm2 startOrReload deploy/ecosystem.config.cjs --update-env
+          pm2 save
+          EOF

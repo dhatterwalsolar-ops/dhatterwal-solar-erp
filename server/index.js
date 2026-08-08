@@ -237,7 +237,7 @@ app.post("/api/sync/bulk", authMiddleware, async (req, res) => {
 /**
  * Admin only — wipe all demo/business data for live go-live.
  * Body: { confirm: "WIPE_LIVE_DATA" }
- * Login users rahega. Railway pe ek baar call karein, phir env/script hata dein.
+ * Login users rahega. VPS pe ek baar call karein, phir env/script hata dein.
  */
 app.post("/api/admin/wipe-business", authMiddleware, async (req, res) => {
   try {
