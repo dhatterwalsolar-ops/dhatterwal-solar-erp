@@ -17,6 +17,7 @@ import CreditLimitPage from "../components/erp/payment/CreditLimitPage";
 import PurchaseManagementLayout from "../components/erp/PurchaseSheet/PurchaseManagementLayout";
 import PurchaseSheet from "../components/erp/PurchaseSheet/PurchaseSheet";
 import PurchaseListPage from "../components/erp/PurchaseSheet/PurchaseListPage";
+import PurchaseAccountLedgerPage from "../components/erp/PurchaseSheet/PurchaseAccountLedgerPage";
 import ReportsLayout from "../components/erp/reports/ReportsLayout";
 import ReportsDashboard from "../components/erp/reports/ReportsDashboard";
 import MonthlySaleReportPage from "../components/erp/reports/MonthlySaleReportPage";
@@ -68,6 +69,7 @@ function AppRouter() {
           <Route index element={<Navigate to={ROUTES.PURCHASE_NEW} replace />} />
           <Route path="new" element={<PurchaseSheet />} />
           <Route path="list" element={<PurchaseListPage />} />
+          <Route path="account-ledger" element={<PurchaseAccountLedgerPage />} />
         </Route>
         <Route path={ROUTES.LABOUR_SHEET} element={<LabourManagementLayout />}>
           <Route index element={<LabourHub />} />

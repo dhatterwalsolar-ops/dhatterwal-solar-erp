@@ -20,7 +20,7 @@ function normalizePartyName(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-function sumGivenToParty({ partyType, partyName, referenceNo = "" }) {
+export function sumGivenToParty({ partyType, partyName, referenceNo = "" }) {
   const nameKey = normalizePartyName(partyName);
   const refKey = referenceNo ? normalizePurchaseInvoiceNo(referenceNo) : "";
   return listPaymentGiven()

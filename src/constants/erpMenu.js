@@ -122,6 +122,7 @@ export function getPageTitleByPath(pathname) {
   if (pathname === ROUTES.PURCHASE_SHEET) return "Purchase Sheet";
   if (pathname === ROUTES.PURCHASE_NEW) return "New Purchase Entry";
   if (pathname === ROUTES.PURCHASE_LIST) return "Purchase List";
+  if (pathname === ROUTES.PURCHASE_ACCOUNT_LEDGER) return "Account Ledger";
   if (pathname === ROUTES.LABOUR_DETAILS) return "Labour Details";
   if (pathname === ROUTES.LABOUR_DAILY) return "Daily Labour Work";
   if (pathname === ROUTES.LABOUR_SHEET || pathname.startsWith(`${ROUTES.LABOUR_SHEET}/`)) {
@@ -143,6 +144,7 @@ export function getPageTitleByPath(pathname) {
   }
   if (pathname === ROUTES.PURCHASE_SHEET || pathname.startsWith(`${ROUTES.PURCHASE_SHEET}/`)) {
     if (pathname === ROUTES.PURCHASE_LIST) return "Purchase List";
+    if (pathname === ROUTES.PURCHASE_ACCOUNT_LEDGER) return "Account Ledger";
     return "New Purchase Entry";
   }
   if (pathname === ROUTES.BOM_SHEET || pathname.startsWith(`${ROUTES.BOM_SHEET}/`)) {

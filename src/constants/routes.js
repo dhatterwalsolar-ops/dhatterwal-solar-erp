@@ -10,6 +10,7 @@ export const ROUTES = {
   PURCHASE_SHEET: "/purchase-sheet",
   PURCHASE_NEW: "/purchase-sheet/new",
   PURCHASE_LIST: "/purchase-sheet/list",
+  PURCHASE_ACCOUNT_LEDGER: "/purchase-sheet/account-ledger",
   PRODUCT_SHEET: "/product-sheet",
   PAYMENT_SHEET: "/payment-sheet",
   PAYMENT_RECEIVED: "/payment-sheet/received",

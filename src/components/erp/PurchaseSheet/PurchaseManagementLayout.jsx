@@ -8,6 +8,7 @@ import styles from "./PurchaseManagementLayout.module.css";
 const SUB_LINKS = [
   { to: ROUTES.PURCHASE_NEW, label: "New Entry", end: true },
   { to: ROUTES.PURCHASE_LIST, label: "Purchase List", end: true },
+  { to: ROUTES.PURCHASE_ACCOUNT_LEDGER, label: "Account Ledger", end: true },
 ];
 
 function PurchaseManagementLayout() {
